@@ -1,0 +1,6 @@
+{
+  "name": "DA-BFAR Recruitment & HRMIS Portal",
+  "description": "Bureau of Fisheries and Aquatic Resources (DA-BFAR) Official Job Opportunities & Recruitment Portal with AI-powered applicant screening, CSC Qualification Standards evaluation, and HRMPSB admin management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
