@@ -27,6 +27,13 @@ export interface ApplicantDocument {
   type: string;
   status: 'Verified' | 'Pending' | 'Uploaded';
   fileSize?: string;
+  category?: 'AL' | 'PDS' | 'IPCR' | 'COMPETENCY' | 'TOR' | 'ELIGIBILITY' | 'TRAINING';
+}
+
+export interface FlaggedTrainingEntry {
+  title: string;
+  hours: number;
+  reason: string; // e.g. "Resource Person / Lecturer role (non-qualifying learning)", "Facilitator / Moderator role", "Conference / Symposium attendance"
 }
 
 export interface AiScreeningResult {
@@ -41,6 +48,9 @@ export interface AiScreeningResult {
     trainingMatch: boolean;
     trainingScore: number;
     trainingAnalysis: string;
+    qualifyingTrainingHours: number;
+    excludedTrainingHours: number;
+    flaggedTrainingEntries?: FlaggedTrainingEntry[];
     eligibilityMatch: boolean;
     eligibilityScore: number;
     eligibilityAnalysis: string;
@@ -55,6 +65,17 @@ export interface AiScreeningResult {
     | 'Disqualified - Does Not Meet QS';
   tailoredInterviewQuestions: string[];
   generatedAt: string;
+}
+
+export interface EducationEntry {
+  level: string; // College / Tertiary, Graduate Studies, Vocational
+  degree: string;
+  school: string;
+  yearGraduated: string;
+  unitsEarned?: string; // e.g. "Completed 36 units", "144 units / Graduated"
+  honors?: string; // e.g. "Cum Laude", "Dean's Lister", "None"
+  transcriptFile?: string; // file name or status
+  diplomaFile?: string;
 }
 
 export interface ApplicationRecord {
@@ -73,13 +94,7 @@ export interface ApplicationRecord {
     civilStatus: string;
     residentialAddress: string;
   };
-  education: Array<{
-    level: string;
-    degree: string;
-    school: string;
-    yearGraduated: string;
-    honors?: string;
-  }>;
+  education: EducationEntry[];
   eligibility: Array<{
     type: string;
     licenseNo?: string;
@@ -106,9 +121,10 @@ export interface ApplicationRecord {
   status:
     | 'Submitted'
     | 'Document Under Review'
-    | 'QS Qualified - Exam Scheduled'
-    | 'HRMPSB Interview Scheduled'
+    | 'CSC QS Qualified - Under Review'
+    | 'HRMPSB Deliberation & Interview Scheduled'
     | 'HRMPSB Recommended for Appointment'
+    | 'Application Result Released'
     | 'Regret / Not Qualified';
   statusTimeline: Array<{
     step: string;
@@ -119,6 +135,6 @@ export interface ApplicationRecord {
     isCurrent: boolean;
   }>;
   adminRemarks: string;
-  writtenExamScore?: number;
   interviewScore?: number;
+  finalBoardDecision?: 'Approved for Appointment' | 'Shortlisted / Lineup' | 'Deferred' | 'Not Selected';
 }

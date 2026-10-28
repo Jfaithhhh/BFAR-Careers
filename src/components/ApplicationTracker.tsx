@@ -18,6 +18,8 @@ import {
   Printer,
   Copy,
   Check,
+  AlertTriangle,
+  BadgeCheck,
 } from 'lucide-react';
 
 interface ApplicationTrackerProps {
@@ -91,7 +93,7 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
           </h2>
           <p className="text-xs text-slate-600 mt-1">
             Enter your official BFAR Application Reference Number (e.g. BFAR-2026-CO-8942) to check
-            document verification, exam schedules, and Central Office HRMPSB deliberation updates.
+            document verification, CSC qualification review, and HRMPSB deliberation updates.
           </p>
         </div>
 
@@ -191,15 +193,20 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
               </div>
             </div>
 
-            {/* Stepper Pipeline */}
+            {/* Stepper Pipeline: Streamlined 5-Stage Recruitment & Selection Milestone Tracker */}
             <div className="p-6 bg-slate-50 border-b border-slate-200">
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-4">
-                Recruitment &amp; Selection Milestone Tracker
-              </h4>
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                  Recruitment &amp; Selection Milestone Tracker
+                </h4>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  5 Key Civil Service Milestones
+                </span>
+              </div>
 
               <div className="relative">
-                {/* Horizontal / Vertical Stepper */}
-                <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
+                {/* 5-Stage Stepper Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
                   {currentApp.statusTimeline.map((step, idx) => {
                     const isDone = step.isCompleted;
                     const isCurr = step.isCurrent;
@@ -248,7 +255,7 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
             </div>
 
             {/* AI Screening Review Box */}
-            <div className="p-6 bg-linear-to-r from-blue-50/50 to-slate-50 space-y-4">
+            <div className="p-6 bg-gradient-to-r from-blue-50/50 to-slate-50 space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded bg-[#024794] text-white flex items-center justify-center">
@@ -256,10 +263,10 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
                   </div>
                   <div>
                     <h4 className="font-bold text-slate-900 text-xs">
-                      AI Automated Qualification Standards (QS) Audit Report
+                      AI Qualification Standards (QS) Audit Report
                     </h4>
                     <span className="text-[10px] text-slate-500">
-                      Evaluated by Gemini AI Engine against Civil Service standards
+                      Evaluated by Gemini AI Engine against CSC Qualification Standards
                     </span>
                   </div>
                 </div>
@@ -290,10 +297,19 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
                     </span>
                   </div>
                   <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                    <span className="font-bold text-slate-800 block">Training:</span>
-                    <span className="text-slate-600 text-[10px]">
+                    <span className="font-bold text-slate-800 block">Training Hours (CSC):</span>
+                    <span className="text-slate-600 text-[10px] block">
                       {currentApp.aiScreening.qsCompliance.trainingAnalysis}
                     </span>
+                    {currentApp.aiScreening.qsCompliance.flaggedTrainingEntries &&
+                      currentApp.aiScreening.qsCompliance.flaggedTrainingEntries.length > 0 && (
+                        <div className="mt-1 bg-amber-50 text-amber-800 border border-amber-200 p-1.5 rounded text-[9px] flex items-start gap-1">
+                          <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
+                          <span>
+                            <strong>CSC Rule:</strong> {currentApp.aiScreening.qsCompliance.excludedTrainingHours} hrs excluded (RP/Facilitator/Conference roles).
+                          </span>
+                        </div>
+                      )}
                   </div>
                   <div className="bg-white p-2.5 rounded-lg border border-slate-200">
                     <span className="font-bold text-slate-800 block">Eligibility:</span>
@@ -312,10 +328,16 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
                 <p className="text-slate-600 italic">
                   "{currentApp.adminRemarks || 'Document verification underway.'}"
                 </p>
-                {currentApp.writtenExamScore && (
+                {currentApp.interviewScore && (
                   <div className="mt-2 inline-flex items-center gap-2 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded text-xs font-semibold">
-                    <span>Written Exam Score:</span>
-                    <span className="font-mono font-bold">{currentApp.writtenExamScore} / 100</span>
+                    <span>HRMPSB Interview Score:</span>
+                    <span className="font-mono font-bold">{currentApp.interviewScore} / 100</span>
+                  </div>
+                )}
+                {currentApp.finalBoardDecision && (
+                  <div className="mt-2 inline-flex items-center gap-2 bg-blue-50 text-[#024794] border border-blue-200 px-2.5 py-1 rounded text-xs font-bold">
+                    <span>Application Result Decision:</span>
+                    <span>{currentApp.finalBoardDecision}</span>
                   </div>
                 )}
               </div>
@@ -325,7 +347,7 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
           {/* Applicant Credentials Summary Drawer */}
           <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
             <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider pb-2 border-b border-slate-200">
-              Submitted Application Dossier (CS Form 212)
+              Submitted Application Dossier (CS Form 212 &amp; Mandatory Attachments)
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
@@ -342,11 +364,16 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
                 <span className="font-semibold text-slate-800">{currentApp.personalInfo.phone}</span>
               </div>
               <div>
-                <span className="text-slate-400 text-[10px] block">Highest Degree</span>
+                <span className="text-slate-400 text-[10px] block">Highest Degree &amp; Honors</span>
                 <span className="font-semibold text-slate-800">
-                  {currentApp.education[0]?.degree || 'Bachelor Degree'} (
-                  {currentApp.education[0]?.school || 'N/A'})
+                  {currentApp.education[0]?.degree || 'Bachelor Degree'}
+                  {currentApp.education[0]?.honors && currentApp.education[0].honors !== 'None' ? ` (${currentApp.education[0].honors})` : ''}
                 </span>
+                {currentApp.education[0]?.unitsEarned && (
+                  <span className="text-[10px] text-blue-700 block font-medium">
+                    Units Earned: {currentApp.education[0].unitsEarned}
+                  </span>
+                )}
               </div>
               <div>
                 <span className="text-slate-400 text-[10px] block">Civil Service / PRC License</span>
@@ -373,7 +400,7 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
                     key={idx}
                     className="inline-flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded text-[11px] text-slate-700 font-medium"
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span>{doc.name}</span>
                   </span>
                 ))}

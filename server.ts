@@ -96,6 +96,13 @@ interface ApplicantDocument {
   type: string;
   status: 'Verified' | 'Pending' | 'Uploaded';
   fileSize?: string;
+  category?: 'AL' | 'PDS' | 'IPCR' | 'COMPETENCY' | 'TOR' | 'ELIGIBILITY' | 'TRAINING';
+}
+
+interface FlaggedTrainingEntry {
+  title: string;
+  hours: number;
+  reason: string;
 }
 
 interface ApplicationRecord {
@@ -119,7 +126,10 @@ interface ApplicationRecord {
     degree: string;
     school: string;
     yearGraduated: string;
+    unitsEarned?: string;
     honors?: string;
+    transcriptFile?: string;
+    diplomaFile?: string;
   }>;
   eligibility: Array<{
     type: string;
@@ -155,6 +165,9 @@ interface ApplicationRecord {
       trainingMatch: boolean;
       trainingScore: number;
       trainingAnalysis: string;
+      qualifyingTrainingHours: number;
+      excludedTrainingHours: number;
+      flaggedTrainingEntries?: FlaggedTrainingEntry[];
       eligibilityMatch: boolean;
       eligibilityScore: number;
       eligibilityAnalysis: string;
@@ -169,9 +182,10 @@ interface ApplicationRecord {
   status:
     | 'Submitted'
     | 'Document Under Review'
-    | 'QS Qualified - Exam Scheduled'
-    | 'HRMPSB Interview Scheduled'
+    | 'CSC QS Qualified - Under Review'
+    | 'HRMPSB Deliberation & Interview Scheduled'
     | 'HRMPSB Recommended for Appointment'
+    | 'Application Result Released'
     | 'Regret / Not Qualified';
   statusTimeline: Array<{
     step: string;
@@ -182,8 +196,8 @@ interface ApplicationRecord {
     isCurrent: boolean;
   }>;
   adminRemarks: string;
-  writtenExamScore?: number;
   interviewScore?: number;
+  finalBoardDecision?: 'Approved for Appointment' | 'Shortlisted / Lineup' | 'Deferred' | 'Not Selected';
 }
 
 let jobsStore: PlantillaJob[] = [
@@ -476,7 +490,10 @@ let applicationsStore: ApplicationRecord[] = [
         degree: 'Bachelor of Science in Fisheries (Major in Aquaculture)',
         school: 'University of the Philippines Los Baños (UPLB)',
         yearGraduated: '2018',
+        unitsEarned: '148 Units (Degree Completed)',
         honors: 'Cum Laude',
+        transcriptFile: 'TOR_Danica_Ramos_UPLB.pdf',
+        diplomaFile: 'BS_Fisheries_Diploma_UPLB.pdf',
       },
     ],
     eligibility: [
@@ -524,27 +541,43 @@ let applicationsStore: ApplicationRecord[] = [
         provider: 'Southeast Asian Fisheries Development Center (SEAFDEC)',
         year: '2024',
       },
+      {
+        title: 'Resource Speaker: Sustainable Broodstock Practices at Regional Fish Forum',
+        hours: 8,
+        provider: 'Provincial Fisheries Office',
+        year: '2024',
+      },
     ],
     statementOfIntent: 'I wish to dedicate my technical competencies in sustainable aquaculture and fish genetics to serve at the BFAR Central Office in Quezon City, formulating national policies to promote higher aquaculture yield.',
     documentsUploaded: [
-      { name: 'Application Letter addressed to National Director', type: 'PDF', status: 'Verified', fileSize: '1.2 MB' },
-      { name: 'Fully Accomplished CS Form 212 (PDS Revised 2017)', type: 'PDF', status: 'Verified', fileSize: '2.4 MB' },
-      { name: 'Transcript of Records (TOR - UPLB)', type: 'PDF', status: 'Verified', fileSize: '3.1 MB' },
-      { name: 'PRC Board Rating & License (Fisheries Technologist)', type: 'PDF', status: 'Verified', fileSize: '850 KB' },
-      { name: 'Certificate of Employment and Trainings', type: 'PDF', status: 'Verified', fileSize: '1.8 MB' },
+      { name: 'Application Letter (AL) addressed to National Director', type: 'PDF', status: 'Verified', fileSize: '1.2 MB', category: 'AL' },
+      { name: 'Fully Accomplished CS Form 212 (PDS Revised 2017)', type: 'PDF', status: 'Verified', fileSize: '2.4 MB', category: 'PDS' },
+      { name: 'Individual Performance Commitment and Review (IPCR 2025 - Rating: 4.80 / Outstanding)', type: 'PDF', status: 'Verified', fileSize: '1.5 MB', category: 'IPCR' },
+      { name: 'Potential / Competency Evaluation (Technical Leadership Rating)', type: 'PDF', status: 'Verified', fileSize: '980 KB', category: 'COMPETENCY' },
+      { name: 'Transcript of Records (TOR - UPLB) & Diploma', type: 'PDF', status: 'Verified', fileSize: '3.1 MB', category: 'TOR' },
+      { name: 'PRC Board Rating & License (Fisheries Technologist)', type: 'PDF', status: 'Verified', fileSize: '850 KB', category: 'ELIGIBILITY' },
     ],
     aiScreening: {
       overallScore: 96,
       qsCompliance: {
         educationMatch: true,
         educationScore: 100,
-        educationAnalysis: 'BS Fisheries (Major in Aquaculture) from UPLB (Cum Laude) perfectly matches the educational requirement.',
+        educationAnalysis: 'BS Fisheries (Major in Aquaculture) from UPLB (Cum Laude, 148 units) perfectly matches the educational requirement.',
         experienceMatch: true,
         experienceScore: 95,
         experienceAnalysis: 'Over 4 years of verified aquaculture research and hatchery management experience exceeds the 1-year requirement.',
         trainingMatch: true,
         trainingScore: 98,
-        trainingAnalysis: '40 cumulative training hours in Hatchery Management and Biosecurity far exceeds the 4-hour requirement.',
+        trainingAnalysis: '40 qualifying CSC training hours in Hatchery Management and Biosecurity exceeds the 4-hour requirement. Note: 8 hours of Resource Speaker engagement was flagged and excluded per CSC training rules.',
+        qualifyingTrainingHours: 40,
+        excludedTrainingHours: 8,
+        flaggedTrainingEntries: [
+          {
+            title: 'Resource Speaker: Sustainable Broodstock Practices at Regional Fish Forum',
+            hours: 8,
+            reason: 'Resource Person (RP) / Speaker role (classified as work experience/instruction, not CSC learning & development)',
+          },
+        ],
         eligibilityMatch: true,
         eligibilityScore: 100,
         eligibilityAnalysis: 'Valid RA 1080 Registered Fisheries Technologist (88.40% rating) complies with 2nd level professional requirements.',
@@ -555,9 +588,9 @@ let applicationsStore: ApplicationRecord[] = [
         'Extensive hands-on expertise in water quality, selective breeding, and fingerling transport logistics',
       ],
       gapsOrRisk: [
-        'Needs verification of updated PRC Professional Identification Card expiration date during face-to-face HRMPSB review',
+        'Needs verification of updated PRC Professional Identification Card expiration date during face-to-face HRMPSB deliberation',
       ],
-      summaryRecommendation: 'Outstanding candidate who exceeds all Civil Service Qualification Standards. Strongly recommended for HRMPSB interview and written technical exam.',
+      summaryRecommendation: 'Outstanding candidate who exceeds all Civil Service Qualification Standards. Strongly recommended for HRMPSB interview and evaluation.',
       recommendedStatus: 'Qualified - Highly Recommended',
       tailoredInterviewQuestions: [
         'How would you manage national water quality monitoring for inland aquaculture facilities from Central Office?',
@@ -566,17 +599,15 @@ let applicationsStore: ApplicationRecord[] = [
       ],
       generatedAt: '2026-10-21T08:35:10Z',
     },
-    status: 'HRMPSB Interview Scheduled',
+    status: 'HRMPSB Deliberation & Interview Scheduled',
     statusTimeline: [
       { step: 'Application Received & Logged', date: '21 Oct 2026 08:30 AM', notes: 'Online application submitted with complete attachments.', by: 'Applicant', isCompleted: true, isCurrent: false },
-      { step: 'HR Document Verification', date: '21 Oct 2026 09:15 AM', notes: 'All required documents authenticated against CS Form 212.', by: 'Central Office HR Administrative Section', isCompleted: true, isCurrent: false },
-      { step: 'CSC Qualification Standards (QS) Review', date: '21 Oct 2026 10:00 AM', notes: 'Candidate meets Education, Experience, Training, and Eligibility QS.', by: 'Central Office HR Recruitment Unit', isCompleted: true, isCurrent: false },
-      { step: 'Technical Written Examination', date: '21 Oct 2026 01:30 PM', notes: 'Scored 92/100 in Technical Examination on Aquaculture Principles.', by: 'Selection Committee', isCompleted: true, isCurrent: false },
-      { step: 'HRMPSB Deliberation & Interview', date: 'Scheduled: 24 Oct 2026 10:00 AM', notes: 'Scheduled for panel interview at 3rd Floor Conference Room, PCA Bldg, Diliman, Quezon City.', by: 'HRMPSB Secretariat', isCompleted: false, isCurrent: true },
-      { step: 'Final Appointment & Oath of Office', date: 'Pending', notes: 'Awaiting completion of HRMPSB deliberation.', by: 'National Director', isCompleted: false, isCurrent: false },
+      { step: 'HR Document Verification', date: '21 Oct 2026 09:15 AM', notes: 'All mandatory documents (AL, CS Form 212, IPCR, Competency Ratings) verified.', by: 'Central Office HR Administrative Section', isCompleted: true, isCurrent: false },
+      { step: 'CSC Qualification Standards (QS) Review', date: '21 Oct 2026 10:00 AM', notes: 'Candidate meets Education, Experience, Training (40 qualifying hrs), and Eligibility QS.', by: 'Central Office HR Recruitment Unit', isCompleted: true, isCurrent: false },
+      { step: 'HRMPSB Deliberation & Interview', date: 'Scheduled: 24 Oct 2026 10:00 AM', notes: 'Scheduled for HRMPSB panel deliberation at 3rd Floor Conference Room, PCA Bldg, Diliman, Quezon City.', by: 'HRMPSB Secretariat', isCompleted: false, isCurrent: true },
+      { step: 'Application Result', date: 'Pending', notes: 'Final board deliberation and appointment decision to be promulgated.', by: 'National Director / HRMPSB', isCompleted: false, isCurrent: false },
     ],
-    adminRemarks: 'Top-ranking applicant for Plantilla Item BFAR-OSEC-CO-AQ2-2026-042. Endorsed to the Division Chief for panel interview.',
-    writtenExamScore: 92,
+    adminRemarks: 'Top-ranking applicant for Plantilla Item BFAR-OSEC-CO-AQ2-2026-042. Endorsed to HRMPSB for deliberation.',
     interviewScore: undefined,
   },
   {
@@ -601,6 +632,10 @@ let applicationsStore: ApplicationRecord[] = [
         degree: 'Bachelor of Science in Criminology',
         school: 'Philippine College of Criminology',
         yearGraduated: '2016',
+        unitsEarned: 'Full Degree (142 Units)',
+        honors: 'Consistent Dean’s Lister',
+        transcriptFile: 'TOR_MJ_DelaCruz_PCCR.pdf',
+        diplomaFile: 'BS_Criminology_Diploma.pdf',
       },
     ],
     eligibility: [
@@ -648,13 +683,21 @@ let applicationsStore: ApplicationRecord[] = [
         provider: 'DA-BFAR Central Office',
         year: '2024',
       },
+      {
+        title: 'Annual Philippine Maritime Security Convention & Conference',
+        hours: 16,
+        provider: 'Maritime Law Association',
+        year: '2023',
+      },
     ],
     statementOfIntent: 'I am committed to protecting our Philippine territorial seas from destructive and illegal fishing methods by implementing rigorous enforcement and law-compliant boarding procedures.',
     documentsUploaded: [
-      { name: 'Application Letter', type: 'PDF', status: 'Verified', fileSize: '980 KB' },
-      { name: 'CS Form 212 Revised 2017 with Work Experience Sheet', type: 'PDF', status: 'Verified', fileSize: '2.1 MB' },
-      { name: 'College Transcript of Records', type: 'PDF', status: 'Verified', fileSize: '2.9 MB' },
-      { name: 'Certificate of CSC Professional & PRC Criminologist', type: 'PDF', status: 'Verified', fileSize: '1.1 MB' },
+      { name: 'Application Letter (AL)', type: 'PDF', status: 'Verified', fileSize: '980 KB', category: 'AL' },
+      { name: 'CS Form 212 Revised 2017 with Work Experience Sheet', type: 'PDF', status: 'Verified', fileSize: '2.1 MB', category: 'PDS' },
+      { name: 'Performance Rating / IPCR (Rating: 4.60 / Very Satisfactory)', type: 'PDF', status: 'Verified', fileSize: '1.4 MB', category: 'IPCR' },
+      { name: 'Potential / Competency Evaluation Form', type: 'PDF', status: 'Verified', fileSize: '890 KB', category: 'COMPETENCY' },
+      { name: 'College Transcript of Records & Diploma', type: 'PDF', status: 'Verified', fileSize: '2.9 MB', category: 'TOR' },
+      { name: 'Certificate of CSC Professional & PRC Criminologist', type: 'PDF', status: 'Verified', fileSize: '1.1 MB', category: 'ELIGIBILITY' },
     ],
     aiScreening: {
       overallScore: 89,
@@ -667,7 +710,16 @@ let applicationsStore: ApplicationRecord[] = [
         experienceAnalysis: 'More than 4 years of maritime compliance and port security experience satisfies the 1-year requirement.',
         trainingMatch: true,
         trainingScore: 88,
-        trainingAnalysis: '48 total hours in Maritime Enforcement and RA 8550/10654 meets and exceeds the 4-hour threshold.',
+        trainingAnalysis: '48 qualifying hours in Maritime Law and RA 8550/10654 exceeds the 4-hour threshold. Note: 16 hours of Annual Maritime Security Convention attendance was flagged and excluded from meeting QS requirements.',
+        qualifyingTrainingHours: 48,
+        excludedTrainingHours: 16,
+        flaggedTrainingEntries: [
+          {
+            title: 'Annual Philippine Maritime Security Convention & Conference',
+            hours: 16,
+            reason: 'General Conference / Convention attendance (does not meet structured technical training requirement per CSC guidelines)',
+          },
+        ],
         eligibilityMatch: true,
         eligibilityScore: 95,
         eligibilityAnalysis: 'Career Service Professional Eligibility and Registered Criminologist PRC meet civil service standards.',
@@ -680,7 +732,7 @@ let applicationsStore: ApplicationRecord[] = [
       gapsOrRisk: [
         'Lacks deep technical background in fish taxonomy / species identification; recommended for specialized Fisheries Observers training if appointed',
       ],
-      summaryRecommendation: 'Meets and complies with CSC Qualification Standards. Recommended for HRMPSB interview and physical agility assessment.',
+      summaryRecommendation: 'Meets and complies with CSC Qualification Standards. Recommended for HRMPSB deliberation and interview.',
       recommendedStatus: 'Qualified - Meets Standards',
       tailoredInterviewQuestions: [
         'How would you handle a situation where a commercial fishing boat within municipal waters refuses boarding inspection?',
@@ -689,16 +741,16 @@ let applicationsStore: ApplicationRecord[] = [
       ],
       generatedAt: '2026-10-21T09:15:33Z',
     },
-    status: 'QS Qualified - Exam Scheduled',
+    status: 'CSC QS Qualified - Under Review',
     statusTimeline: [
       { step: 'Application Received & Logged', date: '21 Oct 2026 09:12 AM', notes: 'Submitted through online recruitment portal.', by: 'Applicant', isCompleted: true, isCurrent: false },
-      { step: 'HR Document Verification', date: '21 Oct 2026 10:00 AM', notes: 'Credentials and licenses verified.', by: 'HR Specialist II', isCompleted: true, isCurrent: false },
-      { step: 'CSC Qualification Standards (QS) Review', date: '21 Oct 2026 10:45 AM', notes: 'Qualified under 2nd level CS Professional criteria.', by: 'HR Recruitment Unit', isCompleted: true, isCurrent: true },
-      { step: 'Technical Written Examination', date: 'Pending Schedule', notes: 'To be scheduled within 5 working days.', by: 'FPLEG Secretariat', isCompleted: false, isCurrent: false },
-      { step: 'HRMPSB Deliberation & Interview', date: 'Pending', notes: 'Subject to exam passage.', by: 'HRMPSB', isCompleted: false, isCurrent: false },
-      { step: 'Final Appointment & Oath of Office', date: 'Pending', notes: '', by: 'National Director', isCompleted: false, isCurrent: false },
+      { step: 'HR Document Verification', date: '21 Oct 2026 10:00 AM', notes: 'AL, CS Form 212, IPCR, and credentials verified.', by: 'HR Specialist II', isCompleted: true, isCurrent: false },
+      { step: 'CSC Qualification Standards (QS) Review', date: '21 Oct 2026 10:45 AM', notes: 'Qualified under 2nd level CS Professional criteria (48 qualifying training hours).', by: 'HR Recruitment Unit', isCompleted: true, isCurrent: true },
+      { step: 'HRMPSB Deliberation & Interview', date: 'Pending Schedule', notes: 'To be scheduled for panel deliberation.', by: 'HRMPSB Panel', isCompleted: false, isCurrent: false },
+      { step: 'Application Result', date: 'Pending', notes: 'Awaiting board deliberation.', by: 'National Director / HRMPSB', isCompleted: false, isCurrent: false },
     ],
-    adminRemarks: 'Eligible for written exam on Fisheries Law Enforcement Protocols.',
+    adminRemarks: 'Document verification and QS compliance complete. Ready for HRMPSB interview docket.',
+    interviewScore: undefined,
   },
 ];
 
@@ -816,10 +868,12 @@ app.post('/api/applications', async (req, res) => {
       training: body.training || [],
       statementOfIntent: body.statementOfIntent || '',
       documentsUploaded: body.documentsUploaded || [
-        { name: 'Application Letter', type: 'PDF', status: 'Uploaded', fileSize: '1.2 MB' },
-        { name: 'CS Form 212 (PDS Revised 2017)', type: 'PDF', status: 'Uploaded', fileSize: '2.5 MB' },
-        { name: 'Transcript of Records (TOR)', type: 'PDF', status: 'Uploaded', fileSize: '3.0 MB' },
-        { name: 'Certificate of Eligibility / PRC License', type: 'PDF', status: 'Uploaded', fileSize: '900 KB' },
+        { name: 'Application Letter (AL) addressed to National Director', type: 'PDF', status: 'Uploaded', fileSize: '1.2 MB', category: 'AL' },
+        { name: 'Fully Accomplished CS Form 212 (PDS Revised 2017)', type: 'PDF', status: 'Uploaded', fileSize: '2.5 MB', category: 'PDS' },
+        { name: 'Individual Performance Commitment and Review (IPCR / Performance Rating)', type: 'PDF', status: 'Uploaded', fileSize: '1.8 MB', category: 'IPCR' },
+        { name: 'Potential / Competency Evaluation Document', type: 'PDF', status: 'Uploaded', fileSize: '1.1 MB', category: 'COMPETENCY' },
+        { name: 'Transcript of Records (TOR) & Diploma', type: 'PDF', status: 'Uploaded', fileSize: '3.0 MB', category: 'TOR' },
+        { name: 'Certificate of Eligibility / PRC Board License', type: 'PDF', status: 'Uploaded', fileSize: '900 KB', category: 'ELIGIBILITY' },
       ],
       aiScreening,
       status: 'Submitted',
@@ -827,7 +881,7 @@ app.post('/api/applications', async (req, res) => {
         {
           step: 'Application Received & Logged',
           date: new Date().toLocaleDateString('en-GB') + ' ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-          notes: 'Application registered in BFAR Recruitment and HRMIS database.',
+          notes: 'Application registered in BFAR Recruitment and HRMIS database with mandatory documents.',
           by: 'Applicant Portal',
           isCompleted: true,
           isCurrent: false,
@@ -835,7 +889,7 @@ app.post('/api/applications', async (req, res) => {
         {
           step: 'HR Document Verification',
           date: 'In Queue',
-          notes: 'Civil Service Form 212 and mandatory documentary attachments undergoing verification.',
+          notes: 'Authenticating AL, CS Form 212, IPCR rating, and Competency assessments.',
           by: 'HR Recruitment & Selection Unit',
           isCompleted: false,
           isCurrent: true,
@@ -843,37 +897,29 @@ app.post('/api/applications', async (req, res) => {
         {
           step: 'CSC Qualification Standards (QS) Review',
           date: 'Pending',
-          notes: 'Evaluation of Education, Experience, Training, and Eligibility based on Plantilla requirements.',
+          notes: 'Auditing Education, Experience, Qualifying Training (RP/Conferences excluded), and Eligibility.',
           by: 'HRMPSB Secretariat',
-          isCompleted: false,
-          isCurrent: false,
-        },
-        {
-          step: 'Technical / Written Examination',
-          date: 'Pending',
-          notes: 'Schedule and guidelines will be transmitted upon document qualification.',
-          by: 'Selection Committee',
           isCompleted: false,
           isCurrent: false,
         },
         {
           step: 'HRMPSB Deliberation & Interview',
           date: 'Pending',
-          notes: 'Merit promotion panel interview.',
+          notes: 'Human Resource Merit Promotion and Selection Board panel deliberation.',
           by: 'HRMPSB Panel',
           isCompleted: false,
           isCurrent: false,
         },
         {
-          step: 'Final Appointment & Notice',
+          step: 'Application Result',
           date: 'Pending',
-          notes: 'Issuance of Plantilla Appointment and CSC attestation.',
-          by: 'Appointing Authority',
+          notes: 'Promulgation of final board decision and appointment recommendation.',
+          by: 'National Director / HRMPSB',
           isCompleted: false,
           isCurrent: false,
         },
       ],
-      adminRemarks: 'Newly received application. Ready for preliminary HR evaluation.',
+      adminRemarks: 'Newly received application. Ready for preliminary HR document verification.',
     };
 
     applicationsStore.unshift(newRecord);
@@ -893,59 +939,72 @@ app.patch('/api/applications/:id', (req, res) => {
   }
 
   const existing = applicationsStore[idx];
-  const { status, adminRemarks, writtenExamScore, interviewScore, timelineUpdate } = req.body;
+  const { status, adminRemarks, interviewScore, finalBoardDecision, timelineUpdate } = req.body;
 
   if (status && status !== existing.status) {
     existing.status = status;
-    // Update timeline step appropriately
+    // Update 5-stage milestone pipeline appropriately
     if (status === 'Document Under Review') {
       const step = existing.statusTimeline.find((s) => s.step.includes('HR Document'));
       if (step) {
         step.isCurrent = true;
-        step.notes = adminRemarks || 'Under preliminary document audit.';
+        step.notes = adminRemarks || 'Under HR document authenticity and completeness audit.';
       }
-    } else if (status === 'QS Qualified - Exam Scheduled') {
+    } else if (status === 'CSC QS Qualified - Under Review') {
+      const docStep = existing.statusTimeline.find((s) => s.step.includes('HR Document'));
       const qsStep = existing.statusTimeline.find((s) => s.step.includes('CSC Qualification'));
-      const examStep = existing.statusTimeline.find((s) => s.step.includes('Technical / Written'));
+      if (docStep) {
+        docStep.isCompleted = true;
+        docStep.isCurrent = false;
+      }
+      if (qsStep) {
+        qsStep.isCurrent = true;
+        qsStep.notes = adminRemarks || 'Candidate meets CSC Qualification Standards. Qualifying training hours verified.';
+        qsStep.date = new Date().toLocaleDateString('en-GB');
+      }
+    } else if (status === 'HRMPSB Deliberation & Interview Scheduled') {
+      const qsStep = existing.statusTimeline.find((s) => s.step.includes('CSC Qualification'));
+      const interviewStep = existing.statusTimeline.find((s) => s.step.includes('HRMPSB Deliberation'));
       if (qsStep) {
         qsStep.isCompleted = true;
         qsStep.isCurrent = false;
       }
-      if (examStep) {
-        examStep.isCurrent = true;
-        examStep.notes = adminRemarks || 'Qualified under QS. Schedule set for written examination.';
-        examStep.date = new Date().toLocaleDateString('en-GB');
-      }
-    } else if (status === 'HRMPSB Interview Scheduled') {
-      const examStep = existing.statusTimeline.find((s) => s.step.includes('Technical / Written'));
-      const interviewStep = existing.statusTimeline.find((s) => s.step.includes('HRMPSB Deliberation'));
-      if (examStep) {
-        examStep.isCompleted = true;
-        examStep.isCurrent = false;
-      }
       if (interviewStep) {
         interviewStep.isCurrent = true;
-        interviewStep.notes = adminRemarks || 'Shortlisted for HRMPSB panel interview.';
+        interviewStep.notes = adminRemarks || 'Shortlisted and endorsed for HRMPSB panel interview and evaluation.';
         interviewStep.date = new Date().toLocaleDateString('en-GB');
       }
     } else if (status === 'HRMPSB Recommended for Appointment') {
       existing.statusTimeline.forEach((s) => {
+        if (!s.step.includes('Application Result')) {
+          s.isCompleted = true;
+          s.isCurrent = false;
+        }
+      });
+      const resultStep = existing.statusTimeline.find((s) => s.step.includes('Application Result'));
+      if (resultStep) {
+        resultStep.isCurrent = true;
+        resultStep.notes = adminRemarks || 'Recommended by HRMPSB for Plantilla Appointment issuance.';
+        resultStep.date = new Date().toLocaleDateString('en-GB');
+      }
+    } else if (status === 'Application Result Released') {
+      existing.statusTimeline.forEach((s) => {
         s.isCompleted = true;
         s.isCurrent = false;
       });
-      const finalStep = existing.statusTimeline[existing.statusTimeline.length - 1];
-      if (finalStep) {
-        finalStep.isCompleted = true;
-        finalStep.isCurrent = true;
-        finalStep.notes = adminRemarks || 'Recommended by HRMPSB for issuance of Plantilla Appointment.';
-        finalStep.date = new Date().toLocaleDateString('en-GB');
+      const resultStep = existing.statusTimeline.find((s) => s.step.includes('Application Result'));
+      if (resultStep) {
+        resultStep.isCompleted = true;
+        resultStep.isCurrent = false;
+        resultStep.notes = adminRemarks || `Application Result finalized: ${finalBoardDecision || 'Board deliberation complete'}.`;
+        resultStep.date = new Date().toLocaleDateString('en-GB');
       }
     }
   }
 
   if (adminRemarks !== undefined) existing.adminRemarks = adminRemarks;
-  if (writtenExamScore !== undefined) existing.writtenExamScore = writtenExamScore;
   if (interviewScore !== undefined) existing.interviewScore = interviewScore;
+  if (finalBoardDecision !== undefined) existing.finalBoardDecision = finalBoardDecision;
 
   if (timelineUpdate) {
     existing.statusTimeline = timelineUpdate;
@@ -1011,7 +1070,8 @@ Extract and return STRICT VALID JSON only (no markdown code blocks, no backticks
       "degree": "Degree name (e.g. BS Fisheries, BS Marine Biology, BS Criminology)",
       "school": "University or College name",
       "yearGraduated": "Year or period (e.g. 2020)",
-      "honors": "Honors or academic distinctions (e.g. Cum Laude, None)"
+      "unitsEarned": "Units completed (e.g. Completed 148 units / Full degree, 36 units completed)",
+      "honors": "Academic honors or distinctions (e.g. Cum Laude, Dean's Lister, None)"
     }
   ],
   "eligibility": [
@@ -1055,6 +1115,43 @@ Extract and return STRICT VALID JSON only (no markdown code blocks, no backticks
     res.json({ success: true, data: fallbackParsed, source: 'smart_fallback', note: err.message });
   }
 });
+
+// CSC Training Hours Audit Helper
+function auditCscTrainings(trainings: Array<{ title: string; hours: number; provider?: string; year?: string }>) {
+  const flaggedEntries: FlaggedTrainingEntry[] = [];
+  let qualifyingHours = 0;
+  let excludedHours = 0;
+
+  for (const t of trainings) {
+    const title = t.title || '';
+    const provider = t.provider || '';
+    const combined = `${title} ${provider}`.toLowerCase();
+    const hours = Number(t.hours) || 0;
+
+    let isExcluded = false;
+    let reason = '';
+
+    if (/\b(resource person|resource speaker|speaker|lecturer|instructor|trainor|trainer|panelist)\b/i.test(combined)) {
+      isExcluded = true;
+      reason = 'Resource Person (RP) / Lecturer role (classified as work experience/instruction, non-qualifying learning hours per CSC standards)';
+    } else if (/\b(facilitator|co-facilitator|moderator|master of ceremonies|emcee|session chair)\b/i.test(combined)) {
+      isExcluded = true;
+      reason = 'Facilitator / Moderator engagement (non-qualifying learning hours per CSC ORAOHRA guidelines)';
+    } else if (/\b(conference|symposium|conventions|convention|general assembly|summit|fellowship|forum attendance)\b/i.test(combined)) {
+      isExcluded = true;
+      reason = 'General Conference / Convention attendance (does not meet structured technical skills training per CSC standards)';
+    }
+
+    if (isExcluded) {
+      excludedHours += hours;
+      flaggedEntries.push({ title, hours, reason });
+    } else {
+      qualifyingHours += hours;
+    }
+  }
+
+  return { qualifyingHours, excludedHours, flaggedEntries };
+}
 
 // 9. AI Pre-Screening & CSC Qualification Standards (QS) Evaluator
 app.post('/api/ai/screen-applicant', async (req, res) => {
@@ -1154,6 +1251,9 @@ Write a professional, standard 3-paragraph letter following Philippine Governmen
 
 // Helper for AI Application Evaluation
 async function evaluateApplicationWithAI(applicantData: any, targetJob: PlantillaJob) {
+  // Pre-audit training hours via rigorous CSC rules
+  const localTrainingAudit = auditCscTrainings(applicantData.training || []);
+
   if (!aiClient) {
     return generateFallbackScreening(applicantData, targetJob);
   }
@@ -1177,13 +1277,25 @@ APPLICANT PROFILE:
 - Education: ${JSON.stringify(applicantData.education || [])}
 - Eligibility / Licenses: ${JSON.stringify(applicantData.eligibility || [])}
 - Work Experience: ${JSON.stringify(applicantData.workExperience || [])}
-- Relevant Trainings: ${JSON.stringify(applicantData.training || [])}
+- Relevant Trainings Submitted: ${JSON.stringify(applicantData.training || [])}
 - Statement: ${applicantData.statementOfIntent || 'N/A'}
+
+STRICT CSC MANDATE ON TRAINING HOURS (CSC ORAOHRA rules):
+Only structured, specialized learning and development courses/workshops attended count toward QS training hours.
+You MUST AUTOMATICALLY FLAG AND EXCLUDE:
+1. Resource Person (RP) engagements, guest speakers, lecturers, or trainers (these are considered teaching/experience, not training received).
+2. Facilitator, moderator, coordinator, or emcee roles.
+3. General Conference, Symposium, Convention, or general assembly attendances without formal hands-on competency testing.
+
+Pre-audited Training Breakdown:
+- Qualifying Hours: ${localTrainingAudit.qualifyingHours}
+- Excluded Hours: ${localTrainingAudit.excludedHours}
+- Flagged Excluded Entries: ${JSON.stringify(localTrainingAudit.flaggedEntries)}
 
 Evaluate compliance strictly against the 4 CSC Qualification Standards:
 1. Education (Pass/Fail + score 0-100 + analysis)
 2. Experience (Pass/Fail + score 0-100 + analysis)
-3. Training (Pass/Fail + score 0-100 + analysis)
+3. Training: Determine Pass/Fail based ONLY on qualifyingTrainingHours (${localTrainingAudit.qualifyingHours} hours) against required hours. Note any excluded hours in trainingAnalysis.
 4. Eligibility (Pass/Fail + score 0-100 + analysis)
 
 Compute an overall composite score (0-100), identify 3 specific strengths, identify 1-2 potential gaps or items needing document verification, provide a concise summary recommendation for the BFAR HRMPSB, choose a recommended status, and provide 3 tailored interview questions.
@@ -1200,7 +1312,10 @@ Return STRICT JSON matching:
     "experienceAnalysis": "1-2 sentence analysis",
     "trainingMatch": boolean,
     "trainingScore": number (0-100),
-    "trainingAnalysis": "1-2 sentence analysis",
+    "trainingAnalysis": "1-2 sentence analysis explicitly mentioning qualifying hours and any excluded RP/Facilitator/Conference entries",
+    "qualifyingTrainingHours": ${localTrainingAudit.qualifyingHours},
+    "excludedTrainingHours": ${localTrainingAudit.excludedHours},
+    "flaggedTrainingEntries": ${JSON.stringify(localTrainingAudit.flaggedEntries)},
     "eligibilityMatch": boolean,
     "eligibilityScore": number (0-100),
     "eligibilityAnalysis": "1-2 sentence analysis"
@@ -1218,6 +1333,11 @@ Return STRICT JSON matching:
     const text = await callGeminiFast(prompt, true);
     const parsed = JSON.parse(text || '{}');
     if (parsed.overallScore) {
+      if (!parsed.qsCompliance.qualifyingTrainingHours) {
+        parsed.qsCompliance.qualifyingTrainingHours = localTrainingAudit.qualifyingHours;
+        parsed.qsCompliance.excludedTrainingHours = localTrainingAudit.excludedHours;
+        parsed.qsCompliance.flaggedTrainingEntries = localTrainingAudit.flaggedEntries;
+      }
       return parsed;
     }
   } catch (err) {
@@ -1264,6 +1384,7 @@ function generateFallbackPdsParse(rawText: string, targetJob: PlantillaJob) {
         degree,
         school: 'University of the Philippines Visayas / CLSU',
         yearGraduated: '2019',
+        unitsEarned: '148 Units (Degree Completed)',
         honors: textLower.includes('laude') ? 'Cum Laude' : 'None',
       },
     ],
@@ -1306,15 +1427,26 @@ function generateFallbackPdsParse(rawText: string, targetJob: PlantillaJob) {
 function generateFallbackScreening(applicantData: any, targetJob: PlantillaJob) {
   const hasDegree = (applicantData.education || []).length > 0;
   const hasExperience = (applicantData.workExperience || []).length > 0;
-  const totalTrainingHours = (applicantData.training || []).reduce((acc: number, t: any) => acc + (Number(t.hours) || 0), 0);
+  
+  // Rigorous CSC training hours audit
+  const trainingAudit = auditCscTrainings(applicantData.training || []);
+  const reqHoursMatch = (targetJob.qualificationStandards?.training || '').match(/(\d+)\s*hours?/i);
+  const requiredHours = reqHoursMatch ? parseInt(reqHoursMatch[1], 10) : 4;
+  const hasTraining = trainingAudit.qualifyingHours >= requiredHours;
+
   const hasEligibility = (applicantData.eligibility || []).length > 0;
 
   const eduScore = hasDegree ? 95 : 60;
   const expScore = hasExperience ? 90 : 65;
-  const trainScore = totalTrainingHours >= 4 ? 92 : 60;
+  const trainScore = hasTraining ? 95 : Math.max(40, Math.round((trainingAudit.qualifyingHours / requiredHours) * 80));
   const eligScore = hasEligibility ? 98 : 50;
 
   const overall = Math.round(eduScore * 0.3 + expScore * 0.3 + trainScore * 0.2 + eligScore * 0.2);
+
+  let trainAnalysis = `Accumulated ${trainingAudit.qualifyingHours} qualifying CSC training hours (minimum ${requiredHours} hours required for Plantilla).`;
+  if (trainingAudit.flaggedEntries.length > 0) {
+    trainAnalysis += ` Flagged & excluded ${trainingAudit.excludedHours} non-qualifying hours (${trainingAudit.flaggedEntries.map((e) => e.title).join('; ')}) pursuant to CSC rules on RP/Facilitator/Conference roles.`;
+  }
 
   return {
     overallScore: overall,
@@ -1325,9 +1457,12 @@ function generateFallbackScreening(applicantData: any, targetJob: PlantillaJob) 
       experienceMatch: hasExperience,
       experienceScore: expScore,
       experienceAnalysis: hasExperience ? 'Relevant professional track record satisfies minimum civil service requirements.' : 'Experience is minimal; please review volunteer or apprenticeship credits.',
-      trainingMatch: totalTrainingHours >= 4,
+      trainingMatch: hasTraining,
       trainingScore: trainScore,
-      trainingAnalysis: `Accumulated ${totalTrainingHours} hours of relevant training (minimum 4 hours required for Plantilla).`,
+      trainingAnalysis: trainAnalysis,
+      qualifyingTrainingHours: trainingAudit.qualifyingHours,
+      excludedTrainingHours: trainingAudit.excludedHours,
+      flaggedTrainingEntries: trainingAudit.flaggedEntries,
       eligibilityMatch: hasEligibility,
       eligibilityScore: eligScore,
       eligibilityAnalysis: hasEligibility ? 'Possesses appropriate civil service or PRC professional license.' : 'Eligibility status needs verification.',
@@ -1338,9 +1473,11 @@ function generateFallbackScreening(applicantData: any, targetJob: PlantillaJob) 
       'Positive alignment with CSC Qualification Standards for Plantilla Appointment',
     ],
     gapsOrRisk: [
-      'Original authenticated copies of Transcript of Records and PRC ID to be presented during the HRMPSB deliberation.',
+      trainingAudit.excludedHours > 0
+        ? `Note: ${trainingAudit.excludedHours} hours were excluded from QS calculation due to non-qualifying training roles.`
+        : 'Original authenticated copies of Transcript of Records and PRC ID to be presented during the HRMPSB deliberation.',
     ],
-    summaryRecommendation: overall >= 80 ? 'Candidate satisfies minimum Civil Service Qualification Standards. Recommended to proceed to written test and HRMPSB interview.' : 'Conditionally qualified pending submission of complete documentary requirements.',
+    summaryRecommendation: overall >= 80 ? 'Candidate satisfies minimum Civil Service Qualification Standards. Recommended to proceed to HRMPSB deliberation and interview.' : 'Conditionally qualified pending submission of complete documentary requirements.',
     recommendedStatus: overall >= 85 ? 'Qualified - Highly Recommended' : 'Qualified - Meets Standards',
     tailoredInterviewQuestions: [
       `How do you propose to enhance BFAR's public service delivery in ${targetJob.division}?`,
