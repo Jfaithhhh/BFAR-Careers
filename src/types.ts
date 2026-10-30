@@ -22,12 +22,31 @@ export interface PlantillaJob {
   competencies: string[];
 }
 
+export type DocumentCategory =
+  | 'PL'
+  | 'ELIGIBILITY'
+  | 'TRAININGS'
+  | 'WE'
+  | 'TOR'
+  | 'DIPLOMA'
+  | 'REG'
+  | 'CERT'
+  | 'SWORNS'
+  | 'PCR'
+  | 'POTENTIAL';
+
 export interface ApplicantDocument {
+  id?: string;
   name: string;
   type: string;
   status: 'Verified' | 'Pending' | 'Uploaded';
   fileSize?: string;
-  category?: 'AL' | 'PDS' | 'IPCR' | 'COMPETENCY' | 'TOR' | 'ELIGIBILITY' | 'TRAINING';
+  category: DocumentCategory | string;
+  sectionGroup?: 'file_uploads' | 'other_documents';
+  autoCorrected?: boolean;
+  originalCategory?: string;
+  correctionReason?: string;
+  uploadedAt?: string;
 }
 
 export interface FlaggedTrainingEntry {

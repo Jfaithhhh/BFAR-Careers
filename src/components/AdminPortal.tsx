@@ -890,12 +890,21 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
                   {selectedApp.documentsUploaded.map((doc, idx) => (
-                    <div key={idx} className="bg-white p-2 rounded-lg border border-slate-200 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="font-medium text-slate-800">{doc.name}</span>
+                    <div key={idx} className="bg-white p-2 rounded-lg border border-slate-200 flex items-center justify-between gap-1.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="bg-[#024794] text-white font-mono font-bold text-[9px] px-1.5 py-0.5 rounded shrink-0">
+                          {doc.category || 'DOC'}
+                        </span>
+                        <span className="font-medium text-slate-800 truncate" title={doc.name}>{doc.name}</span>
                       </div>
-                      <span className="font-mono text-[9px] text-slate-400">{doc.fileSize}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {doc.autoCorrected && (
+                          <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1 rounded">
+                            Auto-Sorted
+                          </span>
+                        )}
+                        <span className="font-mono text-[9px] text-slate-400">{doc.fileSize}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
