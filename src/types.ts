@@ -86,15 +86,172 @@ export interface AiScreeningResult {
   generatedAt: string;
 }
 
+// -------------------------------------------------------------
+// CS FORM 212 (PERSONAL DATA SHEET REVISED 2017) TYPES
+// -------------------------------------------------------------
+
 export interface EducationEntry {
-  level: string; // College / Tertiary, Graduate Studies, Vocational
-  degree: string;
-  school: string;
+  level: string; // Elementary, Secondary, Vocational / Trade Course, College, Graduate Studies
+  degree: string; // Basic Education / Degree / Course (write in full)
+  school: string; // Name of School (write in full)
+  periodFrom?: string; // Attendance From
+  periodTo?: string; // Attendance To
   yearGraduated: string;
-  unitsEarned?: string; // e.g. "Completed 36 units", "144 units / Graduated"
-  honors?: string; // e.g. "Cum Laude", "Dean's Lister", "None"
-  transcriptFile?: string; // file name or status
+  unitsEarned?: string; // Highest Level / Units Earned (if not graduated)
+  honors?: string; // Scholarship / Academic Honors Received
+  transcriptFile?: string;
   diplomaFile?: string;
+}
+
+export interface EligibilityEntry {
+  type: string; // Career Service / RA 1080 (Board / Bar) / Under Special Laws / CES / CSEE / Barangay / Driver's License
+  licenseNo?: string;
+  rating?: string;
+  examDate?: string;
+  examPlace?: string;
+  validityDate?: string;
+}
+
+export interface WorkExperienceEntry {
+  position: string;
+  agencyOrCompany: string;
+  monthlySalary?: number | string;
+  salaryGrade?: string; // Salary / Job / Pay Grade & Step (Format "00-0")
+  statusOfAppointment?: string; // Permanent / Temporary / Contractual / Casual / COS / Job Order
+  fromDate: string;
+  toDate: string;
+  isGovService: boolean;
+  description: string;
+}
+
+export interface ChildEntry {
+  fullName: string;
+  birthDate: string;
+}
+
+export interface FamilyBackground {
+  spouseSurname: string;
+  spouseFirstName: string;
+  spouseMiddleName: string;
+  spouseNameExtension: string;
+  spouseOccupation: string;
+  spouseEmployer: string;
+  spouseBusinessAddress: string;
+  spouseTelephone: string;
+  fatherSurname: string;
+  fatherFirstName: string;
+  fatherMiddleName: string;
+  fatherNameExtension: string;
+  motherMaidenSurname: string;
+  motherFirstName: string;
+  motherMiddleName: string;
+  children: ChildEntry[];
+}
+
+export interface VoluntaryWorkEntry {
+  organizationName: string; // Name & Address of Organization
+  organizationAddress?: string;
+  fromDate: string;
+  toDate: string;
+  hours: number;
+  positionOrNature: string;
+}
+
+export interface TrainingEntry {
+  title: string;
+  fromDate?: string;
+  toDate?: string;
+  hours: number;
+  typeOfLd?: 'Managerial' | 'Supervisory' | 'Technical' | 'Foundation' | string;
+  provider: string;
+  year?: string;
+}
+
+export interface OtherInformation {
+  specialSkills: string[];
+  nonAcademicDistinctions: string[];
+  memberships: string[];
+}
+
+export interface CharacterReference {
+  name: string;
+  address: string;
+  telNo: string;
+}
+
+export interface ApplicantDeclaration {
+  q34_relatedConsanguinity: boolean;
+  q34_details: string;
+  q35_adminOffense: boolean;
+  q35_adminDetails: string;
+  q35_criminalCharged: boolean;
+  q35_criminalDetails: string;
+  q36_convictedCrime: boolean;
+  q36_details: string;
+  q37_separatedFromService: boolean;
+  q37_details: string;
+  q38_candidateElection: boolean;
+  q38_candidateDetails: string;
+  q38_resignedBeforeElection: boolean;
+  q38_resignedDetails: string;
+  q39_immigrantStatus: boolean;
+  q39_details: string;
+  q40_indigenousGroup: boolean;
+  q40_indigenousDetails: string;
+  q40_pwd: boolean;
+  q40_pwdDetails: string;
+  q40_soloParent: boolean;
+  q40_soloParentDetails: string;
+  references: CharacterReference[];
+  govIssuedId: {
+    idType: string;
+    idNumber: string;
+    datePlaceIssuance: string;
+  };
+  confirmedAuthenticity: boolean;
+  digitalSignatureConfirmation: string;
+  dateSigned: string;
+}
+
+export interface PdsData {
+  personalInfo: {
+    surname: string;
+    firstName: string;
+    middleName: string;
+    nameExtension: string;
+    fullName: string;
+    email: string;
+    phone: string;
+    birthDate: string;
+    birthPlace: string;
+    sex: 'Male' | 'Female' | '';
+    civilStatus: 'Single' | 'Married' | 'Widowed' | 'Separated' | 'Other';
+    citizenship: 'Filipino' | 'Dual Citizenship' | '';
+    citizenshipType?: 'by birth' | 'by naturalization' | '';
+    citizenshipCountry?: string;
+    heightMeters: string;
+    weightKg: string;
+    bloodType: string;
+    gsisNo: string;
+    pagibigNo: string;
+    philhealthNo: string;
+    sssNo: string;
+    tinNo: string;
+    agencyEmployeeNo: string;
+    residentialAddress: string;
+    residentialZip: string;
+    permanentAddress: string;
+    permanentZip: string;
+    telephoneNumber: string;
+  };
+  familyBackground: FamilyBackground;
+  education: EducationEntry[];
+  eligibility: EligibilityEntry[];
+  workExperience: WorkExperienceEntry[];
+  voluntaryWork: VoluntaryWorkEntry[];
+  training: TrainingEntry[];
+  otherInformation: OtherInformation;
+  declaration: ApplicantDeclaration;
 }
 
 export interface ApplicationRecord {
@@ -105,6 +262,8 @@ export interface ApplicationRecord {
   plantillaItemNo: string;
   region: string;
   submissionDate: string;
+  applicationLetterText?: string;
+  applicationLetterUploadedFile?: string;
   personalInfo: {
     fullName: string;
     email: string;
@@ -113,27 +272,12 @@ export interface ApplicationRecord {
     civilStatus: string;
     residentialAddress: string;
   };
+  pdsData?: PdsData;
   education: EducationEntry[];
-  eligibility: Array<{
-    type: string;
-    licenseNo?: string;
-    rating?: string;
-    examDate?: string;
-  }>;
-  workExperience: Array<{
-    position: string;
-    agencyOrCompany: string;
-    fromDate: string;
-    toDate: string;
-    isGovService: boolean;
-    description: string;
-  }>;
-  training: Array<{
-    title: string;
-    hours: number;
-    provider: string;
-    year: string;
-  }>;
+  eligibility: EligibilityEntry[];
+  workExperience: WorkExperienceEntry[];
+  training: TrainingEntry[];
+  voluntaryWork?: VoluntaryWorkEntry[];
   statementOfIntent: string;
   documentsUploaded: ApplicantDocument[];
   aiScreening: AiScreeningResult;
@@ -155,5 +299,9 @@ export interface ApplicationRecord {
   }>;
   adminRemarks: string;
   interviewScore?: number;
-  finalBoardDecision?: 'Approved for Appointment' | 'Shortlisted / Lineup' | 'Deferred' | 'Not Selected';
+  finalBoardDecision?:
+    | 'Approved for Appointment'
+    | 'Shortlisted / Lineup'
+    | 'Deferred'
+    | 'Not Selected';
 }

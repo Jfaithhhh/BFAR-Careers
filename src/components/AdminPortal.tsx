@@ -847,6 +847,23 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 )}
               </div>
 
+              {/* Application Letter to the National Director */}
+              {(selectedApp.applicationLetterText || selectedApp.statementOfIntent) && (
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-800 block text-xs">
+                      Application Letter addressed to the National Director
+                    </span>
+                    <span className="text-[10px] bg-blue-50 text-[#024794] font-semibold px-2 py-0.5 rounded">
+                      Section 1 Submission
+                    </span>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg border border-slate-200 text-xs font-mono whitespace-pre-line text-slate-700 max-h-44 overflow-y-auto leading-relaxed">
+                    {selectedApp.applicationLetterText || selectedApp.statementOfIntent}
+                  </div>
+                </div>
+              )}
+
               {/* Educational Background with Units & Attachments */}
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
                 <span className="font-bold text-slate-800 block text-xs">
@@ -952,13 +969,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       onChange={(e: any) => setNewStatus(e.target.value)}
                       className="w-full bg-slate-800 border border-slate-700 rounded-md p-2 text-xs font-semibold text-white focus:ring-1 focus:ring-amber-400"
                     >
-                      <option value="Submitted">1. Application Received &amp; Logged</option>
-                      <option value="Document Under Review">2. HR Document Verification</option>
-                      <option value="CSC QS Qualified - Under Review">3. CSC QS Review</option>
-                      <option value="HRMPSB Deliberation & Interview Scheduled">4. HRMPSB Deliberation &amp; Interview</option>
-                      <option value="HRMPSB Recommended for Appointment">5. Recommended for Appointment</option>
-                      <option value="Application Result Released">6. Application Result Promulgated</option>
-                      <option value="Regret / Not Qualified">7. Regret / Not Qualified</option>
+                      <option value="Submitted">1. Application Submitted</option>
+                      <option value="Document Under Review">2. Initial AI-Assisted Screening</option>
+                      <option value="CSC QS Qualified - Under Review">3. HR Evaluation</option>
+                      <option value="HRMPSB Deliberation & Interview Scheduled">4. Qualification Assessment &amp; Deliberation</option>
+                      <option value="Application Result Released">5. Final Status / Notice of Result</option>
+                      <option value="Regret / Not Qualified">Notice of Non-Selection / Disqualified</option>
                     </select>
                   </div>
 

@@ -2,9 +2,16 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   PlantillaJob,
   ApplicationRecord,
-  EducationEntry,
   ApplicantDocument,
   DocumentCategory,
+  PdsData,
+  EducationEntry,
+  EligibilityEntry,
+  WorkExperienceEntry,
+  VoluntaryWorkEntry,
+  TrainingEntry,
+  CharacterReference,
+  AiScreeningResult,
 } from '../types';
 import {
   Sparkles,
@@ -33,9 +40,13 @@ import {
   ArrowLeft,
   Info,
   X,
-  RotateCcw,
   File as FileIcon,
-  CheckCheck,
+  Download,
+  Eye,
+  Users,
+  HeartHandshake,
+  BookOpen,
+  BadgeCheck,
 } from 'lucide-react';
 
 interface ApplicationFormProps {
@@ -45,7 +56,13 @@ interface ApplicationFormProps {
   onNavigateToTrack: (trackingCode: string) => void;
 }
 
-type FormSection = 'description' | 'requirements' | 'file_uploads' | 'other_documents';
+type FormSection =
+  | 'letter'
+  | 'pds'
+  | 'position_qs'
+  | 'file_uploads'
+  | 'other_documents'
+  | 'review_submit';
 
 interface CategoryConfig {
   code: DocumentCategory;
@@ -185,8 +202,6 @@ const OTHER_CATEGORIES: CategoryConfig[] = [
   },
 ];
 
-const ALL_CATEGORY_CONFIGS = [...PRIMARY_CATEGORIES, ...OTHER_CATEGORIES];
-
 export const ApplicationForm: React.FC<ApplicationFormProps> = ({
   jobs,
   selectedJobId,
@@ -196,89 +211,298 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
   const [currentJobId, setCurrentJobId] = useState<string>(selectedJobId || jobs[0]?.id || '');
   const activeJob = jobs.find((j) => j.id === currentJobId) || jobs[0];
 
-  // Active Wizard Section
-  const [activeSection, setActiveSection] = useState<FormSection>('description');
+  // Wizard Section Step State (6-Step Sequence)
+  const [activeSection, setActiveSection] = useState<FormSection>('letter');
 
-  // AI Resume paste & state
+  // ==========================================
+  // SECTION 1: APPLICATION LETTER STATE
+  // ==========================================
+  const [letterMode, setLetterMode] = useState<'generate' | 'upload' | 'manual'>('generate');
+  const [applicationLetterText, setApplicationLetterText] = useState<string>('');
+  const [letterUploadedFileName, setLetterUploadedFileName] = useState<string>('');
+  const [isGeneratingLetter, setIsGeneratingLetter] = useState(false);
+  const [letterSuccessNotice, setLetterSuccessNotice] = useState<string | null>(null);
+
+  // ==========================================
+  // SECTION 2: PERSONAL DATA SHEET (CS FORM 212)
+  // ==========================================
+  const [pdsActiveTab, setPdsActiveTab] = useState<
+    | 'personal'
+    | 'family'
+    | 'education'
+    | 'eligibility'
+    | 'experience'
+    | 'voluntary'
+    | 'training'
+    | 'other'
+    | 'declaration'
+  >('personal');
+
+  // 1. Personal Information
+  const [personalInfo, setPersonalInfo] = useState({
+    surname: 'Ramos',
+    firstName: 'Danica',
+    middleName: 'Flores',
+    nameExtension: '',
+    fullName: 'Danica Flores Ramos',
+    email: 'danica.ramos@example.ph',
+    phone: '+63 917 845 2311',
+    birthDate: '1995-04-14',
+    birthPlace: 'Quezon City',
+    sex: 'Female' as 'Male' | 'Female' | '',
+    civilStatus: 'Single' as 'Single' | 'Married' | 'Widowed' | 'Separated' | 'Other',
+    citizenship: 'Filipino' as 'Filipino' | 'Dual Citizenship' | '',
+    citizenshipType: 'by birth' as 'by birth' | 'by naturalization' | '',
+    citizenshipCountry: '',
+    heightMeters: '1.62',
+    weightKg: '54',
+    bloodType: 'O+',
+    gsisNo: '12345678901',
+    pagibigNo: '121098765432',
+    philhealthNo: '098765432101',
+    sssNo: '3456789012',
+    tinNo: '456-789-012-000',
+    agencyEmployeeNo: 'BFAR-2024-C09',
+    residentialAddress: 'Block 4 Lot 12, Fisheries Village, Brgy. Central, Diliman, Quezon City',
+    residentialZip: '1101',
+    permanentAddress: 'Block 4 Lot 12, Fisheries Village, Brgy. Central, Diliman, Quezon City',
+    permanentZip: '1101',
+    telephoneNumber: '(02) 8928-1234',
+  });
+
+  // 2. Family Background
+  const [familyBackground, setFamilyBackground] = useState({
+    spouseSurname: '',
+    spouseFirstName: '',
+    spouseMiddleName: '',
+    spouseNameExtension: '',
+    spouseOccupation: '',
+    spouseEmployer: '',
+    spouseBusinessAddress: '',
+    spouseTelephone: '',
+    fatherSurname: 'Ramos',
+    fatherFirstName: 'Eduardo',
+    fatherMiddleName: 'Cruz',
+    fatherNameExtension: '',
+    motherMaidenSurname: 'Flores',
+    motherFirstName: 'Lourdes',
+    motherMiddleName: 'Santos',
+    children: [
+      { fullName: '', birthDate: '' },
+    ].filter((c) => c.fullName),
+  });
+
+  // 3. Educational Background
+  const [education, setEducation] = useState<EducationEntry[]>([
+    {
+      level: 'College',
+      school: 'University of the Philippines Los Baños (UPLB)',
+      degree: 'Bachelor of Science in Fisheries (Major in Aquaculture)',
+      periodFrom: '2014',
+      periodTo: '2018',
+      unitsEarned: '148 Units (Graduated)',
+      yearGraduated: '2018',
+      honors: 'Cum Laude',
+    },
+    {
+      level: 'Secondary',
+      school: 'Quezon City Science High School',
+      degree: 'High School Diploma',
+      periodFrom: '2010',
+      periodTo: '2014',
+      unitsEarned: 'Graduated',
+      yearGraduated: '2014',
+      honors: 'Honorable Mention',
+    },
+  ]);
+
+  // 4. Civil Service Eligibility
+  const [eligibility, setEligibility] = useState<EligibilityEntry[]>([
+    {
+      type: 'RA 1080 - Registered Fisheries Technologist',
+      licenseNo: 'FT-004821',
+      rating: '88.40%',
+      examDate: '2019-10-24',
+      examPlace: 'PRC Manila',
+      validityDate: '2027-04-14',
+    },
+    {
+      type: 'Career Service Professional (CSC Level 2)',
+      licenseNo: 'CSC-NCR-2018-0941',
+      rating: '85.20%',
+      examDate: '2018-08-12',
+      examPlace: 'CSC NCR Quezon City',
+      validityDate: 'Lifetime',
+    },
+  ]);
+
+  // 5. Work Experience
+  const [workExperience, setWorkExperience] = useState<WorkExperienceEntry[]>([
+    {
+      position: 'Contractual Technical Assistant',
+      agencyOrCompany: 'Bureau of Fisheries and Aquatic Resources (BFAR Central Office)',
+      monthlySalary: 31000,
+      salaryGrade: 'SG 13-1',
+      statusOfAppointment: 'Contractual / COS',
+      fromDate: '2024-04-15',
+      toDate: 'Present',
+      isGovService: true,
+      description:
+        'Assisted in nationwide fingerling broodstock logistics, fish seed certification, and aquaculture technical advisory.',
+    },
+    {
+      position: 'Aquaculture Research Assistant',
+      agencyOrCompany: 'SEAFDEC Aquaculture Department',
+      monthlySalary: 28000,
+      salaryGrade: 'N/A',
+      statusOfAppointment: 'Project-Based',
+      fromDate: '2021-01-15',
+      toDate: '2024-03-31',
+      isGovService: false,
+      description:
+        'Conducted controlled larval rearing, feed formulations, and water quality diagnostics for milkfish and tilapia.',
+    },
+  ]);
+
+  // 6. Voluntary Work
+  const [voluntaryWork, setVoluntaryWork] = useState<VoluntaryWorkEntry[]>([
+    {
+      organizationName: 'Philippine Fisheries Association - Youth Wing',
+      organizationAddress: 'Diliman, Quezon City',
+      fromDate: '2022-01-01',
+      toDate: '2023-12-31',
+      hours: 120,
+      positionOrNature: 'Volunteer Coastal Resource Officer',
+    },
+  ]);
+
+  // 7. Learning and Development / Trainings
+  const [training, setTraining] = useState<TrainingEntry[]>([
+    {
+      title: 'Advanced Hatchery Management and Biosecurity in Tilapia Farming',
+      fromDate: '2025-03-10',
+      toDate: '2025-03-12',
+      hours: 16,
+      typeOfLd: 'Technical',
+      provider: 'BFAR - National Freshwater Fisheries Technology Center (NFFTC)',
+      year: '2025',
+    },
+    {
+      title: 'Fish Health Surveillance and Aquatic Disease Diagnostics',
+      fromDate: '2024-07-15',
+      toDate: '2024-07-18',
+      hours: 24,
+      typeOfLd: 'Technical',
+      provider: 'SEAFDEC Aquaculture Department',
+      year: '2024',
+    },
+    {
+      title: 'Resource Speaker: Sustainable Broodstock Practices at Regional Forum',
+      fromDate: '2024-09-05',
+      toDate: '2024-09-05',
+      hours: 8,
+      typeOfLd: 'Lecturer / RP',
+      provider: 'Provincial Fisheries Office',
+      year: '2024',
+    },
+  ]);
+
+  // 8. Other Information
+  const [otherInformation, setOtherInformation] = useState({
+    specialSkills: [
+      'Aquaculture Recirculating System (RAS) Design',
+      'Water Chemistry Testing (Hach Spectrophotometer)',
+      'Scientific Diving (Rescue Diver)',
+    ],
+    nonAcademicDistinctions: [
+      'Best Undergraduate Fisheries Thesis - UPLB 2018',
+      'BFAR Regional Technology Demonstration Commendation 2024',
+    ],
+    memberships: [
+      'Philippine Association of Fisheries Professionals Inc. (PAFPI)',
+      'World Aquaculture Society (WAS) - Asian-Pacific Chapter',
+    ],
+  });
+
+  // 9. Declarations & Questions
+  const [declaration, setDeclaration] = useState({
+    q34_relatedConsanguinity: false,
+    q34_details: '',
+    q35_adminOffense: false,
+    q35_adminDetails: '',
+    q35_criminalCharged: false,
+    q35_criminalDetails: '',
+    q36_convictedCrime: false,
+    q36_details: '',
+    q37_separatedFromService: false,
+    q37_details: '',
+    q38_candidateElection: false,
+    q38_candidateDetails: '',
+    q38_resignedBeforeElection: false,
+    q38_resignedDetails: '',
+    q39_immigrantStatus: false,
+    q39_details: '',
+    q40_indigenousGroup: false,
+    q40_indigenousDetails: '',
+    q40_pwd: false,
+    q40_pwdDetails: '',
+    q40_soloParent: false,
+    q40_soloParentDetails: '',
+    references: [
+      {
+        name: 'Dr. Maria Cecilia Santos',
+        address: 'Institute of Aquaculture, UPLB College, Laguna',
+        telNo: '+63 918 223 4455',
+      },
+      {
+        name: 'Atty. Roberto G. Mendoza',
+        address: 'DA-BFAR Central Office, Diliman, Quezon City',
+        telNo: '+63 920 889 1122',
+      },
+      {
+        name: 'Engr. Nelson P. Valenzuela',
+        address: 'SEAFDEC/AQD Tigbauan Main Station, Iloilo',
+        telNo: '+63 917 554 9988',
+      },
+    ],
+    govIssuedId: {
+      idType: 'PRC Identification Card',
+      idNumber: 'FT-004821',
+      datePlaceIssuance: 'Oct 2019 / PRC Manila',
+    },
+    confirmedAuthenticity: true,
+    digitalSignatureConfirmation: 'Danica Flores Ramos',
+    dateSigned: new Date().toISOString().split('T')[0],
+  });
+
+  // Fast-Fill Raw Resume State
   const [rawResumeText, setRawResumeText] = useState('');
   const [isParsingAi, setIsParsingAi] = useState(false);
   const [aiParseStatus, setAiParseStatus] = useState<string | null>(null);
-  const [isGeneratingLetter, setIsGeneratingLetter] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submissionSuccess, setSubmissionSuccess] = useState<ApplicationRecord | null>(null);
 
-  // Form Fields (PDS / CS Form 212 Structure)
-  const [personalInfo, setPersonalInfo] = useState({
-    fullName: '',
-    email: '',
-    phone: '',
-    birthDate: '',
-    civilStatus: 'Single',
-    residentialAddress: '',
-  });
+  // ==========================================
+  // SECTION 3: AI QUALIFICATION FIT CHECK
+  // ==========================================
+  const [aiFitAssessment, setAiFitAssessment] = useState<{
+    score: number;
+    educationPass: boolean;
+    experiencePass: boolean;
+    trainingPass: boolean;
+    eligibilityPass: boolean;
+    missingItems: string[];
+    strengths: string[];
+    advisory: string;
+    evaluatedAt: string;
+  } | null>(null);
+  const [isEvaluatingFit, setIsEvaluatingFit] = useState(false);
 
-  const [education, setEducation] = useState<EducationEntry[]>([
-    {
-      level: 'College / Tertiary',
-      degree: '',
-      school: '',
-      yearGraduated: '',
-      unitsEarned: '',
-      honors: 'None',
-      transcriptFile: '',
-      diplomaFile: '',
-    },
-  ]);
-
-  const [eligibility, setEligibility] = useState<
-    Array<{ type: string; licenseNo: string; rating: string; examDate: string }>
-  >([
-    {
-      type: '',
-      licenseNo: '',
-      rating: '',
-      examDate: '',
-    },
-  ]);
-
-  const [workExperience, setWorkExperience] = useState<
-    Array<{
-      position: string;
-      agencyOrCompany: string;
-      fromDate: string;
-      toDate: string;
-      isGovService: boolean;
-      description: string;
-    }>
-  >([
-    {
-      position: '',
-      agencyOrCompany: '',
-      fromDate: '',
-      toDate: '',
-      isGovService: false,
-      description: '',
-    },
-  ]);
-
-  const [training, setTraining] = useState<
-    Array<{ title: string; hours: number; provider: string; year: string }>
-  >([
-    {
-      title: '',
-      hours: 8,
-      provider: '',
-      year: new Date().getFullYear().toString(),
-    },
-  ]);
-
-  const [statementOfIntent, setStatementOfIntent] = useState('');
-
-  // Auto-Organized Document Store
+  // ==========================================
+  // SECTION 4 & 5: FILE UPLOADS & OTHER DOCUMENTS
+  // ==========================================
   const [documentsUploaded, setDocumentsUploaded] = useState<ApplicantDocument[]>([
     {
       id: 'doc-init-pl',
-      name: 'Application_Letter_and_PDS_CSForm212_Signed.pdf',
+      name: 'Application_Letter_National_Director_and_PDS.pdf',
       type: 'PDF',
       status: 'Uploaded',
       fileSize: '2.4 MB',
@@ -288,7 +512,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     },
     {
       id: 'doc-init-elig',
-      name: 'CSC_Professional_Eligibility_FT004821.pdf',
+      name: 'PRC_Fisheries_Technologist_Board_Rating_FT004821.pdf',
       type: 'PDF',
       status: 'Uploaded',
       fileSize: '890 KB',
@@ -308,7 +532,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     },
     {
       id: 'doc-init-we',
-      name: 'Service_Record_and_Work_Experience_Sheet.pdf',
+      name: 'Service_Record_and_Work_Experience_Sheet_Signed.pdf',
       type: 'PDF',
       status: 'Uploaded',
       fileSize: '1.6 MB',
@@ -326,10 +550,14 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     reason: string;
   } | null>(null);
 
+  // General Form States
   const [formError, setFormError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionSuccess, setSubmissionSuccess] = useState<ApplicationRecord | null>(null);
 
-  // Hidden file input refs for direct slot uploads
+  // Input refs
   const universalInputRef = useRef<HTMLInputElement | null>(null);
+  const letterFileInputRef = useRef<HTMLInputElement | null>(null);
   const slotInputRefs = useRef<{ [key in DocumentCategory]?: HTMLInputElement | null }>({});
 
   useEffect(() => {
@@ -338,6 +566,39 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     }
   }, [selectedJobId]);
 
+  // Generate initial formal application letter on mount if empty
+  useEffect(() => {
+    if (!applicationLetterText) {
+      const defaultLetter = `THE NATIONAL DIRECTOR
+Bureau of Fisheries and Aquatic Resources
+Department of Agriculture
+3rd Floor, PCA Building, Elliptical Road, Diliman, Quezon City
+
+THRU:  THE CHAIRPERSON
+       Human Resource Merit Promotion and Selection Board (HRMPSB)
+
+Sir:
+
+I have the honor to submit my formal application for the permanent Plantilla position of ${activeJob.positionTitle} (Salary Grade ${activeJob.salaryGrade}), with Plantilla Item Number ${activeJob.itemNo}, currently vacant under the ${activeJob.division}.
+
+I am a graduate of ${education[0]?.degree || "Bachelor's degree in Fisheries"} from ${education[0]?.school || 'University of the Philippines'}, and a certified ${eligibility[0]?.type || 'RA 1080 Registered Fisheries Technologist'}. Over the past years, I have actively engaged in aquaculture development, regulatory compliance, and coastal fisheries enhancement. I have accumulated relevant qualifying technical hours and hands-on laboratory experience that align directly with the statutory mandates of the Bureau.
+
+Should I be favored with the appointment, I pledge to discharge the duties and responsibilities of the position with utmost integrity, competence, and patriotism in support of national food security and sustainable aquatic resource management.
+
+Attached herewith are my fully accomplished Civil Service Personal Data Sheet (CS Form 212 Revised 2017), Work Experience Sheet, authenticated credentials, and required documentary proofs for your esteemed evaluation.
+
+Very truly yours,
+
+
+${personalInfo.fullName || 'Danica Flores Ramos'}
+${personalInfo.residentialAddress || 'Quezon City, Metro Manila'}
+Mobile: ${personalInfo.phone || '+63 917 845 2311'}
+Email: ${personalInfo.email || 'danica.ramos@example.ph'}`;
+
+      setApplicationLetterText(defaultLetter);
+    }
+  }, [currentJobId]);
+
   // LIVE CSC TRAINING AUDIT: Real-time calculation of qualifying vs non-qualifying training hours
   const trainingAudit = useMemo(() => {
     let qualifying = 0;
@@ -345,7 +606,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     const flagged: Array<{ title: string; hours: number; reason: string }> = [];
 
     for (const t of training) {
-      const combined = `${t.title || ''} ${t.provider || ''}`.toLowerCase();
+      const combined = `${t.title || ''} ${t.provider || ''} ${t.typeOfLd || ''}`.toLowerCase();
       const hrs = Number(t.hours) || 0;
       let isExcluded = false;
       let reason = '';
@@ -388,6 +649,52 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
     return { qualifying, excluded, flagged };
   }, [training]);
+
+  // Run AI Qualification Assessment comparing PDS against selected Job
+  const handleRunAiFitAssessment = () => {
+    setIsEvaluatingFit(true);
+    setTimeout(() => {
+      const hasDegree = education.some((e) =>
+        e.degree.toLowerCase().includes('fish') ||
+        e.degree.toLowerCase().includes('aqua') ||
+        e.degree.toLowerCase().includes('marine') ||
+        e.degree.toLowerCase().includes('bio') ||
+        e.degree.toLowerCase().includes('scien')
+      );
+
+      const expYears = workExperience.length * 1.5; // estimated
+      const qualifyingHrs = trainingAudit.qualifying;
+      const hasElig = eligibility.some((el) =>
+        el.type.toLowerCase().includes('1080') ||
+        el.type.toLowerCase().includes('prof') ||
+        el.type.toLowerCase().includes('csc')
+      );
+
+      const missing: string[] = [];
+      if (!hasDegree) missing.push('Educational discipline may require evaluation by HRMPSB');
+      if (qualifyingHrs < 4) missing.push('Qualifying CSC training hours below 4-hour minimum');
+      if (!hasElig) missing.push('Civil service eligibility or PRC license credential missing');
+      if (workExperience.length === 0) missing.push('No documented work experience entries found');
+
+      setAiFitAssessment({
+        score: hasDegree && hasElig && qualifyingHrs >= 4 ? 94 : 76,
+        educationPass: hasDegree,
+        experiencePass: expYears >= 1,
+        trainingPass: qualifyingHrs >= 4,
+        eligibilityPass: hasElig,
+        missingItems: missing,
+        strengths: [
+          'Degree aligns directly with position profile',
+          'Qualifying Civil Service and RA 1080 credentials validated',
+          'Documented public sector experience in aquaculture',
+        ],
+        advisory:
+          'This automated evaluation is preliminary and advisory only. Official qualification determination is conducted by the DA-BFAR HRMPSB during formal docket verification.',
+        evaluatedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      });
+      setIsEvaluatingFit(false);
+    }, 600);
+  };
 
   // AUTOMATIC DOCUMENT CLASSIFIER & CORRECTION ENGINE
   const classifyAndAutoCorrect = (
@@ -479,12 +786,10 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       reason = 'Identified as Plantilla Application Letter / CS Form 212 PDS.';
     }
 
-    // Determine final category
     const finalCategory: DocumentCategory = detectedCategory || slotTargetCategory || 'PL';
     const isPrimary = ['PL', 'ELIGIBILITY', 'TRAININGS', 'WE'].includes(finalCategory);
     const sectionGroup = isPrimary ? 'file_uploads' : 'other_documents';
 
-    // Check if auto-corrected from target slot
     const wasCorrected = Boolean(
       slotTargetCategory && detectedCategory && detectedCategory !== slotTargetCategory
     );
@@ -500,7 +805,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     };
   };
 
-  // Handle incoming file objects (drag-and-drop or file picker)
   const processFiles = (files: FileList | File[], targetSlot?: DocumentCategory) => {
     const newDocs: ApplicantDocument[] = [];
     let lastCorrection: any = null;
@@ -541,35 +845,273 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     });
 
     if (newDocs.length > 0) {
-      // Add or update
       setDocumentsUploaded((prev) => [...prev, ...newDocs]);
     }
 
     if (lastCorrection) {
       setAutoCorrectionAlert(lastCorrection);
-      // Auto-hide alert after 7 seconds
       setTimeout(() => {
         setAutoCorrectionAlert((cur) => (cur?.fileName === lastCorrection.fileName ? null : cur));
       }, 7000);
     }
   };
 
+  // Upload handler specifically for Section 1 (Application Letter PDF)
+  const handleUploadLetterPdf = (file: File) => {
+    setLetterUploadedFileName(file.name);
+    setLetterMode('upload');
+    setLetterSuccessNotice(`Attached PDF Application Letter: "${file.name}"`);
+
+    // Add directly to PL documents
+    const doc: ApplicantDocument = {
+      id: `letter-${Date.now()}`,
+      name: file.name,
+      type: 'PDF',
+      status: 'Uploaded',
+      fileSize: file.size > 1024 * 1024 ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : '1.4 MB',
+      category: 'PL',
+      sectionGroup: 'file_uploads',
+      uploadedAt: 'Just now',
+    };
+    setDocumentsUploaded((prev) => [
+      ...prev.filter((d) => !d.name.toLowerCase().includes('application_letter')),
+      doc,
+    ]);
+  };
+
+  // Generate formal application letter with Gemini AI
+  const handleGenerateCoverLetter = async () => {
+    setIsGeneratingLetter(true);
+    setLetterSuccessNotice(null);
+    try {
+      const res = await fetch('/api/ai/generate-cover-letter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobId: currentJobId,
+          applicantData: {
+            personalInfo,
+            education,
+            eligibility,
+            workExperience,
+            training,
+          },
+        }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        setApplicationLetterText(json.data);
+        setLetterMode('generate');
+        setLetterSuccessNotice('✨ Official Application Letter generated by Gemini AI for DA-BFAR!');
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsGeneratingLetter(false);
+    }
+  };
+
+  // Load sample candidates to easily test the extensive PDS Form 212
+  const handleLoadSample = (sampleType: 'fisheries' | 'criminology' | 'marine') => {
+    if (sampleType === 'fisheries') {
+      const matchJob = jobs.find((j) => j.positionTitle.toLowerCase().includes('aqua')) || jobs[0];
+      setCurrentJobId(matchJob.id);
+      setPersonalInfo({
+        surname: 'Ramos',
+        firstName: 'Danica',
+        middleName: 'Flores',
+        nameExtension: '',
+        fullName: 'Danica Flores Ramos',
+        email: 'danica.ramos@example.ph',
+        phone: '+63 917 845 2311',
+        birthDate: '1995-04-14',
+        birthPlace: 'Quezon City',
+        sex: 'Female',
+        civilStatus: 'Single',
+        citizenship: 'Filipino',
+        citizenshipType: 'by birth',
+        citizenshipCountry: '',
+        heightMeters: '1.62',
+        weightKg: '54',
+        bloodType: 'O+',
+        gsisNo: '12345678901',
+        pagibigNo: '121098765432',
+        philhealthNo: '098765432101',
+        sssNo: '3456789012',
+        tinNo: '456-789-012-000',
+        agencyEmployeeNo: 'BFAR-2024-C09',
+        residentialAddress: 'Block 4 Lot 12, Fisheries Village, Brgy. Central, Diliman, Quezon City',
+        residentialZip: '1101',
+        permanentAddress: 'Block 4 Lot 12, Fisheries Village, Brgy. Central, Diliman, Quezon City',
+        permanentZip: '1101',
+        telephoneNumber: '(02) 8928-1234',
+      });
+      setEducation([
+        {
+          level: 'College',
+          school: 'University of the Philippines Los Baños (UPLB)',
+          degree: 'Bachelor of Science in Fisheries (Major in Aquaculture)',
+          periodFrom: '2014',
+          periodTo: '2018',
+          unitsEarned: '148 Units (Degree Completed)',
+          yearGraduated: '2018',
+          honors: 'Cum Laude',
+        },
+      ]);
+      setEligibility([
+        {
+          type: 'RA 1080 - Registered Fisheries Technologist',
+          licenseNo: 'FT-004821',
+          rating: '88.40%',
+          examDate: '2019-10-24',
+          examPlace: 'PRC Manila',
+          validityDate: '2027-04-14',
+        },
+      ]);
+      setAiParseStatus('✨ Loaded candidate: Danica Flores Ramos (Fisheries Technologist)');
+    } else if (sampleType === 'criminology') {
+      const matchJob =
+        jobs.find((j) => j.positionTitle.toLowerCase().includes('regulations')) || jobs[0];
+      setCurrentJobId(matchJob.id);
+      setPersonalInfo({
+        surname: 'Dela Cruz',
+        firstName: 'Marc Joshua',
+        middleName: 'Bautista',
+        nameExtension: '',
+        fullName: 'Marc Joshua Bautista Dela Cruz',
+        email: 'mj.delacruz@example.ph',
+        phone: '+63 928 334 1902',
+        birthDate: '1993-11-20',
+        birthPlace: 'Manila',
+        sex: 'Male',
+        civilStatus: 'Married',
+        citizenship: 'Filipino',
+        citizenshipType: 'by birth',
+        citizenshipCountry: '',
+        heightMeters: '1.75',
+        weightKg: '72',
+        bloodType: 'B+',
+        gsisNo: '98765432109',
+        pagibigNo: '234567890123',
+        philhealthNo: '112233445566',
+        sssNo: '0987654321',
+        tinNo: '123-456-789-000',
+        agencyEmployeeNo: 'PPA-2019-E44',
+        residentialAddress: '15 Katipunan St., Project 4, Quezon City',
+        residentialZip: '1109',
+        permanentAddress: '15 Katipunan St., Project 4, Quezon City',
+        permanentZip: '1109',
+        telephoneNumber: '(02) 8913-5678',
+      });
+      setEducation([
+        {
+          level: 'College',
+          school: 'Philippine College of Criminology',
+          degree: 'Bachelor of Science in Criminology',
+          periodFrom: '2012',
+          periodTo: '2016',
+          unitsEarned: '142 Units (Graduated)',
+          yearGraduated: '2016',
+          honors: "Dean's Lister",
+        },
+      ]);
+      setEligibility([
+        {
+          type: 'RA 6506 - Registered Criminologist',
+          licenseNo: 'RC-081290',
+          rating: '82.50%',
+          examDate: '2017-04-12',
+          examPlace: 'PRC Manila',
+          validityDate: '2028-11-20',
+        },
+      ]);
+      setAiParseStatus('✨ Loaded candidate: Marc Joshua Dela Cruz (Registered Criminologist)');
+    } else {
+      const matchJob = jobs.find((j) => j.positionTitle.toLowerCase().includes('marine')) || jobs[0];
+      setCurrentJobId(matchJob.id);
+      setPersonalInfo({
+        surname: 'Alcantara',
+        firstName: 'Roberto',
+        middleName: 'Villanueva',
+        nameExtension: 'Dr.',
+        fullName: 'Dr. Roberto Villanueva Alcantara',
+        email: 'roberto.alcantara@marine.ph',
+        phone: '+63 908 772 3418',
+        birthDate: '1991-03-24',
+        birthPlace: 'Batangas City',
+        sex: 'Male',
+        civilStatus: 'Single',
+        citizenship: 'Filipino',
+        citizenshipType: 'by birth',
+        citizenshipCountry: '',
+        heightMeters: '1.70',
+        weightKg: '68',
+        bloodType: 'A+',
+        gsisNo: '87654321098',
+        pagibigNo: '345678901234',
+        philhealthNo: '223344556677',
+        sssNo: '4567890123',
+        tinNo: '234-567-890-000',
+        agencyEmployeeNo: 'UPMSI-2018-02',
+        residentialAddress: 'Teachers Village, Diliman, Quezon City',
+        residentialZip: '1101',
+        permanentAddress: 'Teachers Village, Diliman, Quezon City',
+        permanentZip: '1101',
+        telephoneNumber: '(02) 8981-8500',
+      });
+      setEducation([
+        {
+          level: 'Graduate Studies',
+          school: 'UP Diliman Marine Science Institute',
+          degree: 'Master of Science in Marine Biology',
+          periodFrom: '2017',
+          periodTo: '2021',
+          unitsEarned: 'Completed 36 Academic Units',
+          yearGraduated: '2021',
+          honors: 'University Scholar',
+        },
+        {
+          level: 'College',
+          school: 'University of the Philippines Diliman',
+          degree: 'Bachelor of Science in Biology',
+          periodFrom: '2010',
+          periodTo: '2014',
+          unitsEarned: '144 Units (Graduated)',
+          yearGraduated: '2014',
+          honors: 'Magna Cum Laude',
+        },
+      ]);
+      setEligibility([
+        {
+          type: 'Career Service Professional (CSC Level 2)',
+          licenseNo: 'CSC-2014-0881',
+          rating: '89.60%',
+          examDate: '2014-10-15',
+          examPlace: 'CSC NCR',
+          validityDate: 'Lifetime',
+        },
+      ]);
+      setAiParseStatus('✨ Loaded candidate: Dr. Roberto Alcantara (Marine Biologist)');
+    }
+  };
+
   // Quick Action: Pre-load Standard Plantilla Documents
   const handleLoadStandardPlantillaDocs = () => {
+    const candidateName = (personalInfo.fullName || 'Candidate').replace(/\s+/g, '_');
     const samplePlantillaDocs: ApplicantDocument[] = [
       {
         id: `pl-${Date.now()}-1`,
-        name: `PL_Application_Letter_and_PDS_${(personalInfo.fullName || 'Candidate').replace(/\s+/g, '_')}.pdf`,
+        name: `PL_Application_Letter_National_Director_${candidateName}.pdf`,
         type: 'PDF',
         status: 'Uploaded',
-        fileSize: '2.8 MB',
+        fileSize: '1.4 MB',
         category: 'PL',
         sectionGroup: 'file_uploads',
         uploadedAt: 'Just now',
       },
       {
         id: `pl-${Date.now()}-2`,
-        name: `Eligibility_PRC_Fisheries_Technologist_RA1080.pdf`,
+        name: `Eligibility_Certificate_${candidateName}.pdf`,
         type: 'PDF',
         status: 'Uploaded',
         fileSize: '950 KB',
@@ -579,7 +1121,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       },
       {
         id: `pl-${Date.now()}-3`,
-        name: `Trainings_Aquaculture_Biosecurity_SEAFDEC_40hrs.pdf`,
+        name: `Trainings_Aquaculture_Biosecurity_Certificates.pdf`,
         type: 'PDF',
         status: 'Uploaded',
         fileSize: '3.4 MB',
@@ -609,7 +1151,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
   // Quick Action: Pre-load All Other Documents (TOR, Diploma, REG, CERT, SWORNS, PCR, Potential)
   const handleLoadAllOtherDocs = () => {
-    const candidateName = (personalInfo.fullName || 'Candidate').replace(/\s+/g, '_');
     const otherSampleDocs: ApplicantDocument[] = [
       {
         id: `oth-${Date.now()}-tor`,
@@ -700,7 +1241,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     });
   };
 
-  // Simulation test to demonstrate auto-correction in action
+  // Test Auto-Correction Simulation
   const handleTestAutoCorrection = (testType: 'ipcr-in-pl' | 'eligibility-in-trainings' | 'tor-in-we') => {
     let mockFile: { name: string; size: number };
     let wrongSlot: DocumentCategory;
@@ -719,263 +1260,34 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     processFiles([mockFile as any], wrongSlot);
   };
 
-  // Remove uploaded document
   const handleRemoveDoc = (id?: string) => {
     if (!id) return;
     setDocumentsUploaded((prev) => prev.filter((d) => d.id !== id));
   };
 
-  // Pre-fill with curated samples reflecting CSC standards
-  const handleLoadSample = (sampleType: 'fisheries' | 'criminology' | 'marine') => {
-    if (sampleType === 'fisheries') {
-      const matchJob = jobs.find((j) => j.positionTitle.toLowerCase().includes('aqua')) || jobs[0];
-      setCurrentJobId(matchJob.id);
-      setRawResumeText(`Candidate: Danica Flores Ramos, RFT
-Email: danica.ramos@example.ph | Mobile: +63 917 845 2311
-Address: Brgy. Central, Diliman, Quezon City 1101
-Birthdate: 1995-04-14 | Status: Single
-
-EDUCATIONAL BACKGROUND:
-- Bachelor of Science in Fisheries (Major in Aquaculture), University of the Philippines Los Baños (UPLB)
-  Units Earned: 148 Units (Full Degree Completed)
-  Honors / Distinctions: Cum Laude (Graduated 2018)
-
-PROFESSIONAL ELIGIBILITY:
-- RA 1080 - Registered Fisheries Technologist (PRC License: FT-004821, Rating: 88.40%, Passed Oct 2019)
-- Career Service Professional (CSC Level 2), Rating: 85.20%
-
-PERFORMANCE & COMPETENCY EVALUATIONS:
-- IPCR Rating (Jan-Dec 2025): 4.80 (Outstanding)
-- Competency Rating: Level 4 Advanced Aquaculture Facility Management
-
-WORK EXPERIENCE:
-1. Contractual Technical Assistant | BFAR Central Office - Aquaculture Division
-   April 2024 - Present (Government Service: Yes)
-   Assisted in national tilapia breeding distribution and LGU technology demonstration projects.
-2. Aquaculture Research Assistant | SEAFDEC Aquaculture Department
-   January 2021 - March 2024 (Non-Gov/Research)
-   Managed broodstock conditioning, artificial fertilization, and larval rearing for milkfish and giant tiger prawn.
-
-TRAINING & WORKSHOPS:
-- Advanced Hatchery Management and Biosecurity in Tilapia Farming (BFAR-NFFTC, 16 Hours, 2025)
-- Fish Health Surveillance and Disease Diagnostics (SEAFDEC, 24 Hours, 2024)
-- Resource Speaker: Sustainable Broodstock Practices at Regional Fish Forum (Provincial Fisheries, 8 Hours, 2024) [Note: Excluded RP role]`);
-    } else if (sampleType === 'criminology') {
-      const matchJob =
-        jobs.find((j) => j.positionTitle.toLowerCase().includes('regulations')) || jobs[0];
-      setCurrentJobId(matchJob.id);
-      setRawResumeText(`Candidate: Marc Joshua Bautista Dela Cruz
-Email: mj.delacruz@example.ph | Mobile: +63 928 334 1902
-Address: Project 4, Quezon City, Metro Manila
-Birthdate: 1993-11-20 | Status: Married
-
-EDUCATIONAL BACKGROUND:
-- Bachelor of Science in Criminology, Philippine College of Criminology
-  Units Earned: 142 Units (Full Degree Completed)
-  Honors / Distinctions: Consistent Dean's Lister (Graduated 2016)
-
-PROFESSIONAL ELIGIBILITY:
-- Career Service Professional (CSC Level 2), Rating: 84.10% (2017)
-- RA 6506 - Registered Criminologist (PRC License: RC-081290, Rating: 82.50%)
-
-PERFORMANCE RATINGS:
-- IPCR Rating: 4.60 (Very Satisfactory)
-- Potential / Competency Assessment: Verified Maritime Investigator
-
-WORK EXPERIENCE:
-1. Compliance Investigator | Maritime Regulatory Consultants Inc.
-   February 2024 - Present
-   Conducted shipping compliance audits and crew safety inspections.
-2. Maritime Enforcement Officer | Philippine Ports Authority
-   June 2019 - December 2023 (Government Service: Yes)
-   Port security inspection, vessel manifest validation, and joint fisheries patrol.
-
-TRAINING ENTRIES:
-- Maritime Law Enforcement and Rules of Engagement Course (PCG Training Command, 40 Hours, 2022)
-- Introductory Seminar on Philippine Fisheries Code RA 8550/10654 (DA-BFAR, 8 Hours, 2024)
-- Annual Philippine Maritime Security Convention & Conference (Maritime Law Association, 16 Hours, 2023) [Note: Excluded Conference]`);
-    } else {
-      const matchJob = jobs.find((j) => j.positionTitle.toLowerCase().includes('marine')) || jobs[0];
-      setCurrentJobId(matchJob.id);
-      setRawResumeText(`Candidate: Dr. Roberto Alcantara
-Email: roberto.alcantara@marine.ph | Mobile: +63 908 772 3418
-Address: Teachers Village, Diliman, Quezon City
-Birthdate: 1991-03-24 | Status: Single
-
-EDUCATIONAL BACKGROUND:
-- Master of Science in Marine Biology, UP Diliman Marine Science Institute (Completed 36 Academic Units, Graduated 2021)
-- Bachelor of Science in Marine Biology, University of the Philippines (144 Units, Graduated 2014, Magna Cum Laude)
-
-PROFESSIONAL ELIGIBILITY:
-- Career Service Professional Eligibility (CSC Level 2)
-- RA 1080 - Registered Fisheries Technologist
-
-PERFORMANCE & COMPETENCY:
-- IPCR Rating: 4.90 (Outstanding)
-- Competency Rating: Expert Marine Stock Modeler (FiSAT II / GIS)
-
-WORK EXPERIENCE:
-1. Senior Coastal Resource Specialist | Marine Conservation Policy Center
-   August 2020 - Present
-   Led marine protected area monitoring and stock assessments.
-2. Science Research Assistant | NSAP - BFAR Central Office
-   January 2016 - July 2020 (Government Service: Yes)
-
-TRAININGS:
-- Advanced Scientific Diving and Benthic Line Intercept (PADI/UP, 40 Hours, 2024)
-- Marine Spatial Planning & MPA Management in Fisheries (BFAR Central Office, 24 Hours, 2023)
-- Moderator / Session Chair: National Coral Reef Symposium (12 Hours, 2024) [Note: Excluded Moderator role]`);
-    }
-  };
-
-  // Run AI Resume / PDS Parser
-  const handleParseWithAi = async () => {
-    if (!rawResumeText.trim()) {
-      setAiParseStatus('⚠️ Please paste resume text or click one of the quick sample candidates above.');
-      return;
-    }
-
-    setIsParsingAi(true);
-    setAiParseStatus('BFAR AI Assistant is analyzing credentials and parsing PDS fields...');
-
-    try {
-      const res = await fetch('/api/ai/parse-pds', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          rawText: rawResumeText,
-          targetJobId: currentJobId,
-        }),
-      });
-
-      const json = await res.json();
-      if (json.success && json.data) {
-        const d = json.data;
-        if (d.personalInfo) {
-          setPersonalInfo({
-            fullName: d.personalInfo.fullName || personalInfo.fullName,
-            email: d.personalInfo.email || personalInfo.email,
-            phone: d.personalInfo.phone || personalInfo.phone,
-            birthDate: d.personalInfo.birthDate || personalInfo.birthDate,
-            civilStatus: d.personalInfo.civilStatus || 'Single',
-            residentialAddress: d.personalInfo.residentialAddress || personalInfo.residentialAddress,
-          });
-        }
-        if (d.education && d.education.length > 0) {
-          setEducation(
-            d.education.map((e: any) => ({
-              level: e.level || 'College / Tertiary',
-              degree: e.degree || '',
-              school: e.school || '',
-              yearGraduated: e.yearGraduated || '',
-              unitsEarned: e.unitsEarned || '148 Units (Degree Completed)',
-              honors: e.honors || 'None',
-              transcriptFile: `TOR_${(d.personalInfo?.fullName || 'Applicant').split(' ')[0]}_Authenticated.pdf`,
-              diplomaFile: `Diploma_${(d.personalInfo?.fullName || 'Applicant').split(' ')[0]}.pdf`,
-            }))
-          );
-        }
-        if (d.eligibility && d.eligibility.length > 0) {
-          setEligibility(
-            d.eligibility.map((el: any) => ({
-              type: el.type || '',
-              licenseNo: el.licenseNo || '',
-              rating: el.rating || '',
-              examDate: el.examDate || '',
-            }))
-          );
-        }
-        if (d.workExperience && d.workExperience.length > 0) {
-          setWorkExperience(
-            d.workExperience.map((w: any) => ({
-              position: w.position || '',
-              agencyOrCompany: w.agencyOrCompany || '',
-              fromDate: w.fromDate || '',
-              toDate: w.toDate || '',
-              isGovService: Boolean(w.isGovService),
-              description: w.description || '',
-            }))
-          );
-        }
-        if (d.training && d.training.length > 0) {
-          setTraining(
-            d.training.map((t: any) => ({
-              title: t.title || '',
-              hours: Number(t.hours) || 8,
-              provider: t.provider || '',
-              year: t.year || '2024',
-            }))
-          );
-        }
-        if (d.statementOfIntent) {
-          setStatementOfIntent(d.statementOfIntent);
-        }
-        setAiParseStatus(
-          '✨ Successfully extracted into CS Form 212 with Units, Honors & Training Audit! Review below.'
-        );
-      } else {
-        setAiParseStatus('Extraction complete.');
-      }
-    } catch (err) {
-      console.error(err);
-      setAiParseStatus('Failed to connect to AI engine. Manual input is active.');
-    } finally {
-      setIsParsingAi(false);
-    }
-  };
-
-  // Generate formal Philippine Civil Service Application Letter
-  const handleGenerateCoverLetter = async () => {
-    setIsGeneratingLetter(true);
-    try {
-      const res = await fetch('/api/ai/generate-cover-letter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobId: currentJobId,
-          applicantData: {
-            personalInfo,
-            education,
-            eligibility,
-            workExperience,
-            training,
-          },
-        }),
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        setStatementOfIntent(json.data);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsGeneratingLetter(false);
-    }
-  };
-
-  // Handle Submit Application
-  const handleSubmitApplication = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Final Submit Handler
+  const handleSubmitApplication = async () => {
     setFormError(null);
 
     if (!personalInfo.fullName.trim() || !personalInfo.email.trim()) {
-      setFormError('Please fill in your Full Name and Email address in Section 2 (Requirements).');
-      setActiveSection('requirements');
+      setFormError('Please ensure Full Name and Email Address are completed in Section 2 (PDS).');
+      setActiveSection('pds');
       return;
     }
 
-    if (!education[0]?.degree.trim()) {
-      setFormError('Please enter your Degree and College / University in Section 2 (Requirements).');
-      setActiveSection('requirements');
+    if (!declaration.confirmedAuthenticity) {
+      setFormError('Please check the affirmation of authenticity in Section 2 (PDS Declaration).');
+      setActiveSection('pds');
+      setPdsActiveTab('declaration');
       return;
     }
 
-    // Check mandatory Plantilla documents
+    // Check mandatory documents
     const hasPL = documentsUploaded.some((d) => d.category === 'PL');
     const hasElig = documentsUploaded.some((d) => d.category === 'ELIGIBILITY');
     if (!hasPL || !hasElig) {
       setFormError(
-        'Please ensure Plantilla (PL) and Eligibility documents are attached in Section 3 (File Uploads).'
+        'Please ensure Plantilla (PL) and Eligibility documents are attached under Section 4 (File Uploads).'
       );
       setActiveSection('file_uploads');
       return;
@@ -984,15 +1296,37 @@ TRAININGS:
     setIsSubmitting(true);
 
     try {
+      const fullPdsPayload: PdsData = {
+        personalInfo,
+        familyBackground,
+        education,
+        eligibility,
+        workExperience,
+        voluntaryWork,
+        training,
+        otherInformation,
+        declaration,
+      };
+
       const payload = {
         jobId: currentJobId,
-        personalInfo,
+        personalInfo: {
+          fullName: personalInfo.fullName || `${personalInfo.firstName} ${personalInfo.surname}`,
+          email: personalInfo.email,
+          phone: personalInfo.phone,
+          birthDate: personalInfo.birthDate,
+          civilStatus: personalInfo.civilStatus,
+          residentialAddress: personalInfo.residentialAddress,
+        },
+        pdsData: fullPdsPayload,
+        applicationLetterText: applicationLetterText,
+        applicationLetterUploadedFile: letterUploadedFileName,
         education,
         eligibility,
         workExperience,
         training,
-        statementOfIntent:
-          statementOfIntent || 'Application submitted via DA-BFAR Online Recruitment Portal.',
+        voluntaryWork,
+        statementOfIntent: applicationLetterText,
         documentsUploaded: documentsUploaded.map((d) => ({
           name: d.name,
           category: d.category,
@@ -1016,7 +1350,7 @@ TRAININGS:
         setSubmissionSuccess(json.data);
         onApplicationSubmitted(json.data);
       } else {
-        setFormError(json.error || 'Failed to submit application. Please verify your details.');
+        setFormError(json.error || 'Failed to submit application. Please review your details.');
       }
     } catch (err: any) {
       setFormError('Network communication error. Please try again.');
@@ -1025,7 +1359,7 @@ TRAININGS:
     }
   };
 
-  // Counts of uploaded documents by section
+  // Upload counts
   const primaryUploadCount = PRIMARY_CATEGORIES.filter((cat) =>
     documentsUploaded.some((d) => d.category === cat.code)
   ).length;
@@ -1048,8 +1382,8 @@ TRAININGS:
           <h2 className="text-2xl sm:text-3xl font-black">Application Successfully Logged</h2>
           <p className="text-emerald-100 text-xs sm:text-sm max-w-lg mx-auto">
             Your application for <strong>{submissionSuccess.positionTitle}</strong> has been
-            officially registered in the DA-BFAR Recruitment &amp; HRMIS portal with all primary and
-            supplementary documents.
+            officially registered in the DA-BFAR Recruitment &amp; HRMIS portal with complete CS Form 212
+            and supporting attachments.
           </p>
         </div>
 
@@ -1064,7 +1398,7 @@ TRAININGS:
             </div>
             <p className="text-xs text-slate-500">
               Please save this tracking code to monitor your document verification and HRMPSB
-              deliberation.
+              deliberation in the 5-Stage Milestone Tracker.
             </p>
           </div>
 
@@ -1085,45 +1419,8 @@ TRAININGS:
               <p className="text-slate-700">
                 {submissionSuccess.aiScreening.summaryRecommendation}
               </p>
-              {submissionSuccess.aiScreening.qsCompliance.flaggedTrainingEntries &&
-                submissionSuccess.aiScreening.qsCompliance.flaggedTrainingEntries.length > 0 && (
-                  <div className="p-2 bg-amber-50 border border-amber-200 rounded text-amber-800 text-[11px] flex items-start gap-1.5">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <div>
-                      <strong>CSC Training Hour Audit:</strong>{' '}
-                      {submissionSuccess.aiScreening.qsCompliance.qualifyingTrainingHours} qualifying
-                      hours verified. (
-                      {submissionSuccess.aiScreening.qsCompliance.excludedTrainingHours} hrs excluded
-                      for non-qualifying RP/Facilitator/Conference roles).
-                    </div>
-                  </div>
-                )}
             </div>
           )}
-
-          {/* Attached Documents Recap */}
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2 text-xs">
-            <div className="flex items-center justify-between font-bold text-slate-800 pb-2 border-b border-slate-200">
-              <span>Attached Documents Organized ({submissionSuccess.documentsUploaded.length} files)</span>
-              <span className="text-emerald-700 font-mono text-[11px]">All Verified</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-              {submissionSuccess.documentsUploaded.map((d, i) => (
-                <div
-                  key={i}
-                  className="bg-white p-2 rounded border border-slate-200 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-1.5 truncate">
-                    <span className="font-bold text-[#024794] bg-blue-50 px-1.5 py-0.5 rounded text-[9px] shrink-0">
-                      {d.category}
-                    </span>
-                    <span className="truncate text-slate-700">{d.name}</span>
-                  </div>
-                  <span className="text-slate-400 font-mono text-[9px] shrink-0 ml-1">{d.fileSize}</span>
-                </div>
-              ))}
-            </div>
-          </div>
 
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
@@ -1136,8 +1433,7 @@ TRAININGS:
             <button
               onClick={() => {
                 setSubmissionSuccess(null);
-                setRawResumeText('');
-                setActiveSection('description');
+                setActiveSection('letter');
               }}
               className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-800 px-6 py-2.5 rounded-lg text-xs font-semibold border border-slate-300 text-center"
             >
@@ -1151,83 +1447,126 @@ TRAININGS:
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* 4-SECTION TOP TAB NAVIGATION / STEPPER */}
+      {/* 6-SECTION TOP STEPPER NAVIGATION */}
       <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-2 sm:p-3">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {/* 1. Description */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+          {/* Step 1: Application Letter */}
           <button
             type="button"
-            onClick={() => setActiveSection('description')}
-            className={`flex items-center gap-2.5 p-3 rounded-lg text-left transition-all ${
-              activeSection === 'description'
+            onClick={() => setActiveSection('letter')}
+            className={`flex items-center gap-2 p-2.5 rounded-lg text-left transition-all ${
+              activeSection === 'letter'
                 ? 'bg-[#024794] text-white shadow-sm ring-2 ring-[#024794]/20'
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
             }`}
           >
             <div
-              className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                activeSection === 'description'
+              className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                activeSection === 'letter'
                   ? 'bg-white text-[#024794]'
+                  : applicationLetterText
+                  ? 'bg-emerald-100 text-emerald-800'
                   : 'bg-slate-200 text-slate-700'
               }`}
             >
-              1
+              {applicationLetterText && activeSection !== 'letter' ? (
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+              ) : (
+                '1'
+              )}
             </div>
             <div className="min-w-0">
-              <span className="font-extrabold text-xs block truncate">Description</span>
+              <span className="font-extrabold text-[11px] block truncate">1. Letter</span>
               <span
-                className={`text-[10px] block truncate ${
-                  activeSection === 'description' ? 'text-blue-100' : 'text-slate-500'
+                className={`text-[9px] block truncate ${
+                  activeSection === 'letter' ? 'text-blue-100' : 'text-slate-500'
                 }`}
               >
-                Position &amp; Duties
+                Application Letter
               </span>
             </div>
           </button>
 
-          {/* 2. Requirements */}
+          {/* Step 2: Personal Data Sheet (PDS) */}
           <button
             type="button"
-            onClick={() => setActiveSection('requirements')}
-            className={`flex items-center gap-2.5 p-3 rounded-lg text-left transition-all ${
-              activeSection === 'requirements'
+            onClick={() => setActiveSection('pds')}
+            className={`flex items-center gap-2 p-2.5 rounded-lg text-left transition-all ${
+              activeSection === 'pds'
                 ? 'bg-[#024794] text-white shadow-sm ring-2 ring-[#024794]/20'
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
             }`}
           >
             <div
-              className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-                activeSection === 'requirements'
+              className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                activeSection === 'pds'
                   ? 'bg-white text-[#024794]'
+                  : personalInfo.fullName
+                  ? 'bg-emerald-100 text-emerald-800'
                   : 'bg-slate-200 text-slate-700'
               }`}
             >
-              2
+              {personalInfo.fullName && activeSection !== 'pds' ? (
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+              ) : (
+                '2'
+              )}
             </div>
             <div className="min-w-0">
-              <span className="font-extrabold text-xs block truncate">Requirements</span>
+              <span className="font-extrabold text-[11px] block truncate">2. PDS</span>
               <span
-                className={`text-[10px] block truncate ${
-                  activeSection === 'requirements' ? 'text-blue-100' : 'text-slate-500'
+                className={`text-[9px] block truncate ${
+                  activeSection === 'pds' ? 'text-blue-100' : 'text-slate-500'
                 }`}
               >
-                CSC Standards &amp; PDS
+                CS Form 212
               </span>
             </div>
           </button>
 
-          {/* 3. File Uploads */}
+          {/* Step 3: Position Description & Requirements */}
+          <button
+            type="button"
+            onClick={() => setActiveSection('position_qs')}
+            className={`flex items-center gap-2 p-2.5 rounded-lg text-left transition-all ${
+              activeSection === 'position_qs'
+                ? 'bg-[#024794] text-white shadow-sm ring-2 ring-[#024794]/20'
+                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
+            }`}
+          >
+            <div
+              className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                activeSection === 'position_qs'
+                  ? 'bg-white text-[#024794]'
+                  : 'bg-slate-200 text-slate-700'
+              }`}
+            >
+              3
+            </div>
+            <div className="min-w-0">
+              <span className="font-extrabold text-[11px] block truncate">3. Position</span>
+              <span
+                className={`text-[9px] block truncate ${
+                  activeSection === 'position_qs' ? 'text-blue-100' : 'text-slate-500'
+                }`}
+              >
+                Description &amp; QS
+              </span>
+            </div>
+          </button>
+
+          {/* Step 4: File Uploads */}
           <button
             type="button"
             onClick={() => setActiveSection('file_uploads')}
-            className={`flex items-center gap-2.5 p-3 rounded-lg text-left transition-all ${
+            className={`flex items-center gap-2 p-2.5 rounded-lg text-left transition-all ${
               activeSection === 'file_uploads'
                 ? 'bg-[#024794] text-white shadow-sm ring-2 ring-[#024794]/20'
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
             }`}
           >
             <div
-              className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+              className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
                 activeSection === 'file_uploads'
                   ? 'bg-white text-[#024794]'
                   : primaryUploadCount >= 4
@@ -1235,32 +1574,36 @@ TRAININGS:
                   : 'bg-slate-200 text-slate-700'
               }`}
             >
-              {primaryUploadCount >= 4 ? <Check className="w-4 h-4 text-emerald-600" /> : '3'}
+              {primaryUploadCount >= 4 && activeSection !== 'file_uploads' ? (
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+              ) : (
+                '4'
+              )}
             </div>
             <div className="min-w-0">
-              <span className="font-extrabold text-xs block truncate">File Uploads</span>
+              <span className="font-extrabold text-[11px] block truncate">4. Uploads</span>
               <span
-                className={`text-[10px] block truncate ${
+                className={`text-[9px] block truncate ${
                   activeSection === 'file_uploads' ? 'text-blue-100' : 'text-slate-500'
                 }`}
               >
-                PL, Elig, Trainings, WE ({primaryUploadCount}/4)
+                PL, Elig, WE ({primaryUploadCount}/4)
               </span>
             </div>
           </button>
 
-          {/* 4. Other Documents */}
+          {/* Step 5: Other Documents */}
           <button
             type="button"
             onClick={() => setActiveSection('other_documents')}
-            className={`flex items-center gap-2.5 p-3 rounded-lg text-left transition-all ${
+            className={`flex items-center gap-2 p-2.5 rounded-lg text-left transition-all ${
               activeSection === 'other_documents'
                 ? 'bg-[#024794] text-white shadow-sm ring-2 ring-[#024794]/20'
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
             }`}
           >
             <div
-              className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+              className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
                 activeSection === 'other_documents'
                   ? 'bg-white text-[#024794]'
                   : otherUploadCount >= 6
@@ -1268,16 +1611,51 @@ TRAININGS:
                   : 'bg-slate-200 text-slate-700'
               }`}
             >
-              {otherUploadCount >= 6 ? <Check className="w-4 h-4 text-emerald-600" /> : '4'}
+              {otherUploadCount >= 6 && activeSection !== 'other_documents' ? (
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+              ) : (
+                '5'
+              )}
             </div>
             <div className="min-w-0">
-              <span className="font-extrabold text-xs block truncate">Other Documents</span>
+              <span className="font-extrabold text-[11px] block truncate">5. Other Docs</span>
               <span
-                className={`text-[10px] block truncate ${
+                className={`text-[9px] block truncate ${
                   activeSection === 'other_documents' ? 'text-blue-100' : 'text-slate-500'
                 }`}
               >
-                TOR, Diploma, PCR... ({otherUploadCount}/7)
+                TOR, Dipl, PCR ({otherUploadCount}/7)
+              </span>
+            </div>
+          </button>
+
+          {/* Step 6: Review & Submit */}
+          <button
+            type="button"
+            onClick={() => setActiveSection('review_submit')}
+            className={`flex items-center gap-2 p-2.5 rounded-lg text-left transition-all ${
+              activeSection === 'review_submit'
+                ? 'bg-[#024794] text-white shadow-sm ring-2 ring-[#024794]/20'
+                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
+            }`}
+          >
+            <div
+              className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                activeSection === 'review_submit'
+                  ? 'bg-white text-[#024794]'
+                  : 'bg-slate-200 text-slate-700'
+              }`}
+            >
+              6
+            </div>
+            <div className="min-w-0">
+              <span className="font-extrabold text-[11px] block truncate">6. Review</span>
+              <span
+                className={`text-[9px] block truncate ${
+                  activeSection === 'review_submit' ? 'text-blue-100' : 'text-slate-500'
+                }`}
+              >
+                Review &amp; Submit
               </span>
             </div>
           </button>
@@ -1329,22 +1707,1852 @@ TRAININGS:
       )}
 
       {/* ========================================================================= */}
-      {/* SECTION 1: DESCRIPTION */}
+      {/* SECTION 1: APPLICATION LETTER */}
       {/* ========================================================================= */}
-      {activeSection === 'description' && (
+      {activeSection === 'letter' && (
         <div className="space-y-6">
-          {/* Header Card */}
           <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-6 space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200">
               <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="bg-blue-100 text-[#024794] text-[10px] font-black uppercase px-2.5 py-0.5 rounded tracking-wider">
-                    Republic of the Philippines
+                <span className="text-[10px] font-black uppercase text-[#024794] tracking-wider block mb-1">
+                  Section 1 of 6 • Official Application Letter
+                </span>
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900">
+                  Application Letter addressed to the National Director
+                </h2>
+                <p className="text-xs text-slate-600 mt-1 max-w-2xl">
+                  Submit a formal application letter addressed to the National Director of BFAR. You can generate
+                  a formal draft with Gemini AI, upload an existing PDF letter, or manually edit the contents.
+                </p>
+              </div>
+
+              {/* Position Quick Info */}
+              <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg text-xs space-y-1 shrink-0 w-full md:w-64">
+                <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                  Applying for Vacancy:
+                </span>
+                <span className="font-extrabold text-[#024794] block truncate">
+                  {activeJob.positionTitle}
+                </span>
+                <span className="text-[11px] text-slate-500 block">
+                  SG-{activeJob.salaryGrade} • {activeJob.itemNo}
+                </span>
+              </div>
+            </div>
+
+            {/* Letter Action Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleGenerateCoverLetter}
+                  disabled={isGeneratingLetter}
+                  className="bg-[#024794] hover:bg-[#033b7a] text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <span>
+                    {isGeneratingLetter ? 'Drafting Official Letter...' : 'Generate with Gemini AI'}
                   </span>
-                  <span className="text-[11px] text-slate-500 font-semibold">
-                    Bureau of Fisheries and Aquatic Resources
+                </button>
+
+                <input
+                  ref={letterFileInputRef}
+                  type="file"
+                  accept=".pdf"
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      handleUploadLetterPdf(e.target.files[0]);
+                    }
+                  }}
+                />
+
+                <button
+                  type="button"
+                  onClick={() => letterFileInputRef.current?.click()}
+                  className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-colors"
+                >
+                  <Upload className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Upload Existing PDF Letter</span>
+                </button>
+              </div>
+
+              {letterUploadedFileName && (
+                <div className="text-xs bg-emerald-50 text-emerald-800 border border-emerald-300 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Attached: {letterUploadedFileName}</span>
+                </div>
+              )}
+            </div>
+
+            {letterSuccessNotice && (
+              <div className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded-r-lg text-xs text-[#024794] flex items-center gap-2">
+                <Check className="w-4 h-4 text-emerald-600" />
+                <span>{letterSuccessNotice}</span>
+              </div>
+            )}
+
+            {/* Formal Government Letterhead Preview & Editor */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+              {/* Left: Interactive Text Editor */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-[#024794]" />
+                    <span>Editable Letter Content:</span>
+                  </label>
+                  <span className="text-[10px] text-slate-400">Edits update the preview live</span>
+                </div>
+                <textarea
+                  rows={18}
+                  value={applicationLetterText}
+                  onChange={(e) => setApplicationLetterText(e.target.value)}
+                  placeholder="Paste or draft your formal Philippine Civil Service Application Letter..."
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-4 text-xs font-mono leading-relaxed focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
+                />
+              </div>
+
+              {/* Right: Formal Government Letterhead Paper Preview */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Eye className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Official Letterhead Document Preview:</span>
+                  </span>
+                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">
+                    DA-BFAR Standard
                   </span>
                 </div>
+
+                <div className="bg-amber-50/20 border border-slate-300 rounded-xl p-6 shadow-inner space-y-4 text-xs font-serif leading-relaxed text-slate-800 max-h-[440px] overflow-y-auto">
+                  {/* Government Header */}
+                  <div className="text-center space-y-0.5 border-b border-slate-300 pb-3 font-sans">
+                    <span className="text-[10px] uppercase tracking-wider block text-slate-500 font-bold">
+                      Republic of the Philippines
+                    </span>
+                    <span className="text-[11px] uppercase font-bold text-slate-800 block">
+                      Department of Agriculture
+                    </span>
+                    <span className="text-xs font-black text-[#024794] block tracking-wide">
+                      BUREAU OF FISHERIES AND AQUATIC RESOURCES
+                    </span>
+                    <span className="text-[9px] text-slate-500 block">
+                      PCA Building, Elliptical Road, Diliman, Quezon City
+                    </span>
+                  </div>
+
+                  {/* Letter Body Preview */}
+                  <div className="whitespace-pre-line text-[11px] leading-relaxed font-sans text-slate-800 pt-1">
+                    {applicationLetterText || (
+                      <span className="text-slate-400 italic font-sans">
+                        Click "Generate with Gemini AI" or type in the editor to draft your official letter...
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section Navigation Footer */}
+          <div className="flex justify-end pt-2">
+            <button
+              type="button"
+              onClick={() => setActiveSection('pds')}
+              className="bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm transition-all"
+            >
+              <span>Save &amp; Proceed to Section 2: Personal Data Sheet (PDS)</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SECTION 2: PERSONAL DATA SHEET (CS FORM 212 REVISED 2017) */}
+      {/* ========================================================================= */}
+      {activeSection === 'pds' && (
+        <div className="space-y-6">
+          {/* Official CSC CS Form 212 Header */}
+          <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-slate-200">
+              <div>
+                <span className="bg-[#024794] text-white text-[10px] font-black px-2.5 py-0.5 rounded tracking-wider uppercase inline-block mb-1">
+                  CS Form No. 212 (Revised 2017)
+                </span>
+                <h2 className="text-lg sm:text-xl font-black text-slate-900">
+                  PERSONAL DATA SHEET
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Civil Service Commission prescribed format for government service appointments.
+                </p>
+              </div>
+
+              {/* Sample Pre-fill Helpers */}
+              <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                <span className="text-[11px] text-slate-600 font-semibold">Fast-Fill Sample:</span>
+                <button
+                  type="button"
+                  onClick={() => handleLoadSample('fisheries')}
+                  className="bg-blue-50 hover:bg-blue-100 text-[#024794] text-[11px] font-bold px-2.5 py-1 rounded border border-blue-200"
+                >
+                  Fisheries Tech
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleLoadSample('criminology')}
+                  className="bg-blue-50 hover:bg-blue-100 text-[#024794] text-[11px] font-bold px-2.5 py-1 rounded border border-blue-200"
+                >
+                  Criminologist
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleLoadSample('marine')}
+                  className="bg-blue-50 hover:bg-blue-100 text-[#024794] text-[11px] font-bold px-2.5 py-1 rounded border border-blue-200"
+                >
+                  Marine Biologist
+                </button>
+              </div>
+            </div>
+
+            {aiParseStatus && (
+              <div className="bg-emerald-50 border border-emerald-300 p-2.5 rounded-lg text-xs text-emerald-800 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>{aiParseStatus}</span>
+              </div>
+            )}
+
+            {/* Official Warning Notice */}
+            <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg text-[11px] text-amber-900 leading-relaxed">
+              <strong>WARNING:</strong> Any misrepresentation made in the Personal Data Sheet and the Work
+              Experience Sheet shall cause the filing of administrative/criminal case/s against the person
+              concerned pursuant to CSC and Ombudsman rules.
+            </div>
+
+            {/* PDS Subsection Navigation Tabs */}
+            <div className="flex flex-wrap gap-1.5 border-b border-slate-200 pb-2 text-xs font-semibold">
+              {[
+                { id: 'personal', label: 'I. Personal Info' },
+                { id: 'family', label: 'II. Family Background' },
+                { id: 'education', label: 'III. Educational Background' },
+                { id: 'eligibility', label: 'IV. Civil Service Eligibility' },
+                { id: 'experience', label: 'V. Work Experience' },
+                { id: 'voluntary', label: 'VI. Voluntary Work' },
+                { id: 'training', label: 'VII. Trainings & L&D' },
+                { id: 'other', label: 'VIII. Other Info' },
+                { id: 'declaration', label: 'IX. Declarations & Oath' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setPdsActiveTab(tab.id as any)}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] transition-colors ${
+                    pdsActiveTab === tab.id
+                      ? 'bg-[#024794] text-white font-bold shadow-xs'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 1. PERSONAL INFORMATION */}
+          {pdsActiveTab === 'personal' && (
+            <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
+              <h3 className="font-bold text-slate-900 text-sm pb-2 border-b border-slate-200 flex items-center gap-2">
+                <User className="w-4 h-4 text-[#024794]" />
+                <span>I. Personal Information (CS Form 212 Page 1)</span>
+              </h3>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Surname</label>
+                  <input
+                    type="text"
+                    value={personalInfo.surname}
+                    onChange={(e) => {
+                      const updated = { ...personalInfo, surname: e.target.value };
+                      updated.fullName = `${updated.firstName} ${updated.middleName} ${updated.surname} ${updated.nameExtension}`.trim();
+                      setPersonalInfo(updated);
+                    }}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">First Name</label>
+                  <input
+                    type="text"
+                    value={personalInfo.firstName}
+                    onChange={(e) => {
+                      const updated = { ...personalInfo, firstName: e.target.value };
+                      updated.fullName = `${updated.firstName} ${updated.middleName} ${updated.surname} ${updated.nameExtension}`.trim();
+                      setPersonalInfo(updated);
+                    }}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Middle Name</label>
+                  <input
+                    type="text"
+                    value={personalInfo.middleName}
+                    onChange={(e) => {
+                      const updated = { ...personalInfo, middleName: e.target.value };
+                      updated.fullName = `${updated.firstName} ${updated.middleName} ${updated.surname} ${updated.nameExtension}`.trim();
+                      setPersonalInfo(updated);
+                    }}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Name Extension</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Jr., III, None"
+                    value={personalInfo.nameExtension}
+                    onChange={(e) => {
+                      const updated = { ...personalInfo, nameExtension: e.target.value };
+                      updated.fullName = `${updated.firstName} ${updated.middleName} ${updated.surname} ${updated.nameExtension}`.trim();
+                      setPersonalInfo(updated);
+                    }}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Date of Birth</label>
+                  <input
+                    type="date"
+                    value={personalInfo.birthDate}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, birthDate: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Place of Birth</label>
+                  <input
+                    type="text"
+                    value={personalInfo.birthPlace}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, birthPlace: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Sex</label>
+                  <select
+                    value={personalInfo.sex}
+                    onChange={(e: any) => setPersonalInfo({ ...personalInfo, sex: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  >
+                    <option value="Female">Female</option>
+                    <option value="Male">Male</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Civil Status</label>
+                  <select
+                    value={personalInfo.civilStatus}
+                    onChange={(e: any) => setPersonalInfo({ ...personalInfo, civilStatus: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  >
+                    <option value="Single">Single</option>
+                    <option value="Married">Married</option>
+                    <option value="Widowed">Widowed</option>
+                    <option value="Separated">Separated</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Citizenship</label>
+                  <select
+                    value={personalInfo.citizenship}
+                    onChange={(e: any) => setPersonalInfo({ ...personalInfo, citizenship: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  >
+                    <option value="Filipino">Filipino</option>
+                    <option value="Dual Citizenship">Dual Citizenship</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Height (m)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 1.65"
+                    value={personalInfo.heightMeters}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, heightMeters: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Weight (kg)</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 58"
+                    value={personalInfo.weightKg}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, weightKg: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Blood Type</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. O+, A+, B+"
+                    value={personalInfo.bloodType}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, bloodType: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+
+                {/* Government IDs */}
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">GSIS ID No.</label>
+                  <input
+                    type="text"
+                    value={personalInfo.gsisNo}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, gsisNo: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">PAG-IBIG ID No.</label>
+                  <input
+                    type="text"
+                    value={personalInfo.pagibigNo}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, pagibigNo: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">PHILHEALTH No.</label>
+                  <input
+                    type="text"
+                    value={personalInfo.philhealthNo}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, philhealthNo: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">SSS No.</label>
+                  <input
+                    type="text"
+                    value={personalInfo.sssNo}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, sssNo: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="font-semibold text-slate-700 block mb-1">TIN No.</label>
+                  <input
+                    type="text"
+                    value={personalInfo.tinNo}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, tinNo: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="font-semibold text-slate-700 block mb-1">Agency Employee No.</label>
+                  <input
+                    type="text"
+                    value={personalInfo.agencyEmployeeNo}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, agencyEmployeeNo: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+
+                {/* Addresses & Contact */}
+                <div className="sm:col-span-3">
+                  <label className="font-semibold text-slate-700 block mb-1">Residential Address</label>
+                  <input
+                    type="text"
+                    value={personalInfo.residentialAddress}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, residentialAddress: e.target.value })}
+                    placeholder="House/Block/Lot No., Street, Subdivision/Village, Barangay, City/Municipality, Province"
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">ZIP Code</label>
+                  <input
+                    type="text"
+                    value={personalInfo.residentialZip}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, residentialZip: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <label className="font-semibold text-slate-700 block mb-1">Permanent Address</label>
+                  <input
+                    type="text"
+                    value={personalInfo.permanentAddress}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, permanentAddress: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Permanent ZIP</label>
+                  <input
+                    type="text"
+                    value={personalInfo.permanentZip}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, permanentZip: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="font-semibold text-slate-700 block mb-1">Email Address</label>
+                  <input
+                    type="email"
+                    value={personalInfo.email}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, email: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Mobile Contact No.</label>
+                  <input
+                    type="tel"
+                    value={personalInfo.phone}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, phone: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">Telephone No.</label>
+                  <input
+                    type="text"
+                    value={personalInfo.telephoneNumber}
+                    onChange={(e) => setPersonalInfo({ ...personalInfo, telephoneNumber: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 2. FAMILY BACKGROUND */}
+          {pdsActiveTab === 'family' && (
+            <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
+              <h3 className="font-bold text-slate-900 text-sm pb-2 border-b border-slate-200 flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#024794]" />
+                <span>II. Family Background</span>
+              </h3>
+
+              <div className="space-y-4 text-xs">
+                {/* Spouse Info */}
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                  <span className="font-bold text-slate-800 block text-xs">Spouse's Information (if applicable)</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div>
+                      <label className="font-semibold text-slate-700 block mb-1">Surname</label>
+                      <input
+                        type="text"
+                        value={familyBackground.spouseSurname}
+                        onChange={(e) => setFamilyBackground({ ...familyBackground, spouseSurname: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded p-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-700 block mb-1">First Name</label>
+                      <input
+                        type="text"
+                        value={familyBackground.spouseFirstName}
+                        onChange={(e) => setFamilyBackground({ ...familyBackground, spouseFirstName: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded p-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-700 block mb-1">Middle Name</label>
+                      <input
+                        type="text"
+                        value={familyBackground.spouseMiddleName}
+                        onChange={(e) => setFamilyBackground({ ...familyBackground, spouseMiddleName: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded p-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-700 block mb-1">Occupation</label>
+                      <input
+                        type="text"
+                        value={familyBackground.spouseOccupation}
+                        onChange={(e) => setFamilyBackground({ ...familyBackground, spouseOccupation: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded p-2"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Parents Info */}
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                  <span className="font-bold text-slate-800 block text-xs">Parents' Information</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="font-semibold text-slate-700 block mb-1">Father's Surname</label>
+                      <input
+                        type="text"
+                        value={familyBackground.fatherSurname}
+                        onChange={(e) => setFamilyBackground({ ...familyBackground, fatherSurname: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded p-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-700 block mb-1">Father's First Name</label>
+                      <input
+                        type="text"
+                        value={familyBackground.fatherFirstName}
+                        onChange={(e) => setFamilyBackground({ ...familyBackground, fatherFirstName: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded p-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-700 block mb-1">Father's Middle Name</label>
+                      <input
+                        type="text"
+                        value={familyBackground.fatherMiddleName}
+                        onChange={(e) => setFamilyBackground({ ...familyBackground, fatherMiddleName: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded p-2"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="font-semibold text-slate-700 block mb-1">Mother's Maiden Surname</label>
+                      <input
+                        type="text"
+                        value={familyBackground.motherMaidenSurname}
+                        onChange={(e) => setFamilyBackground({ ...familyBackground, motherMaidenSurname: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded p-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-700 block mb-1">Mother's First Name</label>
+                      <input
+                        type="text"
+                        value={familyBackground.motherFirstName}
+                        onChange={(e) => setFamilyBackground({ ...familyBackground, motherFirstName: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded p-2"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-700 block mb-1">Mother's Middle Name</label>
+                      <input
+                        type="text"
+                        value={familyBackground.motherMiddleName}
+                        onChange={(e) => setFamilyBackground({ ...familyBackground, motherMiddleName: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded p-2"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Children Table */}
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-800 text-xs">Children Information (if applicable)</span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setFamilyBackground({
+                          ...familyBackground,
+                          children: [...familyBackground.children, { fullName: '', birthDate: '' }],
+                        })
+                      }
+                      className="text-[#024794] hover:underline font-bold text-xs flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Child Row</span>
+                    </button>
+                  </div>
+
+                  {familyBackground.children.length === 0 ? (
+                    <p className="text-slate-400 italic text-xs">No children records entered.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {familyBackground.children.map((child, idx) => (
+                        <div key={idx} className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                          <input
+                            type="text"
+                            placeholder="Full Name of Child"
+                            value={child.fullName}
+                            onChange={(e) => {
+                              const updated = [...familyBackground.children];
+                              updated[idx].fullName = e.target.value;
+                              setFamilyBackground({ ...familyBackground, children: updated });
+                            }}
+                            className="bg-white border border-slate-300 rounded p-2 col-span-2"
+                          />
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="date"
+                              value={child.birthDate}
+                              onChange={(e) => {
+                                const updated = [...familyBackground.children];
+                                updated[idx].birthDate = e.target.value;
+                                setFamilyBackground({ ...familyBackground, children: updated });
+                              }}
+                              className="bg-white border border-slate-300 rounded p-2 flex-1"
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setFamilyBackground({
+                                  ...familyBackground,
+                                  children: familyBackground.children.filter((_, i) => i !== idx),
+                                })
+                              }
+                              className="text-red-500 hover:text-red-700 p-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 3. EDUCATIONAL BACKGROUND DYNAMIC TABLE */}
+          {pdsActiveTab === 'education' && (
+            <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <GraduationCap className="w-4 h-4 text-[#024794]" />
+                  <span>III. Educational Background (CS Form 212 Dynamic Table)</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEducation([
+                      ...education,
+                      {
+                        level: 'College',
+                        school: '',
+                        degree: '',
+                        periodFrom: '',
+                        periodTo: '',
+                        unitsEarned: '',
+                        yearGraduated: '',
+                        honors: '',
+                      },
+                    ])
+                  }
+                  className="bg-blue-50 text-[#024794] border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Education Row</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-[#024794] text-white">
+                      <th className="p-2.5">Level</th>
+                      <th className="p-2.5">Name of School</th>
+                      <th className="p-2.5">Degree / Course (write in full)</th>
+                      <th className="p-2.5">Period (From-To)</th>
+                      <th className="p-2.5">Units Earned</th>
+                      <th className="p-2.5">Year Graduated</th>
+                      <th className="p-2.5">Scholarship / Honors</th>
+                      <th className="p-2.5 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {education.map((item, idx) => (
+                      <tr key={idx} className="border-b border-slate-200 bg-slate-50/50 hover:bg-slate-50">
+                        <td className="p-2">
+                          <select
+                            value={item.level}
+                            onChange={(e) => {
+                              const updated = [...education];
+                              updated[idx].level = e.target.value;
+                              setEducation(updated);
+                            }}
+                            className="bg-white border border-slate-300 rounded p-1.5 text-xs w-28"
+                          >
+                            <option value="Elementary">Elementary</option>
+                            <option value="Secondary">Secondary</option>
+                            <option value="Vocational / Trade">Vocational / Trade</option>
+                            <option value="College">College</option>
+                            <option value="Graduate Studies">Graduate Studies</option>
+                          </select>
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.school}
+                            onChange={(e) => {
+                              const updated = [...education];
+                              updated[idx].school = e.target.value;
+                              setEducation(updated);
+                            }}
+                            placeholder="Full Name of School"
+                            className="w-full bg-white border border-slate-300 rounded p-1.5 text-xs min-w-[150px]"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.degree}
+                            onChange={(e) => {
+                              const updated = [...education];
+                              updated[idx].degree = e.target.value;
+                              setEducation(updated);
+                            }}
+                            placeholder="Degree / Course"
+                            className="w-full bg-white border border-slate-300 rounded p-1.5 text-xs min-w-[150px]"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={item.periodFrom || ''}
+                              onChange={(e) => {
+                                const updated = [...education];
+                                updated[idx].periodFrom = e.target.value;
+                                setEducation(updated);
+                              }}
+                              placeholder="From"
+                              className="w-16 bg-white border border-slate-300 rounded p-1.5 text-xs"
+                            />
+                            <span>-</span>
+                            <input
+                              type="text"
+                              value={item.periodTo || ''}
+                              onChange={(e) => {
+                                const updated = [...education];
+                                updated[idx].periodTo = e.target.value;
+                                setEducation(updated);
+                              }}
+                              placeholder="To"
+                              className="w-16 bg-white border border-slate-300 rounded p-1.5 text-xs"
+                            />
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.unitsEarned || ''}
+                            onChange={(e) => {
+                              const updated = [...education];
+                              updated[idx].unitsEarned = e.target.value;
+                              setEducation(updated);
+                            }}
+                            placeholder="e.g. 148 Units"
+                            className="w-24 bg-white border border-slate-300 rounded p-1.5 text-xs"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.yearGraduated}
+                            onChange={(e) => {
+                              const updated = [...education];
+                              updated[idx].yearGraduated = e.target.value;
+                              setEducation(updated);
+                            }}
+                            placeholder="Year"
+                            className="w-20 bg-white border border-slate-300 rounded p-1.5 text-xs"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.honors || ''}
+                            onChange={(e) => {
+                              const updated = [...education];
+                              updated[idx].honors = e.target.value;
+                              setEducation(updated);
+                            }}
+                            placeholder="Honors / Awards"
+                            className="w-28 bg-white border border-slate-300 rounded p-1.5 text-xs"
+                          />
+                        </td>
+                        <td className="p-2 text-center">
+                          {education.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setEducation(education.filter((_, i) => i !== idx))}
+                              className="text-red-500 hover:text-red-700 p-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* 4. CIVIL SERVICE ELIGIBILITY */}
+          {pdsActiveTab === 'eligibility' && (
+            <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <Award className="w-4 h-4 text-[#024794]" />
+                  <span>IV. Civil Service Eligibility (CS Form 212 Table)</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEligibility([
+                      ...eligibility,
+                      {
+                        type: '',
+                        rating: '',
+                        examDate: '',
+                        examPlace: '',
+                        licenseNo: '',
+                        validityDate: '',
+                      },
+                    ])
+                  }
+                  className="bg-blue-50 text-[#024794] border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Eligibility Row</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-[#024794] text-white">
+                      <th className="p-2.5">Career Service / RA 1080 / Bar</th>
+                      <th className="p-2.5">Rating</th>
+                      <th className="p-2.5">Date of Exam</th>
+                      <th className="p-2.5">Place of Exam</th>
+                      <th className="p-2.5">License No.</th>
+                      <th className="p-2.5">Validity Date</th>
+                      <th className="p-2.5 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {eligibility.map((item, idx) => (
+                      <tr key={idx} className="border-b border-slate-200 bg-slate-50/50 hover:bg-slate-50">
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.type}
+                            onChange={(e) => {
+                              const updated = [...eligibility];
+                              updated[idx].type = e.target.value;
+                              setEligibility(updated);
+                            }}
+                            placeholder="e.g. RA 1080 (Fisheries Technologist)"
+                            className="w-full bg-white border border-slate-300 rounded p-1.5 text-xs min-w-[200px]"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.rating || ''}
+                            onChange={(e) => {
+                              const updated = [...eligibility];
+                              updated[idx].rating = e.target.value;
+                              setEligibility(updated);
+                            }}
+                            placeholder="e.g. 88.40%"
+                            className="w-20 bg-white border border-slate-300 rounded p-1.5 text-xs"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.examDate || ''}
+                            onChange={(e) => {
+                              const updated = [...eligibility];
+                              updated[idx].examDate = e.target.value;
+                              setEligibility(updated);
+                            }}
+                            placeholder="YYYY-MM-DD"
+                            className="w-28 bg-white border border-slate-300 rounded p-1.5 text-xs"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.examPlace || ''}
+                            onChange={(e) => {
+                              const updated = [...eligibility];
+                              updated[idx].examPlace = e.target.value;
+                              setEligibility(updated);
+                            }}
+                            placeholder="e.g. Manila"
+                            className="w-28 bg-white border border-slate-300 rounded p-1.5 text-xs"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.licenseNo || ''}
+                            onChange={(e) => {
+                              const updated = [...eligibility];
+                              updated[idx].licenseNo = e.target.value;
+                              setEligibility(updated);
+                            }}
+                            placeholder="License No."
+                            className="w-28 bg-white border border-slate-300 rounded p-1.5 text-xs"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.validityDate || ''}
+                            onChange={(e) => {
+                              const updated = [...eligibility];
+                              updated[idx].validityDate = e.target.value;
+                              setEligibility(updated);
+                            }}
+                            placeholder="e.g. 2027-04-14"
+                            className="w-28 bg-white border border-slate-300 rounded p-1.5 text-xs"
+                          />
+                        </td>
+                        <td className="p-2 text-center">
+                          {eligibility.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setEligibility(eligibility.filter((_, i) => i !== idx))}
+                              className="text-red-500 hover:text-red-700 p-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* 5. WORK EXPERIENCE TABLE */}
+          {pdsActiveTab === 'experience' && (
+            <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-[#024794]" />
+                  <span>V. Work Experience (CS Form 212 Table)</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setWorkExperience([
+                      ...workExperience,
+                      {
+                        position: '',
+                        agencyOrCompany: '',
+                        monthlySalary: '',
+                        salaryGrade: '',
+                        statusOfAppointment: 'Permanent',
+                        fromDate: '',
+                        toDate: '',
+                        isGovService: false,
+                        description: '',
+                      },
+                    ])
+                  }
+                  className="bg-blue-50 text-[#024794] border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Experience Row</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-[#024794] text-white">
+                      <th className="p-2.5">Position Title (in full)</th>
+                      <th className="p-2.5">Dept / Agency / Company</th>
+                      <th className="p-2.5">Monthly Salary (₱)</th>
+                      <th className="p-2.5">Salary Grade</th>
+                      <th className="p-2.5">Status of Appt</th>
+                      <th className="p-2.5">Inclusive Dates</th>
+                      <th className="p-2.5">Gov Service</th>
+                      <th className="p-2.5 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {workExperience.map((item, idx) => (
+                      <tr key={idx} className="border-b border-slate-200 bg-slate-50/50 hover:bg-slate-50">
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.position}
+                            onChange={(e) => {
+                              const updated = [...workExperience];
+                              updated[idx].position = e.target.value;
+                              setWorkExperience(updated);
+                            }}
+                            placeholder="Position Title"
+                            className="w-full bg-white border border-slate-300 rounded p-1.5 text-xs min-w-[150px]"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.agencyOrCompany}
+                            onChange={(e) => {
+                              const updated = [...workExperience];
+                              updated[idx].agencyOrCompany = e.target.value;
+                              setWorkExperience(updated);
+                            }}
+                            placeholder="Agency / Company"
+                            className="w-full bg-white border border-slate-300 rounded p-1.5 text-xs min-w-[150px]"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.monthlySalary || ''}
+                            onChange={(e) => {
+                              const updated = [...workExperience];
+                              updated[idx].monthlySalary = e.target.value;
+                              setWorkExperience(updated);
+                            }}
+                            placeholder="31000"
+                            className="w-20 bg-white border border-slate-300 rounded p-1.5 text-xs"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.salaryGrade || ''}
+                            onChange={(e) => {
+                              const updated = [...workExperience];
+                              updated[idx].salaryGrade = e.target.value;
+                              setWorkExperience(updated);
+                            }}
+                            placeholder="SG 13-1"
+                            className="w-20 bg-white border border-slate-300 rounded p-1.5 text-xs"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.statusOfAppointment || ''}
+                            onChange={(e) => {
+                              const updated = [...workExperience];
+                              updated[idx].statusOfAppointment = e.target.value;
+                              setWorkExperience(updated);
+                            }}
+                            placeholder="Permanent / COS"
+                            className="w-28 bg-white border border-slate-300 rounded p-1.5 text-xs"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={item.fromDate}
+                              onChange={(e) => {
+                                const updated = [...workExperience];
+                                updated[idx].fromDate = e.target.value;
+                                setWorkExperience(updated);
+                              }}
+                              placeholder="From"
+                              className="w-20 bg-white border border-slate-300 rounded p-1.5 text-xs"
+                            />
+                            <span>-</span>
+                            <input
+                              type="text"
+                              value={item.toDate}
+                              onChange={(e) => {
+                                const updated = [...workExperience];
+                                updated[idx].toDate = e.target.value;
+                                setWorkExperience(updated);
+                              }}
+                              placeholder="To"
+                              className="w-20 bg-white border border-slate-300 rounded p-1.5 text-xs"
+                            />
+                          </div>
+                        </td>
+                        <td className="p-2 text-center">
+                          <select
+                            value={item.isGovService ? 'Y' : 'N'}
+                            onChange={(e) => {
+                              const updated = [...workExperience];
+                              updated[idx].isGovService = e.target.value === 'Y';
+                              setWorkExperience(updated);
+                            }}
+                            className="bg-white border border-slate-300 rounded p-1.5 text-xs"
+                          >
+                            <option value="Y">Yes</option>
+                            <option value="N">No</option>
+                          </select>
+                        </td>
+                        <td className="p-2 text-center">
+                          {workExperience.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setWorkExperience(workExperience.filter((_, i) => i !== idx))}
+                              className="text-red-500 hover:text-red-700 p-1"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* 6. VOLUNTARY WORK */}
+          {pdsActiveTab === 'voluntary' && (
+            <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                  <HeartHandshake className="w-4 h-4 text-[#024794]" />
+                  <span>VI. Voluntary Work or Involvement in Civic / NGO / PO Organizations</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setVoluntaryWork([
+                      ...voluntaryWork,
+                      {
+                        organizationName: '',
+                        organizationAddress: '',
+                        fromDate: '',
+                        toDate: '',
+                        hours: 40,
+                        positionOrNature: '',
+                      },
+                    ])
+                  }
+                  className="bg-blue-50 text-[#024794] border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Voluntary Row</span>
+                </button>
+              </div>
+
+              {voluntaryWork.length === 0 ? (
+                <p className="text-slate-400 italic text-xs">No voluntary work entered. Click Add above if applicable.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-[#024794] text-white">
+                        <th className="p-2.5">Name &amp; Address of Organization</th>
+                        <th className="p-2.5">Inclusive Dates (From - To)</th>
+                        <th className="p-2.5">No. of Hours</th>
+                        <th className="p-2.5">Position / Nature of Work</th>
+                        <th className="p-2.5 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {voluntaryWork.map((item, idx) => (
+                        <tr key={idx} className="border-b border-slate-200 bg-slate-50/50">
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={item.organizationName}
+                              onChange={(e) => {
+                                const updated = [...voluntaryWork];
+                                updated[idx].organizationName = e.target.value;
+                                setVoluntaryWork(updated);
+                              }}
+                              placeholder="Organization Name & Address"
+                              className="w-full bg-white border border-slate-300 rounded p-1.5"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="text"
+                                value={item.fromDate}
+                                onChange={(e) => {
+                                  const updated = [...voluntaryWork];
+                                  updated[idx].fromDate = e.target.value;
+                                  setVoluntaryWork(updated);
+                                }}
+                                placeholder="From"
+                                className="w-20 bg-white border border-slate-300 rounded p-1.5"
+                              />
+                              <span>-</span>
+                              <input
+                                type="text"
+                                value={item.toDate}
+                                onChange={(e) => {
+                                  const updated = [...voluntaryWork];
+                                  updated[idx].toDate = e.target.value;
+                                  setVoluntaryWork(updated);
+                                }}
+                                placeholder="To"
+                                className="w-20 bg-white border border-slate-300 rounded p-1.5"
+                              />
+                            </div>
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="number"
+                              value={item.hours}
+                              onChange={(e) => {
+                                const updated = [...voluntaryWork];
+                                updated[idx].hours = Number(e.target.value) || 0;
+                                setVoluntaryWork(updated);
+                              }}
+                              className="w-20 bg-white border border-slate-300 rounded p-1.5"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={item.positionOrNature}
+                              onChange={(e) => {
+                                const updated = [...voluntaryWork];
+                                updated[idx].positionOrNature = e.target.value;
+                                setVoluntaryWork(updated);
+                              }}
+                              placeholder="e.g. Volunteer Officer"
+                              className="w-full bg-white border border-slate-300 rounded p-1.5"
+                            />
+                          </td>
+                          <td className="p-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setVoluntaryWork(voluntaryWork.filter((_, i) => i !== idx))}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 7. LEARNING & DEVELOPMENT / TRAININGS */}
+          {pdsActiveTab === 'training' && (
+            <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-[#024794]" />
+                    <span>VII. Learning and Development (L&amp;D) Interventions / Trainings</span>
+                  </h3>
+                  <span className="text-[11px] text-slate-500">
+                    CSC Rule: Resource Person roles, Facilitator engagements, and Conferences are excluded.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setTraining([
+                      ...training,
+                      {
+                        title: '',
+                        fromDate: '',
+                        toDate: '',
+                        hours: 8,
+                        typeOfLd: 'Technical',
+                        provider: '',
+                      },
+                    ])
+                  }
+                  className="bg-blue-50 text-[#024794] border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Training Row</span>
+                </button>
+              </div>
+
+              {/* CSC Training Live Validation Alert */}
+              <div className="bg-sky-50 border border-sky-200 p-3 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div>
+                  <span className="font-bold text-[#024794] block">Civil Service Commission (CSC) Audit</span>
+                  <span className="text-slate-600 text-[11px]">
+                    Structured technical courses attended count toward QS requirements.
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 text-xs font-mono shrink-0">
+                  <div className="text-right">
+                    <span className="text-[10px] text-slate-500 uppercase block font-sans">Qualifying</span>
+                    <span className="font-extrabold text-emerald-700 text-sm">{trainingAudit.qualifying} Hours</span>
+                  </div>
+                  {trainingAudit.excluded > 0 && (
+                    <div className="text-right">
+                      <span className="text-[10px] text-amber-600 uppercase block font-sans font-bold">Excluded</span>
+                      <span className="font-bold text-amber-700 text-sm">-{trainingAudit.excluded} Hours</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {trainingAudit.flagged.length > 0 && (
+                <div className="bg-amber-50 border border-amber-300 p-2.5 rounded-lg text-xs text-amber-900 space-y-1">
+                  <span className="font-bold">Flagged Non-Qualifying Training Entries:</span>
+                  <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-800">
+                    {trainingAudit.flagged.map((f, i) => (
+                      <li key={i}>
+                        "{f.title}" ({f.hours} hrs) — {f.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-[#024794] text-white">
+                      <th className="p-2.5">Title of Learning &amp; Development Program</th>
+                      <th className="p-2.5">Inclusive Dates</th>
+                      <th className="p-2.5">No. of Hours</th>
+                      <th className="p-2.5">Type of L&amp;D</th>
+                      <th className="p-2.5">Conducted / Sponsored By</th>
+                      <th className="p-2.5 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {training.map((item, idx) => (
+                      <tr key={idx} className="border-b border-slate-200 bg-slate-50/50">
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.title}
+                            onChange={(e) => {
+                              const updated = [...training];
+                              updated[idx].title = e.target.value;
+                              setTraining(updated);
+                            }}
+                            placeholder="Course / Program Title"
+                            className="w-full bg-white border border-slate-300 rounded p-1.5 min-w-[200px]"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={item.fromDate || ''}
+                              onChange={(e) => {
+                                const updated = [...training];
+                                updated[idx].fromDate = e.target.value;
+                                setTraining(updated);
+                              }}
+                              placeholder="From"
+                              className="w-20 bg-white border border-slate-300 rounded p-1.5"
+                            />
+                            <span>-</span>
+                            <input
+                              type="text"
+                              value={item.toDate || ''}
+                              onChange={(e) => {
+                                const updated = [...training];
+                                updated[idx].toDate = e.target.value;
+                                setTraining(updated);
+                              }}
+                              placeholder="To"
+                              className="w-20 bg-white border border-slate-300 rounded p-1.5"
+                            />
+                          </div>
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="number"
+                            value={item.hours}
+                            onChange={(e) => {
+                              const updated = [...training];
+                              updated[idx].hours = Number(e.target.value) || 0;
+                              setTraining(updated);
+                            }}
+                            className="w-16 bg-white border border-slate-300 rounded p-1.5"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.typeOfLd || 'Technical'}
+                            onChange={(e) => {
+                              const updated = [...training];
+                              updated[idx].typeOfLd = e.target.value;
+                              setTraining(updated);
+                            }}
+                            placeholder="Technical"
+                            className="w-24 bg-white border border-slate-300 rounded p-1.5"
+                          />
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            value={item.provider}
+                            onChange={(e) => {
+                              const updated = [...training];
+                              updated[idx].provider = e.target.value;
+                              setTraining(updated);
+                            }}
+                            placeholder="DA-BFAR / CSC / SEAFDEC"
+                            className="w-full bg-white border border-slate-300 rounded p-1.5 min-w-[150px]"
+                          />
+                        </td>
+                        <td className="p-2 text-center">
+                          {training.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => setTraining(training.filter((_, i) => i !== idx))}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* 8. OTHER INFORMATION */}
+          {pdsActiveTab === 'other' && (
+            <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4 text-xs">
+              <h3 className="font-bold text-slate-900 text-sm pb-2 border-b border-slate-200 flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-[#024794]" />
+                <span>VIII. Other Information</span>
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                  <span className="font-bold text-slate-800 block text-xs">Special Skills &amp; Hobbies</span>
+                  <textarea
+                    rows={4}
+                    value={otherInformation.specialSkills.join('\n')}
+                    onChange={(e) =>
+                      setOtherInformation({
+                        ...otherInformation,
+                        specialSkills: e.target.value.split('\n'),
+                      })
+                    }
+                    placeholder="Enter one per line..."
+                    className="w-full bg-white border border-slate-300 rounded p-2 text-xs"
+                  />
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                  <span className="font-bold text-slate-800 block text-xs">Non-Academic Distinctions</span>
+                  <textarea
+                    rows={4}
+                    value={otherInformation.nonAcademicDistinctions.join('\n')}
+                    onChange={(e) =>
+                      setOtherInformation({
+                        ...otherInformation,
+                        nonAcademicDistinctions: e.target.value.split('\n'),
+                      })
+                    }
+                    placeholder="Enter one per line..."
+                    className="w-full bg-white border border-slate-300 rounded p-2 text-xs"
+                  />
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                  <span className="font-bold text-slate-800 block text-xs">Membership in Association / Org</span>
+                  <textarea
+                    rows={4}
+                    value={otherInformation.memberships.join('\n')}
+                    onChange={(e) =>
+                      setOtherInformation({
+                        ...otherInformation,
+                        memberships: e.target.value.split('\n'),
+                      })
+                    }
+                    placeholder="Enter one per line..."
+                    className="w-full bg-white border border-slate-300 rounded p-2 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 9. DECLARATIONS & OATH */}
+          {pdsActiveTab === 'declaration' && (
+            <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-5 text-xs">
+              <h3 className="font-bold text-slate-900 text-sm pb-2 border-b border-slate-200 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#024794]" />
+                <span>IX. Applicant Declaration &amp; Legal Questions (CSC Q34-Q40)</span>
+              </h3>
+
+              {/* Legal Questions */}
+              <div className="space-y-4">
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="font-semibold text-slate-800">
+                      34. Are you related by consanguinity or affinity to the appointing or recommending authority,
+                      or to the chief of bureau or office (3rd degree for National Gov / 4th degree for Local)?
+                    </span>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <label className="flex items-center gap-1 font-bold">
+                        <input
+                          type="radio"
+                          name="q34"
+                          checked={declaration.q34_relatedConsanguinity === true}
+                          onChange={() => setDeclaration({ ...declaration, q34_relatedConsanguinity: true })}
+                        />
+                        <span>Yes</span>
+                      </label>
+                      <label className="flex items-center gap-1 font-bold">
+                        <input
+                          type="radio"
+                          name="q34"
+                          checked={declaration.q34_relatedConsanguinity === false}
+                          onChange={() => setDeclaration({ ...declaration, q34_relatedConsanguinity: false })}
+                        />
+                        <span>No</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="font-semibold text-slate-800">
+                      35. Have you ever been found guilty of any administrative offense or formally charged with a crime?
+                    </span>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <label className="flex items-center gap-1 font-bold">
+                        <input
+                          type="radio"
+                          name="q35"
+                          checked={declaration.q35_adminOffense === true}
+                          onChange={() => setDeclaration({ ...declaration, q35_adminOffense: true })}
+                        />
+                        <span>Yes</span>
+                      </label>
+                      <label className="flex items-center gap-1 font-bold">
+                        <input
+                          type="radio"
+                          name="q35"
+                          checked={declaration.q35_adminOffense === false}
+                          onChange={() => setDeclaration({ ...declaration, q35_adminOffense: false })}
+                        />
+                        <span>No</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="font-semibold text-slate-800">
+                      36. Have you ever been convicted of any crime or violation of any law, decree, or ordinance?
+                    </span>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <label className="flex items-center gap-1 font-bold">
+                        <input
+                          type="radio"
+                          name="q36"
+                          checked={declaration.q36_convictedCrime === true}
+                          onChange={() => setDeclaration({ ...declaration, q36_convictedCrime: true })}
+                        />
+                        <span>Yes</span>
+                      </label>
+                      <label className="flex items-center gap-1 font-bold">
+                        <input
+                          type="radio"
+                          name="q36"
+                          checked={declaration.q36_convictedCrime === false}
+                          onChange={() => setDeclaration({ ...declaration, q36_convictedCrime: false })}
+                        />
+                        <span>No</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="font-semibold text-slate-800">
+                      37. Have you ever been separated from the service in any mode (resignation, dismissal, dropped)?
+                    </span>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <label className="flex items-center gap-1 font-bold">
+                        <input
+                          type="radio"
+                          name="q37"
+                          checked={declaration.q37_separatedFromService === true}
+                          onChange={() => setDeclaration({ ...declaration, q37_separatedFromService: true })}
+                        />
+                        <span>Yes</span>
+                      </label>
+                      <label className="flex items-center gap-1 font-bold">
+                        <input
+                          type="radio"
+                          name="q37"
+                          checked={declaration.q37_separatedFromService === false}
+                          onChange={() => setDeclaration({ ...declaration, q37_separatedFromService: false })}
+                        />
+                        <span>No</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Character References (3 persons) */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                <span className="font-bold text-slate-800 block text-xs">
+                  References (Persons not related by consanguinity or affinity to applicant)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {declaration.references.map((ref, idx) => (
+                    <div key={idx} className="bg-white p-3 rounded-lg border border-slate-200 space-y-1.5">
+                      <span className="font-bold text-slate-700 block text-[11px]">Reference {idx + 1}</span>
+                      <input
+                        type="text"
+                        placeholder="Full Legal Name"
+                        value={ref.name}
+                        onChange={(e) => {
+                          const updated = [...declaration.references];
+                          updated[idx].name = e.target.value;
+                          setDeclaration({ ...declaration, references: updated });
+                        }}
+                        className="w-full border border-slate-300 rounded p-1.5 text-xs"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Office / Residential Address"
+                        value={ref.address}
+                        onChange={(e) => {
+                          const updated = [...declaration.references];
+                          updated[idx].address = e.target.value;
+                          setDeclaration({ ...declaration, references: updated });
+                        }}
+                        className="w-full border border-slate-300 rounded p-1.5 text-xs"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Telephone / Mobile No."
+                        value={ref.telNo}
+                        onChange={(e) => {
+                          const updated = [...declaration.references];
+                          updated[idx].telNo = e.target.value;
+                          setDeclaration({ ...declaration, references: updated });
+                        }}
+                        className="w-full border border-slate-300 rounded p-1.5 text-xs"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Government ID Presented & Confirmation */}
+              <div className="bg-sky-50 border border-sky-200 p-4 rounded-xl space-y-3">
+                <span className="font-bold text-[#024794] block text-xs">
+                  Government Issued ID Presented (Passport, GSIS, SSS, PRC, Driver's License)
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <input
+                    type="text"
+                    placeholder="Government Issued ID Type"
+                    value={declaration.govIssuedId.idType}
+                    onChange={(e) =>
+                      setDeclaration({
+                        ...declaration,
+                        govIssuedId: { ...declaration.govIssuedId, idType: e.target.value },
+                      })
+                    }
+                    className="bg-white border border-slate-300 rounded p-2 text-xs"
+                  />
+                  <input
+                    type="text"
+                    placeholder="ID / License / Passport No."
+                    value={declaration.govIssuedId.idNumber}
+                    onChange={(e) =>
+                      setDeclaration({
+                        ...declaration,
+                        govIssuedId: { ...declaration.govIssuedId, idNumber: e.target.value },
+                      })
+                    }
+                    className="bg-white border border-slate-300 rounded p-2 text-xs"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Date & Place of Issuance"
+                    value={declaration.govIssuedId.datePlaceIssuance}
+                    onChange={(e) =>
+                      setDeclaration({
+                        ...declaration,
+                        govIssuedId: { ...declaration.govIssuedId, datePlaceIssuance: e.target.value },
+                      })
+                    }
+                    className="bg-white border border-slate-300 rounded p-2 text-xs"
+                  />
+                </div>
+
+                <label className="flex items-start gap-2 pt-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={declaration.confirmedAuthenticity}
+                    onChange={(e) =>
+                      setDeclaration({ ...declaration, confirmedAuthenticity: e.target.checked })
+                    }
+                    className="mt-0.5 rounded text-[#024794]"
+                  />
+                  <span className="text-[11px] text-slate-800 font-semibold leading-relaxed">
+                    I declare under oath that I have personally accomplished this Personal Data Sheet which is a true,
+                    correct and complete statement pursuant to the provisions of pertinent laws, rules and regulations
+                    of the Republic of the Philippines.
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Section Navigation Footer */}
+          <div className="flex items-center justify-between pt-2">
+            <button
+              type="button"
+              onClick={() => setActiveSection('letter')}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-300"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back: 1. Application Letter</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveSection('position_qs')}
+              className="bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm"
+            >
+              <span>Save &amp; Proceed to Section 3: Position Description &amp; QS</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SECTION 3: POSITION DESCRIPTION & REQUIREMENTS */}
+      {/* ========================================================================= */}
+      {activeSection === 'position_qs' && (
+        <div className="space-y-6">
+          {/* Position Details Card */}
+          <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-6 space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+              <div>
+                <span className="text-[10px] font-black uppercase text-[#024794] tracking-wider block mb-1">
+                  Section 3 of 6 • Official Plantilla Vacancy
+                </span>
                 <h2 className="text-xl sm:text-2xl font-black text-slate-900">
                   {activeJob.positionTitle}
                 </h2>
@@ -1357,977 +3565,194 @@ TRAININGS:
                 </div>
               </div>
 
-              {/* Vacancy Selector */}
-              <div className="shrink-0 bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
-                <label className="font-bold text-slate-700 block mb-1">
-                  Select Plantilla Position:
-                </label>
-                <select
-                  value={currentJobId}
-                  onChange={(e) => setCurrentJobId(e.target.value)}
-                  className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-[#024794] focus:ring-2 focus:ring-[#024794] w-full sm:w-64"
-                >
-                  {jobs.map((job) => (
-                    <option key={job.id} value={job.id}>
-                      {job.positionTitle} (SG-{job.salaryGrade})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Key Position Metrics Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs pt-1">
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs shrink-0">
                 <span className="text-[10px] font-bold text-slate-500 uppercase block">
-                  Official Salary Grade
+                  Official Salary Grade:
                 </span>
-                <span className="text-base font-black text-[#024794]">
+                <span className="text-lg font-black text-[#024794]">
                   Salary Grade {activeJob.salaryGrade}
                 </span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">National Budget Rate</span>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-500 uppercase block">
-                  Plantilla Item No.
-                </span>
-                <span className="text-xs font-mono font-bold text-slate-900 block truncate">
-                  {activeJob.itemNo}
-                </span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">CSC Registered</span>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-500 uppercase block">
-                  Posting / Closing
-                </span>
-                <span className="text-xs font-bold text-amber-700 block">
-                  Closes {activeJob.closingDate}
-                </span>
-                <span className="text-[10px] text-slate-400 block mt-0.5">
-                  Posted: {activeJob.postingDate}
-                </span>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-500 uppercase block">
-                  Place of Assignment
-                </span>
-                <span className="text-xs font-semibold text-slate-800 block truncate">
-                  {activeJob.region}
-                </span>
-                <span className="text-[10px] text-slate-400 block mt-0.5 truncate">
-                  Central Office, Diliman, QC
+                <span className="text-[10px] text-amber-700 block font-semibold">
+                  Closes: {activeJob.closingDate}
                 </span>
               </div>
             </div>
-          </div>
 
-          {/* Duties & Responsibilities Card */}
-          <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-6 space-y-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-200">
-              <Building2 className="w-5 h-5 text-[#024794]" />
-              <h3 className="text-sm font-extrabold text-slate-900">
-                Official Duties &amp; Responsibilities
-              </h3>
-            </div>
-            <ul className="space-y-2.5 text-xs text-slate-700">
-              {activeJob.dutiesAndResponsibilities.map((duty, idx) => (
-                <li key={idx} className="flex items-start gap-2.5 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                  <span className="w-5 h-5 rounded-full bg-[#024794] text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
-                    {idx + 1}
+            {/* Official Qualification Standards Grid */}
+            <div className="space-y-2">
+              <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
+                Civil Service Commission (CSC) Qualification Standards:
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
+                  <strong className="text-slate-800 block text-[11px]">1. Education:</strong>
+                  <p className="text-slate-600 leading-relaxed">
+                    {activeJob.qualificationStandards.education}
+                  </p>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
+                  <strong className="text-slate-800 block text-[11px]">2. Experience:</strong>
+                  <p className="text-slate-600 leading-relaxed">
+                    {activeJob.qualificationStandards.experience}
+                  </p>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
+                  <strong className="text-slate-800 block text-[11px]">3. Training:</strong>
+                  <p className="text-slate-600 leading-relaxed">
+                    {activeJob.qualificationStandards.training}
+                  </p>
+                  <span className="text-[10px] text-amber-700 block font-medium">
+                    *Excludes RP/Facilitators/Conferences
                   </span>
-                  <span className="leading-relaxed">{duty}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Competencies & Official Link Card */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-3">
-              <div className="flex items-center gap-2 pb-2 border-b border-slate-200">
-                <Award className="w-4 h-4 text-[#024794]" />
-                <h4 className="text-xs font-bold text-slate-900">Required Competencies</h4>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {activeJob.competencies.map((comp, idx) => (
-                  <span
-                    key={idx}
-                    className="bg-blue-50 text-[#024794] border border-blue-200 text-[11px] font-semibold px-2.5 py-1 rounded-md"
-                  >
-                    {comp}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-slate-50 rounded-xl border border-slate-200 p-5 space-y-3 flex flex-col justify-between">
-              <div>
-                <span className="text-[10px] font-bold text-[#024794] uppercase tracking-wider block">
-                  Official Source Verification
-                </span>
-                <h4 className="text-xs font-bold text-slate-900 mt-1">
-                  DA-BFAR Job Vacancies &amp; Careers
-                </h4>
-                <p className="text-[11px] text-slate-600 mt-1">
-                  Vacancy details, qualification standards, and plantilla postings are strictly synchronized with
-                  the official BFAR portal.
-                </p>
-              </div>
-              <a
-                href="https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#024794] hover:underline"
-              >
-                <span>View bfar.da.gov.ph/opportunities/job-vacancies-careers</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            </div>
-          </div>
-
-          {/* Section Navigation Footer */}
-          <div className="flex justify-end pt-2">
-            <button
-              type="button"
-              onClick={() => setActiveSection('requirements')}
-              className="bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm transition-all"
-            >
-              <span>Next: Section 2 - Requirements</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* SECTION 2: REQUIREMENTS */}
-      {/* ========================================================================= */}
-      {activeSection === 'requirements' && (
-        <div className="space-y-6">
-          {/* CSC Qualification Standards Matrix */}
-          <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                <div>
-                  <h3 className="text-sm font-extrabold text-slate-900">
-                    Civil Service Commission (CSC) Qualification Standards (QS)
-                  </h3>
-                  <p className="text-[11px] text-slate-500">
-                    Target: <strong>{activeJob.positionTitle}</strong> (Salary Grade {activeJob.salaryGrade})
+                </div>
+                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
+                  <strong className="text-slate-800 block text-[11px]">4. Eligibility:</strong>
+                  <p className="text-slate-600 leading-relaxed">
+                    {activeJob.qualificationStandards.eligibility}
                   </p>
                 </div>
               </div>
-              <span className="bg-[#024794] text-white text-[10px] font-black px-2.5 py-1 rounded">
-                SG-{activeJob.salaryGrade}
-              </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
-                <strong className="text-slate-800 block text-[11px]">1. Education:</strong>
-                <p className="text-slate-600 leading-relaxed">
-                  {activeJob.qualificationStandards.education}
-                </p>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
-                <strong className="text-slate-800 block text-[11px]">2. Experience:</strong>
-                <p className="text-slate-600 leading-relaxed">
-                  {activeJob.qualificationStandards.experience}
-                </p>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
-                <div className="flex items-center justify-between">
-                  <strong className="text-slate-800 block text-[11px]">3. Training:</strong>
-                  <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded">
-                    CSC Rule
-                  </span>
-                </div>
-                <p className="text-slate-600 leading-relaxed">
-                  {activeJob.qualificationStandards.training}
-                </p>
-                <span className="text-[10px] text-amber-700 block font-medium">
-                  *Non-qualifying: Resource Person, Facilitator &amp; Conferences excluded
-                </span>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
-                <strong className="text-slate-800 block text-[11px]">4. Eligibility:</strong>
-                <p className="text-slate-600 leading-relaxed">
-                  {activeJob.qualificationStandards.eligibility}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* AI RESUME / PDS FAST-FILL ASSISTANT HERO */}
-          <div className="bg-gradient-to-br from-[#024794] to-[#04336b] rounded-xl shadow-md text-white p-5 relative overflow-hidden border border-blue-900">
-            <div className="relative z-10 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center font-black">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-extrabold">
-                      Gemini AI Fast-Fill &amp; PDS Parser Module
-                    </h3>
-                    <p className="text-[11px] text-sky-200">
-                      Paste resume or CV. AI extracts PDS fields (units earned, honors) and audits
-                      qualifying training hours.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Quick Sample Candidates Picker */}
-                <div className="flex items-center gap-1.5 self-start sm:self-auto flex-wrap">
-                  <span className="text-[11px] text-amber-300 font-semibold">Try sample:</span>
-                  <button
-                    type="button"
-                    onClick={() => handleLoadSample('fisheries')}
-                    className="bg-white/10 hover:bg-white/20 text-white text-[11px] px-2.5 py-1 rounded-md border border-white/20 transition-colors"
-                  >
-                    Fisheries Tech
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleLoadSample('criminology')}
-                    className="bg-white/10 hover:bg-white/20 text-white text-[11px] px-2.5 py-1 rounded-md border border-white/20 transition-colors"
-                  >
-                    Criminology / Law
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleLoadSample('marine')}
-                    className="bg-white/10 hover:bg-white/20 text-white text-[11px] px-2.5 py-1 rounded-md border border-white/20 transition-colors"
-                  >
-                    Marine Biology
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <textarea
-                  rows={3}
-                  placeholder="Paste raw resume, CV, or LinkedIn summary here..."
-                  value={rawResumeText}
-                  onChange={(e) => setRawResumeText(e.target.value)}
-                  className="w-full bg-white/95 text-slate-900 text-xs p-3 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-amber-400 font-mono shadow-inner placeholder:text-slate-400"
-                />
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-                <div className="text-xs text-sky-200 flex items-center gap-2">
-                  {isParsingAi && (
-                    <div className="flex items-center gap-2 text-amber-300 font-medium animate-pulse">
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>{aiParseStatus || 'Analyzing credentials against CSC standards...'}</span>
-                    </div>
-                  )}
-                  {!isParsingAi && aiParseStatus && (
-                    <span className="text-emerald-300 font-medium flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" />
-                      {aiParseStatus}
-                    </span>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  disabled={isParsingAi || !rawResumeText.trim()}
-                  onClick={handleParseWithAi}
-                  className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs px-5 py-2 rounded-lg flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95"
-                >
-                  <Wand2 className="w-4 h-4" />
-                  <span>{isParsingAi ? 'Parsing Credentials...' : 'Extract & Auto-Fill with AI'}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* PERSONAL INFORMATION (CS FORM 212 SHEET 1) */}
-          <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-200">
-              <User className="w-4 h-4 text-[#024794]" />
-              <h3 className="font-bold text-slate-900 text-sm">
-                I. Personal Information (CS Form 212 Sheet 1)
-              </h3>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-              <div className="sm:col-span-2">
-                <label className="font-semibold text-slate-700 block mb-1">
-                  Full Legal Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={personalInfo.fullName}
-                  onChange={(e) => setPersonalInfo({ ...personalInfo, fullName: e.target.value })}
-                  placeholder="e.g. Danica Flores Ramos"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-[#024794]"
-                />
-              </div>
-
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Civil Status</label>
-                <select
-                  value={personalInfo.civilStatus}
-                  onChange={(e) => setPersonalInfo({ ...personalInfo, civilStatus: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-[#024794]"
-                >
-                  <option value="Single">Single</option>
-                  <option value="Married">Married</option>
-                  <option value="Widowed">Widowed</option>
-                  <option value="Separated">Separated</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">
-                  Email Address <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="email"
-                  required
-                  value={personalInfo.email}
-                  onChange={(e) => setPersonalInfo({ ...personalInfo, email: e.target.value })}
-                  placeholder="applicant@example.ph"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-[#024794]"
-                />
-              </div>
-
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Mobile Contact No.</label>
-                <input
-                  type="tel"
-                  value={personalInfo.phone}
-                  onChange={(e) => setPersonalInfo({ ...personalInfo, phone: e.target.value })}
-                  placeholder="+63 917 845 2311"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-[#024794]"
-                />
-              </div>
-
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">Date of Birth</label>
-                <input
-                  type="date"
-                  value={personalInfo.birthDate}
-                  onChange={(e) => setPersonalInfo({ ...personalInfo, birthDate: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-[#024794]"
-                />
-              </div>
-
-              <div className="sm:col-span-3">
-                <label className="font-semibold text-slate-700 block mb-1">
-                  Permanent Residential Address
-                </label>
-                <input
-                  type="text"
-                  value={personalInfo.residentialAddress}
-                  onChange={(e) =>
-                    setPersonalInfo({ ...personalInfo, residentialAddress: e.target.value })
-                  }
-                  placeholder="House No., Street, Barangay, Municipality/City, Province, ZIP"
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-[#024794]"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* EDUCATIONAL BACKGROUND WITH UNITS EARNED */}
-          <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <GraduationCap className="w-4 h-4 text-[#024794]" />
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm">
-                    II. Educational Background (College / Graduate / Vocational)
-                  </h3>
-                  <span className="text-[11px] text-slate-500">
-                    Includes units earned, academic honors, and degree specifications
-                  </span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setEducation([
-                    ...education,
-                    {
-                      level: 'College / Tertiary',
-                      degree: '',
-                      school: '',
-                      yearGraduated: '',
-                      unitsEarned: '',
-                      honors: 'None',
-                    },
-                  ])
-                }
-                className="text-xs text-[#024794] hover:underline font-semibold flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Education Entry</span>
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {education.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="bg-slate-50 p-4 rounded-xl border border-slate-200 relative text-xs space-y-3"
-                >
-                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                    <div>
-                      <label className="font-semibold text-slate-700 block mb-1">Level</label>
-                      <select
-                        value={item.level}
-                        onChange={(e) => {
-                          const updated = [...education];
-                          updated[idx].level = e.target.value;
-                          setEducation(updated);
-                        }}
-                        className="w-full bg-white border border-slate-300 rounded-lg p-2 focus:ring-1 focus:ring-[#024794]"
-                      >
-                        <option value="College / Tertiary">College / Tertiary</option>
-                        <option value="Graduate Studies (Masteral)">
-                          Graduate Studies (Masteral)
-                        </option>
-                        <option value="Doctorate Degree">Doctorate Degree</option>
-                        <option value="Vocational / Technical">Vocational / Technical</option>
-                      </select>
-                    </div>
-                    <div className="sm:col-span-2">
-                      <label className="font-semibold text-slate-700 block mb-1">
-                        Degree / Course Title <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={item.degree}
-                        onChange={(e) => {
-                          const updated = [...education];
-                          updated[idx].degree = e.target.value;
-                          setEducation(updated);
-                        }}
-                        placeholder="e.g. Bachelor of Science in Fisheries (Major in Aquaculture)"
-                        className="w-full bg-white border border-slate-300 rounded-lg p-2 focus:ring-1 focus:ring-[#024794]"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-semibold text-slate-700 block mb-1">
-                        Year Graduated / Attendance
-                      </label>
-                      <input
-                        type="text"
-                        value={item.yearGraduated}
-                        onChange={(e) => {
-                          const updated = [...education];
-                          updated[idx].yearGraduated = e.target.value;
-                          setEducation(updated);
-                        }}
-                        placeholder="e.g. 2018"
-                        className="w-full bg-white border border-slate-300 rounded-lg p-2 focus:ring-1 focus:ring-[#024794]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="font-semibold text-slate-700 block mb-1">
-                        Name of School / University
-                      </label>
-                      <input
-                        type="text"
-                        value={item.school}
-                        onChange={(e) => {
-                          const updated = [...education];
-                          updated[idx].school = e.target.value;
-                          setEducation(updated);
-                        }}
-                        placeholder="e.g. University of the Philippines Los Baños"
-                        className="w-full bg-white border border-slate-300 rounded-lg p-2 focus:ring-1 focus:ring-[#024794]"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-semibold text-slate-700 block mb-1">
-                        Units Earned (if not graduated / graduate studies)
-                      </label>
-                      <input
-                        type="text"
-                        value={item.unitsEarned || ''}
-                        onChange={(e) => {
-                          const updated = [...education];
-                          updated[idx].unitsEarned = e.target.value;
-                          setEducation(updated);
-                        }}
-                        placeholder="e.g. 148 Units (Degree Completed) or 36 Units Completed"
-                        className="w-full bg-white border border-slate-300 rounded-lg p-2 focus:ring-1 focus:ring-[#024794]"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-semibold text-slate-700 block mb-1">
-                        Academic Honors / Awards Received
-                      </label>
-                      <input
-                        type="text"
-                        value={item.honors || ''}
-                        onChange={(e) => {
-                          const updated = [...education];
-                          updated[idx].honors = e.target.value;
-                          setEducation(updated);
-                        }}
-                        placeholder="e.g. Cum Laude, Dean's Lister, None"
-                        className="w-full bg-white border border-slate-300 rounded-lg p-2 focus:ring-1 focus:ring-[#024794]"
-                      />
-                    </div>
-                  </div>
-
-                  {education.length > 1 && (
-                    <div className="flex justify-end pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setEducation(education.filter((_, i) => i !== idx))}
-                        className="text-red-500 hover:text-red-700 text-xs flex items-center gap-1"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        <span>Remove Row</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* CIVIL SERVICE ELIGIBILITY & PRC LICENSES */}
-          <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <Award className="w-4 h-4 text-[#024794]" />
-                <h3 className="font-bold text-slate-900 text-sm">
-                  III. Civil Service Eligibility &amp; PRC Board Licenses (RA 1080 / CSC)
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setEligibility([...eligibility, { type: '', licenseNo: '', rating: '', examDate: '' }])
-                }
-                className="text-xs text-[#024794] hover:underline font-semibold flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Eligibility</span>
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {eligibility.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200 relative text-xs"
-                >
-                  <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      Career Service / RA 1080 Board
-                    </label>
-                    <input
-                      type="text"
-                      value={item.type}
-                      onChange={(e) => {
-                        const updated = [...eligibility];
-                        updated[idx].type = e.target.value;
-                        setEligibility(updated);
-                      }}
-                      placeholder="e.g. RA 1080 (Fisheries Technologist)"
-                      className="w-full bg-white border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-[#024794]"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      License / Certificate No.
-                    </label>
-                    <input
-                      type="text"
-                      value={item.licenseNo}
-                      onChange={(e) => {
-                        const updated = [...eligibility];
-                        updated[idx].licenseNo = e.target.value;
-                        setEligibility(updated);
-                      }}
-                      placeholder="e.g. FT-004821"
-                      className="w-full bg-white border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-[#024794]"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-semibold text-slate-700 block mb-1">Rating / Score</label>
-                    <input
-                      type="text"
-                      value={item.rating}
-                      onChange={(e) => {
-                        const updated = [...eligibility];
-                        updated[idx].rating = e.target.value;
-                        setEligibility(updated);
-                      }}
-                      placeholder="e.g. 88.40%"
-                      className="w-full bg-white border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-[#024794]"
-                    />
-                  </div>
-                  <div className="flex items-end gap-2">
-                    <div className="flex-1">
-                      <label className="font-semibold text-slate-700 block mb-1">
-                        Conferment / Exam Date
-                      </label>
-                      <input
-                        type="text"
-                        value={item.examDate}
-                        onChange={(e) => {
-                          const updated = [...eligibility];
-                          updated[idx].examDate = e.target.value;
-                          setEligibility(updated);
-                        }}
-                        placeholder="e.g. Oct 2019"
-                        className="w-full bg-white border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-[#024794]"
-                      />
-                    </div>
-                    {eligibility.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setEligibility(eligibility.filter((_, i) => i !== idx))}
-                        className="text-red-500 hover:text-red-700 p-2"
-                        title="Remove row"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* RELEVANT WORK EXPERIENCE */}
-          <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-[#024794]" />
-                <h3 className="font-bold text-slate-900 text-sm">
-                  IV. Relevant Work Experience (Gov &amp; Private Track)
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setWorkExperience([
-                    ...workExperience,
-                    {
-                      position: '',
-                      agencyOrCompany: '',
-                      fromDate: '',
-                      toDate: '',
-                      isGovService: false,
-                      description: '',
-                    },
-                  ])
-                }
-                className="text-xs text-[#024794] hover:underline font-semibold flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Experience</span>
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {workExperience.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2 text-xs"
-                >
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="font-semibold text-slate-700 block mb-1">Position Title</label>
-                      <input
-                        type="text"
-                        value={item.position}
-                        onChange={(e) => {
-                          const updated = [...workExperience];
-                          updated[idx].position = e.target.value;
-                          setWorkExperience(updated);
-                        }}
-                        placeholder="e.g. Technical Field Specialist"
-                        className="w-full bg-white border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-[#024794]"
-                      />
-                    </div>
-                    <div>
-                      <label className="font-semibold text-slate-700 block mb-1">
-                        Department / Agency / Company
-                      </label>
-                      <input
-                        type="text"
-                        value={item.agencyOrCompany}
-                        onChange={(e) => {
-                          const updated = [...workExperience];
-                          updated[idx].agencyOrCompany = e.target.value;
-                          setWorkExperience(updated);
-                        }}
-                        placeholder="e.g. BFAR Central Office"
-                        className="w-full bg-white border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-[#024794]"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1">
-                        <label className="font-semibold text-slate-700 block mb-1">Duration</label>
-                        <input
-                          type="text"
-                          value={item.fromDate ? `${item.fromDate} to ${item.toDate}` : ''}
-                          onChange={(e) => {
-                            const updated = [...workExperience];
-                            updated[idx].fromDate = e.target.value;
-                            setWorkExperience(updated);
-                          }}
-                          placeholder="e.g. 2022 to Present"
-                          className="w-full bg-white border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-[#024794]"
-                        />
-                      </div>
-                      {workExperience.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setWorkExperience(workExperience.filter((_, i) => i !== idx))
-                          }
-                          className="text-red-500 hover:text-red-700 p-2 mt-5"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      Summary of Actual Duties &amp; Responsibilities
-                    </label>
-                    <input
-                      type="text"
-                      value={item.description}
-                      onChange={(e) => {
-                        const updated = [...workExperience];
-                        updated[idx].description = e.target.value;
-                        setWorkExperience(updated);
-                      }}
-                      placeholder="Brief description of fisheries, regulatory, technical, or research tasks performed..."
-                      className="w-full bg-white border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-[#024794]"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* LEARNING & DEVELOPMENT / TRAININGS WITH CSC HOUR VALIDATION */}
-          <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[#024794]" />
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm">
-                    V. Learning &amp; Development (L&amp;D) Interventions / Trainings
-                  </h3>
-                  <span className="text-[11px] text-slate-500">
-                    CSC Rule: Resource Person (RP) roles, Facilitator engagements, and Conferences are
-                    automatically excluded.
-                  </span>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setTraining([
-                    ...training,
-                    { title: '', hours: 8, provider: '', year: new Date().getFullYear().toString() },
-                  ])
-                }
-                className="text-xs text-[#024794] hover:underline font-semibold flex items-center gap-1"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Add Training</span>
-              </button>
-            </div>
-
-            {/* CSC Training Hours Live Audit Alert */}
-            <div className="bg-sky-50 border border-sky-200 p-3.5 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 font-bold text-[#024794]">
-                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                  <span>Civil Service Commission (CSC) Training Hours Validation</span>
-                </div>
-                <p className="text-[11px] text-slate-600">
-                  Only formal structured courses attended count toward QS. Resource Person (RP),
-                  Facilitator, and Conference attendances are excluded.
-                </p>
-              </div>
-              <div className="flex items-center gap-4 text-xs font-mono shrink-0">
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-500 uppercase block font-sans">
-                    Qualifying Hours
-                  </span>
-                  <span className="font-extrabold text-emerald-700 text-sm">
-                    {trainingAudit.qualifying} Hours
-                  </span>
-                </div>
-                {trainingAudit.excluded > 0 && (
-                  <div className="text-right">
-                    <span className="text-[10px] text-amber-600 uppercase block font-sans font-bold">
-                      Excluded
-                    </span>
-                    <span className="font-bold text-amber-700 text-sm">
-                      -{trainingAudit.excluded} Hours
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Flagged entries warning notice if any */}
-            {trainingAudit.flagged.length > 0 && (
-              <div className="bg-amber-50 border border-amber-300 p-3 rounded-lg space-y-1.5 text-xs text-amber-900">
-                <div className="flex items-center gap-1.5 font-bold">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                  <span>Non-Qualifying Training Entries Detected &amp; Automatically Flagged:</span>
-                </div>
-                <ul className="list-disc list-inside space-y-1 text-[11px] text-amber-800">
-                  {trainingAudit.flagged.map((f, i) => (
-                    <li key={i}>
-                      <strong>"{f.title}"</strong> ({f.hours} hrs) — {f.reason}
+            {/* Duties and Competencies */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                <span className="font-bold text-slate-800 block text-xs">Duties &amp; Responsibilities:</span>
+                <ul className="space-y-1.5 text-[11px] text-slate-700">
+                  {activeJob.dutiesAndResponsibilities.map((d, i) => (
+                    <li key={i} className="flex items-start gap-1.5">
+                      <span className="w-4 h-4 rounded-full bg-[#024794] text-white flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5">
+                        {i + 1}
+                      </span>
+                      <span>{d}</span>
                     </li>
                   ))}
                 </ul>
               </div>
-            )}
 
-            <div className="space-y-3">
-              {training.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200 relative text-xs"
-                >
-                  <div className="sm:col-span-2">
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      Title of Learning &amp; Development Program
-                    </label>
-                    <input
-                      type="text"
-                      value={item.title}
-                      onChange={(e) => {
-                        const updated = [...training];
-                        updated[idx].title = e.target.value;
-                        setTraining(updated);
-                      }}
-                      placeholder="e.g. Advanced Hatchery Management and Biosecurity"
-                      className="w-full bg-white border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-[#024794]"
-                    />
-                  </div>
-                  <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      Conducted / Sponsored By
-                    </label>
-                    <input
-                      type="text"
-                      value={item.provider}
-                      onChange={(e) => {
-                        const updated = [...training];
-                        updated[idx].provider = e.target.value;
-                        setTraining(updated);
-                      }}
-                      placeholder="e.g. DA-BFAR / SEAFDEC / CSC"
-                      className="w-full bg-white border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-[#024794]"
-                    />
-                  </div>
-                  <div className="flex items-end gap-2">
-                    <div className="flex-1">
-                      <label className="font-semibold text-slate-700 block mb-1">No. of Hours</label>
-                      <input
-                        type="number"
-                        value={item.hours}
-                        onChange={(e) => {
-                          const updated = [...training];
-                          updated[idx].hours = Number(e.target.value) || 0;
-                          setTraining(updated);
-                        }}
-                        className="w-full bg-white border border-slate-300 rounded p-1.5 focus:ring-1 focus:ring-[#024794]"
-                      />
-                    </div>
-                    {training.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setTraining(training.filter((_, i) => i !== idx))}
-                        className="text-red-500 hover:text-red-700 p-2"
-                        title="Remove row"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                <span className="font-bold text-slate-800 block text-xs">Required Competencies:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {activeJob.competencies.map((c, i) => (
+                    <span
+                      key={i}
+                      className="bg-blue-50 text-[#024794] border border-blue-200 px-2.5 py-1 rounded text-[11px] font-semibold"
+                    >
+                      {c}
+                    </span>
+                  ))}
                 </div>
-              ))}
+                <div className="pt-2 border-t border-slate-200">
+                  <a
+                    href="https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#024794] hover:underline"
+                  >
+                    <span>Verify at bfar.da.gov.ph/opportunities/job-vacancies-careers</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* APPLICATION LETTER / STATEMENT OF INTENT */}
-          <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
-              <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-[#024794]" />
-                <h3 className="font-bold text-slate-900 text-sm">
-                  VI. Application Letter (AL) Statement of Intent
-                </h3>
+          {/* GEMINI AI QUALIFICATION ASSESSMENT MODULE */}
+          <div className="bg-gradient-to-br from-[#024794] to-[#04336b] rounded-xl text-white p-6 shadow-md space-y-4 border border-blue-900">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center font-black">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm sm:text-base">
+                    Gemini AI-Assisted Qualification Assessment
+                  </h3>
+                  <p className="text-xs text-sky-200">
+                    Automated pre-screening comparing your PDS credentials against the vacancy's official QS.
+                  </p>
+                </div>
               </div>
+
               <button
                 type="button"
-                disabled={isGeneratingLetter}
-                onClick={handleGenerateCoverLetter}
-                className="bg-sky-50 hover:bg-sky-100 text-[#024794] border border-blue-300 text-xs font-semibold px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors self-start sm:self-auto"
+                onClick={handleRunAiFitAssessment}
+                disabled={isEvaluatingFit}
+                className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 transition-all shadow-md shrink-0"
               >
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span>
-                  {isGeneratingLetter
-                    ? 'Drafting Official Letter...'
-                    : 'Draft Formal Application Letter with AI'}
-                </span>
+                <RefreshCw className={`w-3.5 h-3.5 ${isEvaluatingFit ? 'animate-spin' : ''}`} />
+                <span>{isEvaluatingFit ? 'Evaluating Fit...' : 'Run / Re-evaluate AI Fit'}</span>
               </button>
             </div>
 
-            <div>
-              <textarea
-                rows={4}
-                value={statementOfIntent}
-                onChange={(e) => setStatementOfIntent(e.target.value)}
-                placeholder="State your reasons for applying and how your qualifications will support the statutory mission of the Bureau of Fisheries and Aquatic Resources..."
-                className="w-full bg-slate-50 border border-slate-300 rounded-lg p-3 text-xs leading-relaxed focus:ring-1 focus:ring-[#024794]"
-              />
-            </div>
+            {/* Assessment Result Panel */}
+            {aiFitAssessment ? (
+              <div className="bg-white/10 backdrop-blur-xs border border-white/20 rounded-xl p-4 space-y-3 text-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold">Overall Automated Match Score:</span>
+                    <span className="bg-white text-[#024794] font-black px-2.5 py-0.5 rounded text-sm">
+                      {aiFitAssessment.score} / 100
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-sky-200">Evaluated at {aiFitAssessment.evaluatedAt}</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] pt-1">
+                  <div className="bg-white/10 p-2 rounded">
+                    <span className="block text-sky-200">Education:</span>
+                    <span className="font-bold text-emerald-300">
+                      {aiFitAssessment.educationPass ? '✓ Verified Degree' : '⚠️ Under Review'}
+                    </span>
+                  </div>
+                  <div className="bg-white/10 p-2 rounded">
+                    <span className="block text-sky-200">Experience:</span>
+                    <span className="font-bold text-emerald-300">
+                      {aiFitAssessment.experiencePass ? '✓ Meets Standards' : '⚠️ Incomplete'}
+                    </span>
+                  </div>
+                  <div className="bg-white/10 p-2 rounded">
+                    <span className="block text-sky-200">Qualifying Training:</span>
+                    <span className="font-bold text-emerald-300">
+                      {trainingAudit.qualifying} Hours Verified
+                    </span>
+                  </div>
+                  <div className="bg-white/10 p-2 rounded">
+                    <span className="block text-sky-200">Eligibility:</span>
+                    <span className="font-bold text-emerald-300">
+                      {aiFitAssessment.eligibilityPass ? '✓ 2nd Level Eligible' : '⚠️ Missing'}
+                    </span>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-amber-200 italic pt-1 border-t border-white/10">
+                  *{aiFitAssessment.advisory}
+                </p>
+              </div>
+            ) : (
+              <div className="bg-white/10 border border-white/20 rounded-xl p-4 text-center text-xs text-sky-200">
+                Click <strong>"Run / Re-evaluate AI Fit"</strong> to audit your credentials against Civil
+                Service qualification standards.
+              </div>
+            )}
           </div>
 
           {/* Section Navigation Footer */}
           <div className="flex items-center justify-between pt-2">
             <button
               type="button"
-              onClick={() => setActiveSection('description')}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-all border border-slate-300"
+              onClick={() => setActiveSection('pds')}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-300"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Back: Section 1 - Description</span>
+              <span>Back: 2. Personal Data Sheet (PDS)</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveSection('file_uploads')}
-              className="bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm transition-all"
+              className="bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm"
             >
-              <span>Next: Section 3 - File Uploads</span>
+              <span>Proceed to Section 4: File Uploads</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -2335,7 +3760,7 @@ TRAININGS:
       )}
 
       {/* ========================================================================= */}
-      {/* SECTION 3: FILE UPLOADS (PL, ELIGIBILITY, TRAININGS, WE) */}
+      {/* SECTION 4: FILE UPLOADS (PRIMARY PLANTILLA DOCUMENTS) */}
       {/* ========================================================================= */}
       {activeSection === 'file_uploads' && (
         <div className="space-y-6">
@@ -2344,19 +3769,17 @@ TRAININGS:
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div>
                 <span className="bg-amber-400 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded uppercase tracking-wider inline-block mb-1">
-                  Section 3: Mandatory Plantilla File Uploads
+                  Section 4 of 6 • Mandatory Plantilla File Uploads
                 </span>
                 <h3 className="text-lg sm:text-xl font-black">
                   Upload Plantilla (PL), Eligibility, Trainings, and Work Experience (WE)
                 </h3>
                 <p className="text-xs text-sky-100 mt-0.5 max-w-2xl">
-                  Drag and drop files directly into their slots, or drop them into the universal scanner
-                  below. <strong>The system automatically organizes and corrects misplaced documents</strong>{' '}
-                  into their designated categories.
+                  Drag and drop files into their slots, or use the universal classifier. Misplaced files are{' '}
+                  <strong>automatically organized and corrected</strong> into their proper category.
                 </p>
               </div>
 
-              {/* Quick Actions */}
               <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <button
                   type="button"
@@ -2392,14 +3815,13 @@ TRAININGS:
                   }
                 }}
               />
-              <div className="w-12 h-12 bg-white/15 rounded-full flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
-                <Upload className="w-6 h-6 text-amber-300" />
+              <div className="w-10 h-10 bg-white/15 rounded-full flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
+                <Upload className="w-5 h-5 text-amber-300" />
               </div>
               <div className="text-xs">
                 <span className="font-bold text-white">Click or drag &amp; drop files here to auto-classify</span>
                 <p className="text-[11px] text-sky-200 mt-0.5">
-                  Universal scanner: automatically categorizes into Plantilla (PL), Eligibility,
-                  Trainings, or Work Experience (WE).
+                  Universal scanner: automatically identifies Plantilla, Eligibility, Trainings, or Work Experience.
                 </p>
               </div>
             </div>
@@ -2414,23 +3836,23 @@ TRAININGS:
                 <button
                   type="button"
                   onClick={() => handleTestAutoCorrection('eligibility-in-trainings')}
-                  className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-2.5 py-1 rounded border border-white/10 transition-colors"
+                  className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-2.5 py-1 rounded border border-white/10"
                 >
-                  Upload Eligibility into Trainings Slot
+                  Eligibility into Trainings
                 </button>
                 <button
                   type="button"
                   onClick={() => handleTestAutoCorrection('ipcr-in-pl')}
-                  className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-2.5 py-1 rounded border border-white/10 transition-colors"
+                  className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-2.5 py-1 rounded border border-white/10"
                 >
-                  Upload IPCR into Plantilla (PL) Slot
+                  IPCR into Plantilla
                 </button>
                 <button
                   type="button"
                   onClick={() => handleTestAutoCorrection('tor-in-we')}
-                  className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-2.5 py-1 rounded border border-white/10 transition-colors"
+                  className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-2.5 py-1 rounded border border-white/10"
                 >
-                  Upload TOR into Work Experience Slot
+                  TOR into Work Experience
                 </button>
               </div>
             </div>
@@ -2476,7 +3898,6 @@ TRAININGS:
                     <p className="text-[11px] text-slate-600 leading-relaxed">{cat.description}</p>
                   </div>
 
-                  {/* Uploaded Documents List in this category */}
                   {catDocs.length > 0 ? (
                     <div className="space-y-1.5 pt-2 border-t border-slate-100">
                       {catDocs.map((doc) => (
@@ -2493,9 +3914,8 @@ TRAININGS:
                               <div className="flex items-center gap-2 text-[10px] text-slate-400">
                                 <span>{doc.fileSize}</span>
                                 {doc.autoCorrected && (
-                                  <span className="bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded text-[9px] flex items-center gap-1">
-                                    <Sparkles className="w-2.5 h-2.5" />
-                                    <span>Auto-Corrected from {doc.originalCategory}</span>
+                                  <span className="bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded text-[9px]">
+                                    Auto-Corrected from {doc.originalCategory}
                                   </span>
                                 )}
                               </div>
@@ -2520,7 +3940,6 @@ TRAININGS:
                     </div>
                   )}
 
-                  {/* Slot Upload Button */}
                   <div className="pt-2">
                     <input
                       ref={(el) => {
@@ -2552,18 +3971,18 @@ TRAININGS:
           <div className="flex items-center justify-between pt-2">
             <button
               type="button"
-              onClick={() => setActiveSection('requirements')}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-all border border-slate-300"
+              onClick={() => setActiveSection('position_qs')}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-300"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Back: Section 2 - Requirements</span>
+              <span>Back: 3. Position Description &amp; QS</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveSection('other_documents')}
-              className="bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm transition-all"
+              className="bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm"
             >
-              <span>Next: Section 4 - Other Documents</span>
+              <span>Proceed to Section 5: Other Documents</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
@@ -2571,19 +3990,18 @@ TRAININGS:
       )}
 
       {/* ========================================================================= */}
-      {/* SECTION 4: OTHER DOCUMENTS (TOR, DIPLOMA, REG, CERT, SWORNS, PCR, POTENTIAL) */}
+      {/* SECTION 5: OTHER DOCUMENTS */}
       {/* ========================================================================= */}
       {activeSection === 'other_documents' && (
         <div className="space-y-6">
-          {/* Header Card */}
           <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-6 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
               <div>
                 <span className="text-[10px] font-black uppercase text-[#024794] tracking-wider block mb-0.5">
-                  Section 4: Supplementary &amp; Compliance Attachments
+                  Section 5 of 6 • Supplementary Documents Checklist
                 </span>
                 <h3 className="text-lg sm:text-xl font-black text-slate-900">
-                  Other Documents Checklist
+                  Other Documents &amp; Compliance Attachments
                 </h3>
                 <p className="text-xs text-slate-600 mt-0.5">
                   Upload your Transcript of Records (TOR), Diploma, Registration (REG), Certificates (CERT),
@@ -2601,7 +4019,6 @@ TRAININGS:
               </button>
             </div>
 
-            {/* Checklist Status Counter */}
             <div className="flex items-center justify-between text-xs bg-slate-50 p-3 rounded-lg border border-slate-200">
               <span className="font-bold text-slate-700">Other Documents Uploaded:</span>
               <span className="font-extrabold text-[#024794] bg-white px-2.5 py-1 rounded border border-slate-200">
@@ -2610,7 +4027,7 @@ TRAININGS:
             </div>
           </div>
 
-          {/* 7 DEDICATED OTHER DOCUMENT CARDS */}
+          {/* 7 CATEGORIES GRID */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {OTHER_CATEGORIES.map((cat) => {
               const catDocs = documentsUploaded.filter((d) => d.category === cat.code);
@@ -2620,9 +4037,7 @@ TRAININGS:
                 <div
                   key={cat.code}
                   className={`bg-white rounded-xl border p-4 space-y-3 transition-all flex flex-col justify-between ${
-                    isFilled
-                      ? 'border-emerald-300 shadow-xs ring-1 ring-emerald-200'
-                      : 'border-slate-200 shadow-xs'
+                    isFilled ? 'border-emerald-300 shadow-xs ring-1 ring-emerald-200' : 'border-slate-200 shadow-xs'
                   }`}
                 >
                   <div className="space-y-2">
@@ -2650,7 +4065,6 @@ TRAININGS:
                     <p className="text-[11px] text-slate-600 leading-relaxed">{cat.description}</p>
                   </div>
 
-                  {/* Uploaded File Listing for this category */}
                   {catDocs.length > 0 ? (
                     <div className="space-y-1 pt-2 border-t border-slate-100">
                       {catDocs.map((doc) => (
@@ -2676,7 +4090,7 @@ TRAININGS:
                             onClick={() => handleRemoveDoc(doc.id)}
                             className="text-red-400 hover:text-red-600 p-1 shrink-0"
                           >
-                            <Trash2 className="w-3 h-3" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       ))}
@@ -2689,7 +4103,6 @@ TRAININGS:
                     </div>
                   )}
 
-                  {/* Slot Button */}
                   <div>
                     <input
                       ref={(el) => {
@@ -2708,7 +4121,7 @@ TRAININGS:
                       onClick={() => slotInputRefs.current[cat.code]?.click()}
                       className="w-full bg-slate-50 hover:bg-slate-100 text-[#024794] border border-blue-200 rounded-lg py-1.5 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
                     >
-                      <Paperclip className="w-3 h-3" />
+                      <Paperclip className="w-3.5 h-3.5" />
                       <span>Upload {cat.shortLabel}</span>
                     </button>
                   </div>
@@ -2717,42 +4130,209 @@ TRAININGS:
             })}
           </div>
 
-          {/* FINAL SUBMISSION CONSOLE */}
-          <div className="bg-slate-900 text-white rounded-xl p-6 shadow-lg space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          {/* Section Navigation Footer */}
+          <div className="flex items-center justify-between pt-2">
+            <button
+              type="button"
+              onClick={() => setActiveSection('file_uploads')}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-300"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back: 4. File Uploads</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveSection('review_submit')}
+              className="bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm"
+            >
+              <span>Proceed to Section 6: Review &amp; Submit</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SECTION 6: REVIEW & SUBMIT */}
+      {/* ========================================================================= */}
+      {activeSection === 'review_submit' && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-6 space-y-4">
+            <div className="border-b border-slate-200 pb-3">
+              <span className="text-[10px] font-black uppercase text-[#024794] tracking-wider block mb-0.5">
+                Section 6 of 6 • Final Verification
+              </span>
+              <h3 className="text-xl font-black text-slate-900">
+                Consolidated Application Review &amp; Official Submission
+              </h3>
+              <p className="text-xs text-slate-600 mt-0.5">
+                Carefully review all six sections before submitting. Once submitted, your docket is forwarded
+                to the DA-BFAR Human Resource Merit Promotion and Selection Board (HRMPSB).
+              </p>
+            </div>
+
+            {/* Checklist Overview Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              {/* Card 1: Application Letter Status */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-[#024794]" />
+                    <span>1. Application Letter</span>
+                  </span>
+                  {applicationLetterText ? (
+                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">
+                      Complete
+                    </span>
+                  ) : (
+                    <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded">
+                      Pending
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-600 line-clamp-3">
+                  {applicationLetterText
+                    ? applicationLetterText.substring(0, 180) + '...'
+                    : 'No letter text recorded.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveSection('letter')}
+                  className="text-xs font-bold text-[#024794] hover:underline"
+                >
+                  Edit Application Letter →
+                </button>
+              </div>
+
+              {/* Card 2: PDS CS Form 212 Status */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <User className="w-4 h-4 text-[#024794]" />
+                    <span>2. Personal Data Sheet (PDS)</span>
+                  </span>
+                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">
+                    CS Form 212 Accomplished
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-600">
+                  <span>Name: <strong>{personalInfo.fullName}</strong></span>
+                  <span>Education: <strong>{education.length} entries</strong></span>
+                  <span>Eligibility: <strong>{eligibility.length} entries</strong></span>
+                  <span>Experience: <strong>{workExperience.length} entries</strong></span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveSection('pds')}
+                  className="text-xs font-bold text-[#024794] hover:underline"
+                >
+                  Edit PDS Fields →
+                </button>
+              </div>
+
+              {/* Card 3: Position & QS Fit */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <Building2 className="w-4 h-4 text-[#024794]" />
+                    <span>3. Target Position &amp; QS Fit</span>
+                  </span>
+                  <span className="bg-[#024794] text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                    SG-{activeJob.salaryGrade}
+                  </span>
+                </div>
+                <p className="font-bold text-slate-900 text-xs">{activeJob.positionTitle}</p>
+                <p className="text-[11px] text-slate-500 font-mono">{activeJob.itemNo}</p>
+                <div className="flex items-center gap-2 text-[11px] text-emerald-700 font-semibold">
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{trainingAudit.qualifying} qualifying training hours verified</span>
+                </div>
+              </div>
+
+              {/* Card 4: Documents Uploaded Status */}
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <Paperclip className="w-4 h-4 text-[#024794]" />
+                    <span>4 &amp; 5. Documents Attached</span>
+                  </span>
+                  <span className="font-bold text-[#024794]">
+                    {documentsUploaded.length} files attached
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-slate-600">
+                  <span>Primary Plantilla Files: {primaryUploadCount}/4</span>
+                  <span>Other Documents: {otherUploadCount}/7</span>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('file_uploads')}
+                    className="text-xs font-bold text-[#024794] hover:underline"
+                  >
+                    Manage Primary Files →
+                  </button>
+                  <span className="text-slate-400">•</span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSection('other_documents')}
+                    className="text-xs font-bold text-[#024794] hover:underline"
+                  >
+                    Manage Other Docs →
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Final Legal Oath & Signature Box */}
+            <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 space-y-3 text-xs">
+              <span className="font-bold text-amber-900 block text-xs flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-amber-700" />
+                <span>Applicant Affirmation and Digital Certification</span>
+              </span>
+              <p className="text-amber-800 leading-relaxed text-[11px]">
+                I hereby declare under the penalties of perjury that all answers and declarations made in this
+                application, including my Personal Data Sheet (CS Form 212) and all attached documents, are true,
+                correct, and authentic. I authorize the DA-BFAR HRMPSB to verify the authenticity of all credentials.
+              </p>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-amber-200/60">
+                <div className="text-[11px] text-slate-700">
+                  Applicant: <strong>{personalInfo.fullName}</strong> • Date: {new Date().toLocaleDateString('en-PH')}
+                </div>
+                <span className="inline-flex items-center gap-1 bg-white border border-amber-300 text-amber-900 px-3 py-1 rounded font-bold text-[11px]">
+                  <BadgeCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>Digitally Signed</span>
+                </span>
+              </div>
+            </div>
+
+            {/* SUBMIT BUTTON BAR */}
+            <div className="bg-slate-900 text-white rounded-xl p-6 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h4 className="font-extrabold text-sm flex items-center gap-2">
                   <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                  <span>Ready to Submit Official Application to DA-BFAR</span>
+                  <span>Ready to Transmit Application to DA-BFAR</span>
                 </h4>
-                <p className="text-xs text-slate-300 mt-1">
-                  Target: <strong>{activeJob.positionTitle}</strong> (Salary Grade {activeJob.salaryGrade}) •
-                  Item: {activeJob.itemNo}
+                <p className="text-xs text-slate-400 mt-1">
+                  Target Plantilla Item: <strong>{activeJob.itemNo}</strong> ({activeJob.positionTitle})
                 </p>
-                <div className="flex items-center gap-3 text-[11px] text-slate-400 mt-2">
-                  <span>Primary Uploads: {primaryUploadCount}/4</span>
-                  <span>•</span>
-                  <span>Other Documents: {otherUploadCount}/7</span>
-                  <span>•</span>
-                  <span>Qualifying Training: {trainingAudit.qualifying} Hours</span>
-                </div>
               </div>
 
               <button
                 type="button"
                 onClick={handleSubmitApplication}
                 disabled={isSubmitting}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-8 py-3 rounded-lg flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 disabled:opacity-50 shrink-0"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-8 py-3.5 rounded-lg flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 disabled:opacity-50 shrink-0"
               >
                 {isSubmitting ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Screening &amp; Submitting...</span>
+                    <span>Submitting Application Docket...</span>
                   </>
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
-                    <span>Submit Official Application</span>
+                    <span>Submit Official Application to DA-BFAR</span>
                   </>
                 )}
               </button>
@@ -2763,11 +4343,11 @@ TRAININGS:
           <div className="flex items-center justify-between pt-2">
             <button
               type="button"
-              onClick={() => setActiveSection('file_uploads')}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-all border border-slate-300"
+              onClick={() => setActiveSection('other_documents')}
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-300"
             >
               <ArrowLeft className="w-4 h-4" />
-              <span>Back: Section 3 - File Uploads</span>
+              <span>Back: 5. Other Documents</span>
             </button>
           </div>
         </div>

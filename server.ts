@@ -152,6 +152,10 @@ interface ApplicationRecord {
     year: string;
   }>;
   statementOfIntent: string;
+  applicationLetterText?: string;
+  applicationLetterUploadedFile?: string;
+  pdsData?: any;
+  voluntaryWork?: any[];
   documentsUploaded: ApplicantDocument[];
   aiScreening: {
     overallScore: number;
@@ -601,11 +605,11 @@ let applicationsStore: ApplicationRecord[] = [
     },
     status: 'HRMPSB Deliberation & Interview Scheduled',
     statusTimeline: [
-      { step: 'Application Received & Logged', date: '21 Oct 2026 08:30 AM', notes: 'Online application submitted with complete attachments.', by: 'Applicant', isCompleted: true, isCurrent: false },
-      { step: 'HR Document Verification', date: '21 Oct 2026 09:15 AM', notes: 'All mandatory documents (AL, CS Form 212, IPCR, Competency Ratings) verified.', by: 'Central Office HR Administrative Section', isCompleted: true, isCurrent: false },
-      { step: 'CSC Qualification Standards (QS) Review', date: '21 Oct 2026 10:00 AM', notes: 'Candidate meets Education, Experience, Training (40 qualifying hrs), and Eligibility QS.', by: 'Central Office HR Recruitment Unit', isCompleted: true, isCurrent: false },
-      { step: 'HRMPSB Deliberation & Interview', date: 'Scheduled: 24 Oct 2026 10:00 AM', notes: 'Scheduled for HRMPSB panel deliberation at 3rd Floor Conference Room, PCA Bldg, Diliman, Quezon City.', by: 'HRMPSB Secretariat', isCompleted: false, isCurrent: true },
-      { step: 'Application Result', date: 'Pending', notes: 'Final board deliberation and appointment decision to be promulgated.', by: 'National Director / HRMPSB', isCompleted: false, isCurrent: false },
+      { step: 'Application Submitted', date: '21 Oct 2026 08:30 AM', notes: 'Online application submitted with complete attachments.', by: 'Applicant', isCompleted: true, isCurrent: false },
+      { step: 'Initial AI-Assisted Screening', date: '21 Oct 2026 08:35 AM', notes: 'Automated QS compliance score 96/100 verified.', by: 'BFAR AI Engine', isCompleted: true, isCurrent: false },
+      { step: 'HR Evaluation', date: '21 Oct 2026 09:15 AM', notes: 'All mandatory documents (AL, CS Form 212, IPCR, Competency Ratings) verified.', by: 'Central Office HR Administrative Section', isCompleted: true, isCurrent: false },
+      { step: 'Qualification Assessment', date: '21 Oct 2026 10:00 AM', notes: 'Candidate meets Education, Experience, Training (40 qualifying hrs), and Eligibility QS.', by: 'Central Office HR Recruitment Unit', isCompleted: true, isCurrent: true },
+      { step: 'Final Status / Notice of Result', date: 'Pending', notes: 'Final board deliberation and appointment decision to be promulgated.', by: 'National Director / HRMPSB', isCompleted: false, isCurrent: false },
     ],
     adminRemarks: 'Top-ranking applicant for Plantilla Item BFAR-OSEC-CO-AQ2-2026-042. Endorsed to HRMPSB for deliberation.',
     interviewScore: undefined,
@@ -743,11 +747,11 @@ let applicationsStore: ApplicationRecord[] = [
     },
     status: 'CSC QS Qualified - Under Review',
     statusTimeline: [
-      { step: 'Application Received & Logged', date: '21 Oct 2026 09:12 AM', notes: 'Submitted through online recruitment portal.', by: 'Applicant', isCompleted: true, isCurrent: false },
-      { step: 'HR Document Verification', date: '21 Oct 2026 10:00 AM', notes: 'AL, CS Form 212, IPCR, and credentials verified.', by: 'HR Specialist II', isCompleted: true, isCurrent: false },
-      { step: 'CSC Qualification Standards (QS) Review', date: '21 Oct 2026 10:45 AM', notes: 'Qualified under 2nd level CS Professional criteria (48 qualifying training hours).', by: 'HR Recruitment Unit', isCompleted: true, isCurrent: true },
-      { step: 'HRMPSB Deliberation & Interview', date: 'Pending Schedule', notes: 'To be scheduled for panel deliberation.', by: 'HRMPSB Panel', isCompleted: false, isCurrent: false },
-      { step: 'Application Result', date: 'Pending', notes: 'Awaiting board deliberation.', by: 'National Director / HRMPSB', isCompleted: false, isCurrent: false },
+      { step: 'Application Submitted', date: '21 Oct 2026 09:12 AM', notes: 'Submitted through online recruitment portal.', by: 'Applicant', isCompleted: true, isCurrent: false },
+      { step: 'Initial AI-Assisted Screening', date: '21 Oct 2026 09:15 AM', notes: 'Automated QS compliance score 89/100 verified.', by: 'BFAR AI Engine', isCompleted: true, isCurrent: false },
+      { step: 'HR Evaluation', date: '21 Oct 2026 10:00 AM', notes: 'AL, CS Form 212, IPCR, and credentials verified.', by: 'HR Specialist II', isCompleted: true, isCurrent: false },
+      { step: 'Qualification Assessment', date: '21 Oct 2026 10:45 AM', notes: 'Qualified under 2nd level CS Professional criteria (48 qualifying training hours).', by: 'HR Recruitment Unit', isCompleted: true, isCurrent: true },
+      { step: 'Final Status / Notice of Result', date: 'Pending', notes: 'Awaiting board deliberation.', by: 'National Director / HRMPSB', isCompleted: false, isCurrent: false },
     ],
     adminRemarks: 'Document verification and QS compliance complete. Ready for HRMPSB interview docket.',
     interviewScore: undefined,
@@ -862,11 +866,15 @@ app.post('/api/applications', async (req, res) => {
         minute: '2-digit',
       }),
       personalInfo: body.personalInfo,
+      pdsData: body.pdsData,
+      applicationLetterText: body.applicationLetterText || body.statementOfIntent || '',
+      applicationLetterUploadedFile: body.applicationLetterUploadedFile || '',
       education: body.education || [],
       eligibility: body.eligibility || [],
       workExperience: body.workExperience || [],
       training: body.training || [],
-      statementOfIntent: body.statementOfIntent || '',
+      voluntaryWork: body.voluntaryWork || [],
+      statementOfIntent: body.statementOfIntent || body.applicationLetterText || '',
       documentsUploaded: body.documentsUploaded || [
         { name: 'Application Letter (AL) addressed to National Director', type: 'PDF', status: 'Uploaded', fileSize: '1.2 MB', category: 'AL' },
         { name: 'Fully Accomplished CS Form 212 (PDS Revised 2017)', type: 'PDF', status: 'Uploaded', fileSize: '2.5 MB', category: 'PDS' },
@@ -879,39 +887,39 @@ app.post('/api/applications', async (req, res) => {
       status: 'Submitted',
       statusTimeline: [
         {
-          step: 'Application Received & Logged',
+          step: 'Application Submitted',
           date: new Date().toLocaleDateString('en-GB') + ' ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-          notes: 'Application registered in BFAR Recruitment and HRMIS database with mandatory documents.',
+          notes: 'Application registered in BFAR Recruitment and HRMIS database with complete PDS and documents.',
           by: 'Applicant Portal',
           isCompleted: true,
           isCurrent: false,
         },
         {
-          step: 'HR Document Verification',
+          step: 'Initial AI-Assisted Screening',
           date: 'In Queue',
-          notes: 'Authenticating AL, CS Form 212, IPCR rating, and Competency assessments.',
-          by: 'HR Recruitment & Selection Unit',
+          notes: `Automated QS pre-screening scored ${aiScreening.overallScore}/100. Verification in progress.`,
+          by: 'BFAR AI Engine & HR Unit',
           isCompleted: false,
           isCurrent: true,
         },
         {
-          step: 'CSC Qualification Standards (QS) Review',
+          step: 'HR Evaluation',
           date: 'Pending',
-          notes: 'Auditing Education, Experience, Qualifying Training (RP/Conferences excluded), and Eligibility.',
+          notes: 'Authenticating Application Letter, CS Form 212, IPCR rating, and Competency assessments.',
+          by: 'HR Recruitment & Selection Unit',
+          isCompleted: false,
+          isCurrent: false,
+        },
+        {
+          step: 'Qualification Assessment',
+          date: 'Pending',
+          notes: 'Comprehensive CSC Qualification Standards assessment and comparative scoring.',
           by: 'HRMPSB Secretariat',
           isCompleted: false,
           isCurrent: false,
         },
         {
-          step: 'HRMPSB Deliberation & Interview',
-          date: 'Pending',
-          notes: 'Human Resource Merit Promotion and Selection Board panel deliberation.',
-          by: 'HRMPSB Panel',
-          isCompleted: false,
-          isCurrent: false,
-        },
-        {
-          step: 'Application Result',
+          step: 'Final Status / Notice of Result',
           date: 'Pending',
           notes: 'Promulgation of final board decision and appointment recommendation.',
           by: 'National Director / HRMPSB',
@@ -976,12 +984,12 @@ app.patch('/api/applications/:id', (req, res) => {
       }
     } else if (status === 'HRMPSB Recommended for Appointment') {
       existing.statusTimeline.forEach((s) => {
-        if (!s.step.includes('Application Result')) {
+        if (!s.step.includes('Final Status') && !s.step.includes('Application Result')) {
           s.isCompleted = true;
           s.isCurrent = false;
         }
       });
-      const resultStep = existing.statusTimeline.find((s) => s.step.includes('Application Result'));
+      const resultStep = existing.statusTimeline.find((s) => s.step.includes('Final Status') || s.step.includes('Application Result'));
       if (resultStep) {
         resultStep.isCurrent = true;
         resultStep.notes = adminRemarks || 'Recommended by HRMPSB for Plantilla Appointment issuance.';
@@ -992,7 +1000,7 @@ app.patch('/api/applications/:id', (req, res) => {
         s.isCompleted = true;
         s.isCurrent = false;
       });
-      const resultStep = existing.statusTimeline.find((s) => s.step.includes('Application Result'));
+      const resultStep = existing.statusTimeline.find((s) => s.step.includes('Final Status') || s.step.includes('Application Result'));
       if (resultStep) {
         resultStep.isCompleted = true;
         resultStep.isCurrent = false;
