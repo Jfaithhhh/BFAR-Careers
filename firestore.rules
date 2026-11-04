@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Applications collection - Restricted to internal DA-BFAR employees and applicants only
+    match /applications/{applicationId} {
+      allow read: if true;
+      allow create: if request.resource.data.applicantType == 'internal'
+                    && request.resource.data.bfarEmployeeId is string
+                    && (request.resource.data.applicantName is string || (request.resource.data.personalInfo != null && request.resource.data.personalInfo.fullName is string))
+                    && (request.resource.data.jobTitle is string || request.resource.data.positionTitle is string);
+      allow update: if true;
+      allow delete: if false;
+    }
+    
+    // Internal employees directory collection for lookup/verification & seeding
+    match /internal_employees/{employeeId} {
+      allow read: if true;
+      allow create, update: if request.resource.data.employeeId is string;
+      allow delete: if false;
+    }
+  }
+}

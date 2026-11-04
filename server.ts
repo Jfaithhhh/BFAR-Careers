@@ -202,6 +202,16 @@ interface ApplicationRecord {
   adminRemarks: string;
   interviewScore?: number;
   finalBoardDecision?: 'Approved for Appointment' | 'Shortlisted / Lineup' | 'Deferred' | 'Not Selected';
+  // Internal Employee Specific Attributes
+  applicantType?: 'internal' | 'external';
+  bfarEmployeeId?: string;
+  currentDivision?: string;
+  currentPlantillaItem?: string;
+  currentSalaryGrade?: number;
+  yearsInBfar?: number;
+  latestIpcrRating?: number;
+  ipcrPeriod?: string;
+  promotionTrack?: 'Promotion' | 'Lateral Transfer' | 'Reassignment';
 }
 
 let jobsStore: PlantillaJob[] = [
@@ -480,6 +490,15 @@ let applicationsStore: ApplicationRecord[] = [
     plantillaItemNo: 'BFAR-OSEC-CO-AQ2-2026-042',
     region: 'Central Office (NCR) - Quezon City',
     submissionDate: '2026-10-21 08:30 AM',
+    applicantType: 'internal',
+    bfarEmployeeId: 'BFAR-EMP-2021-0988',
+    currentDivision: 'Aquaculture Division - National Fisheries Research & Broodstock Center',
+    currentPlantillaItem: 'BFARB-AQUAT1-04-2021',
+    currentSalaryGrade: 11,
+    yearsInBfar: 2.5,
+    latestIpcrRating: 4.80,
+    ipcrPeriod: 'January - June 2026 (Outstanding)',
+    promotionTrack: 'Promotion',
     personalInfo: {
       fullName: 'Engr. Danica Flores Ramos',
       email: 'danica.ramos@example.ph',
@@ -622,6 +641,15 @@ let applicationsStore: ApplicationRecord[] = [
     plantillaItemNo: 'BFAR-OSEC-CO-FRO2-2026-118',
     region: 'Central Office (NCR) - Quezon City',
     submissionDate: '2026-10-21 09:12 AM',
+    applicantType: 'internal',
+    bfarEmployeeId: 'BFAR-EMP-2019-0834',
+    currentDivision: 'Fisheries Protection and Law Enforcement Group (FPLEG)',
+    currentPlantillaItem: 'BFARB-FI1-45-2014',
+    currentSalaryGrade: 11,
+    yearsInBfar: 5,
+    latestIpcrRating: 4.75,
+    ipcrPeriod: 'July - December 2024',
+    promotionTrack: 'Promotion',
     personalInfo: {
       fullName: 'Marc Joshua Bautista Dela Cruz',
       email: 'mj.delacruz@example.ph',
@@ -758,9 +786,120 @@ let applicationsStore: ApplicationRecord[] = [
   },
 ];
 
+const internalEmployeesStore = [
+  {
+    employeeId: 'BFAR-EMP-2018-0412',
+    fullName: 'Maria Elena S. Santos',
+    email: 'maria.santos@bfar.da.gov.ph',
+    phone: '+63 917 882 1042',
+    birthDate: '1990-06-15',
+    civilStatus: 'Single',
+    residentialAddress: 'Quezon City, Metro Manila',
+    division: 'Fisheries Regulatory and Licensing Division (FRLD)',
+    station: 'Central Office, PCA Compound, Elliptical Road, Diliman, QC',
+    currentPlantillaItem: 'BFARB-AQUAT1-12-2004',
+    currentPositionTitle: 'Aquaculturist I',
+    salaryGrade: 11,
+    monthlySalary: 27000,
+    yearsInBfar: 6,
+    latestIpcrRating: 4.88,
+    ipcrPeriod: 'July - December 2024 (Outstanding)',
+    eligibility: 'RA 1080 (Fisheries Technologist Licensure Examination - 87.50%)',
+    highestEducation: 'College Graduate (BS Fisheries)',
+    degree: 'Bachelor of Science in Fisheries',
+    trainingHours: 48,
+    sex: 'Female',
+  },
+  {
+    employeeId: 'BFAR-EMP-2019-0834',
+    fullName: 'Juan Carlo D. Dela Cruz',
+    email: 'jcarlo.delacruz@bfar.da.gov.ph',
+    phone: '+63 920 944 3211',
+    birthDate: '1988-11-20',
+    civilStatus: 'Married',
+    residentialAddress: 'Marikina City, Metro Manila',
+    division: 'Capture Fisheries Division (CFD)',
+    station: 'National Center for Fisheries Development (NCFD)',
+    currentPlantillaItem: 'BFARB-FI1-45-2014',
+    currentPositionTitle: 'Fishing Regulations Officer I',
+    salaryGrade: 11,
+    monthlySalary: 27000,
+    yearsInBfar: 5,
+    latestIpcrRating: 4.75,
+    ipcrPeriod: 'July - December 2024 (Very Satisfactory)',
+    eligibility: 'Career Service Professional (CSC-CSCRO NCR - 85.20%)',
+    highestEducation: 'College Graduate (BS Marine Biology)',
+    degree: 'Bachelor of Science in Marine Biology',
+    trainingHours: 32,
+    sex: 'Male',
+  },
+  {
+    employeeId: 'BFAR-EMP-2020-0199',
+    fullName: 'Engr. Roberto Miguel V. Tan',
+    email: 'roberto.tan@bfar.da.gov.ph',
+    phone: '+63 908 555 8923',
+    birthDate: '1987-03-08',
+    civilStatus: 'Married',
+    residentialAddress: 'Valenzuela City, Metro Manila',
+    division: 'Fisheries Post-Harvest and Technology Division (FPHTD)',
+    station: 'Central Office, Diliman, Quezon City',
+    currentPlantillaItem: 'BFARB-ENG2-08-2016',
+    currentPositionTitle: 'Engineer II',
+    salaryGrade: 16,
+    monthlySalary: 39672,
+    yearsInBfar: 4,
+    latestIpcrRating: 4.92,
+    ipcrPeriod: 'July - December 2024 (Outstanding)',
+    eligibility: 'RA 1080 (PRC Registered Agricultural and Biosystems Engineer)',
+    highestEducation: 'College Graduate (BS Agricultural & Biosystems Engineering)',
+    degree: 'BS Agricultural and Biosystems Engineering',
+    trainingHours: 64,
+    sex: 'Male',
+  },
+  {
+    employeeId: 'BFAR-EMP-2021-0305',
+    fullName: 'Ana Patricia G. Mendoza',
+    email: 'ana.mendoza@bfar.da.gov.ph',
+    phone: '+63 915 222 7109',
+    birthDate: '1993-09-12',
+    civilStatus: 'Single',
+    residentialAddress: 'Pasig City, Metro Manila',
+    division: 'Fisheries Planning and Economics Division (FPED)',
+    station: 'Central Office, Diliman, Quezon City',
+    currentPlantillaItem: 'BFARB-ECO1-18-2019',
+    currentPositionTitle: 'Economist I',
+    salaryGrade: 11,
+    monthlySalary: 27000,
+    yearsInBfar: 3,
+    latestIpcrRating: 4.65,
+    ipcrPeriod: 'July - December 2024 (Very Satisfactory)',
+    eligibility: 'Career Service Professional (CSC - 86.40%)',
+    highestEducation: 'Master of Science in Agricultural Economics (with 24 units)',
+    degree: 'BS Economics / MS AgEcon units',
+    trainingHours: 24,
+    sex: 'Female',
+  },
+];
+
 // ==========================================
 // API ROUTES
 // ==========================================
+
+// Internal BFAR Employees Directory
+app.get('/api/internal-employees', (req, res) => {
+  res.json({ success: true, data: internalEmployeesStore });
+});
+
+app.get('/api/internal-employees/:id', (req, res) => {
+  const queryId = req.params.id.trim().toUpperCase();
+  const found = internalEmployeesStore.find(
+    (e) => e.employeeId.toUpperCase() === queryId || e.fullName.toUpperCase().includes(queryId)
+  );
+  if (!found) {
+    return res.status(404).json({ success: false, error: 'Internal employee record not found.' });
+  }
+  res.json({ success: true, data: found });
+});
 
 // 1. Get all jobs / vacancies
 app.get('/api/jobs', (req, res) => {
@@ -836,10 +975,19 @@ app.get('/api/applications/track/:code', (req, res) => {
   res.json({ success: true, data: application });
 });
 
-// 6. Submit Application with automated AI screening
+// 6. Submit Application with automated AI screening (Internal Employees Only)
 app.post('/api/applications', async (req, res) => {
   try {
     const body = req.body;
+
+    // RESTRICTION: System is strictly restricted to internal employees and personnel only
+    if (body.applicantType === 'external' || !body.bfarEmployeeId) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access Restricted: The DA-BFAR Recruitment & HRMIS Portal is exclusively restricted to verified internal DA-BFAR employees and personnel.',
+      });
+    }
+
     const targetJob = jobsStore.find((j) => j.id === body.jobId) || jobsStore[0];
 
     const trackingCode = `BFAR-${new Date().getFullYear()}-CO-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -858,6 +1006,15 @@ app.post('/api/applications', async (req, res) => {
       positionTitle: targetJob.positionTitle,
       plantillaItemNo: targetJob.itemNo,
       region: targetJob.region,
+      applicantType: 'internal',
+      bfarEmployeeId: body.bfarEmployeeId,
+      currentDivision: body.currentDivision || undefined,
+      currentPlantillaItem: body.currentPlantillaItem || undefined,
+      currentSalaryGrade: body.currentSalaryGrade ? Number(body.currentSalaryGrade) : undefined,
+      yearsInBfar: body.yearsInBfar ? Number(body.yearsInBfar) : undefined,
+      latestIpcrRating: body.latestIpcrRating ? Number(body.latestIpcrRating) : undefined,
+      ipcrPeriod: body.ipcrPeriod || undefined,
+      promotionTrack: body.promotionTrack || 'Promotion',
       submissionDate: new Date().toLocaleString('en-US', {
         year: 'numeric',
         month: 'short',
@@ -1281,6 +1438,13 @@ Prescribed CSC Qualification Standards:
 - Eligibility: ${targetJob.qualificationStandards.eligibility}
 
 APPLICANT PROFILE:
+- Classification: ${applicantData.applicantType === 'internal' ? 'INTERNAL BFAR EMPLOYEE (Candidate for Promotion / Lateral Transfer)' : 'EXTERNAL APPLICANT (New Entrant)'}
+${applicantData.applicantType === 'internal' ? `- BFAR Employee ID: ${applicantData.bfarEmployeeId || 'N/A'}
+- Current Plantilla Item & Title: ${applicantData.currentPlantillaItem || 'N/A'} (Salary Grade ${applicantData.currentSalaryGrade || 'N/A'})
+- Applying for Promotion to: Salary Grade ${targetJob.salaryGrade}
+- Years in BFAR Service: ${applicantData.yearsInBfar || 'N/A'} years
+- Latest IPCR Rating: ${applicantData.latestIpcrRating || 'N/A'}/5.00 (${applicantData.latestIpcrRating && applicantData.latestIpcrRating >= 4.5 ? 'Outstanding' : applicantData.latestIpcrRating && applicantData.latestIpcrRating >= 4.0 ? 'Very Satisfactory' : 'Below Standard'})
+- CSC Promotion Guideline: Under Civil Service Commission ORAOHRA rules, an employee must possess at least a "Very Satisfactory" (minimum 4.00) IPCR rating for promotional appointment.` : ''}
 - Full Name: ${applicantData.personalInfo?.fullName || 'Applicant'}
 - Education: ${JSON.stringify(applicantData.education || [])}
 - Eligibility / Licenses: ${JSON.stringify(applicantData.eligibility || [])}

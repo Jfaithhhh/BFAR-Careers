@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ApplicationRecord } from '../types';
+import { subscribeToSingleApplication } from '../lib/firestoreService';
 import {
   Search,
   CheckCircle2,
@@ -20,6 +21,10 @@ import {
   Check,
   AlertTriangle,
   BadgeCheck,
+  Radio,
+  UserCheck,
+  TrendingUp,
+  FileCheck2,
 } from 'lucide-react';
 
 interface ApplicationTrackerProps {
@@ -36,41 +41,81 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isLiveConnected, setIsLiveConnected] = useState(false);
+
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
-    if (initialTrackingCode) {
-      setTrackingInput(initialTrackingCode);
-      fetchApplicationByCode(initialTrackingCode);
-    } else if (recentApplications.length > 0) {
-      setTrackingInput(recentApplications[0].trackingCode);
-      fetchApplicationByCode(recentApplications[0].trackingCode);
+    const codeToTrack = initialTrackingCode || (recentApplications.length > 0 ? recentApplications[0].trackingCode : '');
+    if (codeToTrack) {
+      setTrackingInput(codeToTrack);
+      trackApplicationWithRealtime(codeToTrack);
     }
-  }, [initialTrackingCode, recentApplications]);
 
-  const fetchApplicationByCode = async (code: string) => {
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+      }
+    };
+  }, [initialTrackingCode]);
+
+  const trackApplicationWithRealtime = async (code: string) => {
     if (!code.trim()) return;
     setIsLoading(true);
     setErrorMessage(null);
 
+    // Clean up previous subscription
+    if (unsubscribeRef.current) {
+      unsubscribeRef.current();
+      unsubscribeRef.current = null;
+    }
+
+    const cleanCode = code.trim().toUpperCase();
+
+    // 1. Initial HTTP fetch from server API
     try {
-      const res = await fetch(`/api/applications/track/${encodeURIComponent(code.trim())}`);
+      const res = await fetch(`/api/applications/track/${encodeURIComponent(cleanCode)}`);
       const json = await res.json();
       if (json.success && json.data) {
         setCurrentApp(json.data);
       } else {
-        setCurrentApp(null);
-        setErrorMessage(json.error || 'No application record found for this tracking number.');
+        // Fallback: check recentApplications in memory
+        const found = recentApplications.find(
+          (a) => a.trackingCode.toUpperCase() === cleanCode || a.id.toUpperCase() === cleanCode
+        );
+        if (found) {
+          setCurrentApp(found);
+        } else {
+          setCurrentApp(null);
+          setErrorMessage(json.error || 'No application record found for this tracking number.');
+        }
       }
     } catch (err) {
-      setErrorMessage('Failed to connect to BFAR application tracking server.');
+      console.warn('API lookup error, checking local and Firestore:', err);
     } finally {
       setIsLoading(false);
+    }
+
+    // 2. Attach live Firestore subscription for real-time instant status updates
+    try {
+      const unsub = subscribeToSingleApplication(cleanCode, (updatedApp) => {
+        if (updatedApp) {
+          setCurrentApp(updatedApp);
+          setIsLiveConnected(true);
+          setErrorMessage(null);
+        }
+      });
+      unsubscribeRef.current = unsub;
+      setIsLiveConnected(true);
+    } catch (err) {
+      console.warn('Could not connect real-time Firestore listener:', err);
+      setIsLiveConnected(false);
     }
   };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchApplicationByCode(trackingInput);
+    trackApplicationWithRealtime(trackingInput);
   };
 
   const handleCopyCode = () => {
@@ -85,15 +130,16 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
       {/* Search Header */}
       <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-6 text-center space-y-4">
         <div className="max-w-xl mx-auto">
-          <span className="text-[11px] font-bold text-[#024794] uppercase tracking-widest block mb-1">
-            Official Application Tracker
-          </span>
+          <div className="inline-flex items-center gap-1.5 bg-blue-50 text-[#024794] text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider mb-2">
+            <Radio className="w-3 h-3 text-emerald-500 animate-pulse" />
+            <span>Official Application Tracker • Real-Time Database</span>
+          </div>
           <h2 className="text-xl sm:text-2xl font-black text-slate-900">
             Track Your Plantilla Application Status
           </h2>
           <p className="text-xs text-slate-600 mt-1">
-            Enter your official BFAR Application Reference Number (e.g. BFAR-2026-CO-8942) to check
-            document verification, CSC qualification review, and HRMPSB deliberation updates.
+            Enter your official BFAR Application Reference Number (e.g. BFAR-2026-CO-8942) to monitor
+            real-time document verification, AI pre-screening advisory evaluation, and HRMPSB deliberation updates.
           </p>
         </div>
 
@@ -118,304 +164,431 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
           </button>
         </form>
 
-        {/* Quick Test Demo Codes */}
-        <div className="flex flex-wrap items-center justify-center gap-2 pt-2 text-xs">
-          <span className="text-slate-500 text-[11px]">Quick test Central Office application:</span>
-          <button
-            type="button"
-            onClick={() => {
-              setTrackingInput('BFAR-2026-CO-8942');
-              fetchApplicationByCode('BFAR-2026-CO-8942');
-            }}
-            className="font-mono bg-blue-50 text-[#024794] border border-blue-200 px-2 py-0.5 rounded text-[11px] hover:bg-blue-100"
-          >
-            BFAR-2026-CO-8942 (Aquaculture Division)
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setTrackingInput('BFAR-2026-CO-7719');
-              fetchApplicationByCode('BFAR-2026-CO-7719');
-            }}
-            className="font-mono bg-blue-50 text-[#024794] border border-blue-200 px-2 py-0.5 rounded text-[11px] hover:bg-blue-100"
-          >
-            BFAR-2026-CO-7719 (FPLEG Enforcement)
-          </button>
-        </div>
+        {/* Quick Click from Recent Submissions */}
+        {recentApplications.length > 0 && (
+          <div className="max-w-xl mx-auto pt-2 flex flex-wrap items-center justify-center gap-2 text-xs">
+            <span className="text-slate-500 font-medium text-[11px]">Recent Submissions:</span>
+            {recentApplications.slice(0, 3).map((app) => (
+              <button
+                key={app.id}
+                type="button"
+                onClick={() => {
+                  setTrackingInput(app.trackingCode);
+                  trackApplicationWithRealtime(app.trackingCode);
+                }}
+                className={`font-mono text-[11px] px-2 py-0.5 rounded border transition-colors ${
+                  trackingInput.toUpperCase() === app.trackingCode.toUpperCase()
+                    ? 'bg-[#024794] text-white border-[#024794]'
+                    : 'bg-slate-50 hover:bg-blue-50 text-[#024794] border-slate-200'
+                }`}
+              >
+                {app.trackingCode} {app.applicantType === 'internal' && '(Internal)'}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Error Message */}
       {errorMessage && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg text-xs text-red-700 flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-          <span>{errorMessage}</span>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3 text-red-700 text-xs">
+          <AlertCircle className="w-5 h-5 shrink-0 text-red-600" />
+          <div className="flex-1">
+            <strong className="font-bold block">Application Not Found</strong>
+            <span>{errorMessage}</span>
+          </div>
         </div>
       )}
 
-      {/* Application Details & Stepper */}
+      {/* Application Details Card */}
       {currentApp && (
-        <div className="space-y-6 animate-in fade-in duration-200">
-          {/* Top Status Card */}
+        <div className="space-y-6">
+          {/* Main Top Summary Card */}
           <div className="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
-            <div className="bg-[#024794] text-white p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* Header Status Bar */}
+            <div className="bg-[#0b2447] text-white p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase">
-                    Civil Service Track
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm sm:text-base font-black text-amber-300">
+                    {currentApp.trackingCode}
                   </span>
-                  <div className="flex items-center gap-1.5 font-mono text-xs text-sky-200">
-                    <span>{currentApp.trackingCode}</span>
-                    <button
-                      onClick={handleCopyCode}
-                      className="text-white/80 hover:text-white p-0.5 rounded"
-                      title="Copy Reference Number"
-                    >
-                      {copied ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
+                  <button
+                    onClick={handleCopyCode}
+                    className="text-slate-300 hover:text-white p-1 rounded hover:bg-white/10 transition-colors"
+                    title="Copy Reference Number"
+                  >
+                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                  {isLiveConnected && (
+                    <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[9px] font-bold px-2 py-0.5 rounded-full">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      Real-Time Sync Active
+                    </span>
+                  )}
                 </div>
-                <h3 className="text-xl font-bold">{currentApp.positionTitle}</h3>
-                <p className="text-xs text-sky-200 mt-0.5">
-                  Plantilla Item: {currentApp.plantillaItemNo} • {currentApp.region}
-                </p>
+                <h3 className="text-base sm:text-lg font-bold text-white mt-1">
+                  {currentApp.positionTitle}
+                </h3>
+                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-300 mt-0.5">
+                  <span>Plantilla Item: <strong className="text-sky-200">{currentApp.plantillaItemNo}</strong></span>
+                  <span>•</span>
+                  <span>Region: {currentApp.region}</span>
+                </div>
               </div>
 
-              <div className="text-left sm:text-right">
-                <span className="text-[10px] text-sky-200 uppercase tracking-widest block font-bold">
-                  Current Official Stage
-                </span>
-                <span className="inline-block mt-1 font-bold text-xs px-3 py-1 rounded-full bg-white text-[#024794] shadow-xs">
-                  {currentApp.status}
-                </span>
-                <span className="text-[11px] text-sky-200 block mt-1">
+              {/* Status Pill & Track Badge */}
+              <div className="flex flex-col sm:items-end gap-1.5">
+                <div className="flex items-center gap-1.5">
+                  {currentApp.applicantType === 'internal' && (
+                    <span className="bg-purple-500/30 text-purple-200 border border-purple-400/50 text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1">
+                      <UserCheck className="w-3 h-3 text-purple-300" />
+                      <span>BFAR Internal Track</span>
+                    </span>
+                  )}
+                  <span className="bg-amber-400 text-slate-950 font-black text-xs px-3 py-1 rounded-full uppercase tracking-wider shadow-xs">
+                    {currentApp.status}
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-300">
                   Submitted: {currentApp.submissionDate}
                 </span>
               </div>
             </div>
 
-            {/* Stepper Pipeline: Streamlined 5-Stage Recruitment & Selection Milestone Tracker */}
-            <div className="p-6 bg-slate-50 border-b border-slate-200">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                  Recruitment &amp; Selection Milestone Tracker
-                </h4>
-                <span className="text-[11px] text-slate-500 font-medium">
-                  5 Key Civil Service Milestones
-                </span>
-              </div>
-
-              <div className="relative">
-                {/* 5-Stage Stepper Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
-                  {currentApp.statusTimeline.map((step, idx) => {
-                    const isDone = step.isCompleted;
-                    const isCurr = step.isCurrent;
-
-                    return (
-                      <div
-                        key={idx}
-                        className={`p-3 rounded-lg border text-xs flex flex-col justify-between transition-all ${
-                          isCurr
-                            ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-300/50 shadow-xs'
-                            : isDone
-                            ? 'bg-white border-emerald-300'
-                            : 'bg-slate-100/70 border-slate-200 opacity-60'
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between mb-1.5">
-                            <span
-                              className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] ${
-                                isDone
-                                  ? 'bg-emerald-600 text-white'
-                                  : isCurr
-                                  ? 'bg-amber-500 text-slate-950 font-black'
-                                  : 'bg-slate-300 text-slate-700'
-                              }`}
-                            >
-                              {isDone ? '✓' : idx + 1}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-mono">
-                              {step.date.split(' ')[0]}
-                            </span>
-                          </div>
-                          <p className="font-bold text-slate-900 text-[11px] leading-tight">
-                            {step.step}
-                          </p>
-                        </div>
-
-                        <p className="text-[10px] text-slate-500 mt-2 line-clamp-2">
-                          {step.notes || 'In queue'}
-                        </p>
-                      </div>
-                    );
-                  })}
+            {/* Internal BFAR Employee Metadata Banner (If Internal) */}
+            {currentApp.applicantType === 'internal' && (
+              <div className="bg-purple-50/70 border-b border-purple-200 p-4 text-xs text-purple-950 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-purple-600 text-white flex items-center justify-center font-black">
+                    <UserCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-extrabold block text-purple-900">
+                      DA-BFAR Personnel Internal Promotional Docket
+                    </span>
+                    <span className="text-[11px] text-purple-700">
+                      Employee ID: <strong className="font-mono">{currentApp.bfarEmployeeId || 'BFAR-EMP-VERIFIED'}</strong> • Track:{' '}
+                      <strong>{currentApp.promotionTrack || 'Promotion'}</strong>
+                    </span>
+                  </div>
                 </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                  {currentApp.currentSalaryGrade && (
+                    <span className="bg-white px-2 py-0.5 rounded border border-purple-200 font-semibold text-purple-800">
+                      Current Grade: SG {currentApp.currentSalaryGrade}
+                    </span>
+                  )}
+                  {currentApp.yearsInBfar !== undefined && (
+                    <span className="bg-white px-2 py-0.5 rounded border border-purple-200 font-semibold text-purple-800">
+                      Service: {currentApp.yearsInBfar} Years
+                    </span>
+                  )}
+                  {currentApp.latestIpcrRating && (
+                    <span className="bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded border border-emerald-300 font-bold flex items-center gap-1">
+                      <BadgeCheck className="w-3 h-3 text-emerald-600" />
+                      IPCR Rating: {currentApp.latestIpcrRating.toFixed(2)}/5.00
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Candidate Info Grid */}
+            <div className="p-4 sm:p-5 border-b border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
+              <div>
+                <span className="text-slate-400 block uppercase font-bold text-[10px]">Applicant Name:</span>
+                <strong className="text-slate-900 text-sm block mt-0.5">
+                  {currentApp.personalInfo.fullName}
+                </strong>
+                <span className="text-slate-500">{currentApp.personalInfo.civilStatus}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block uppercase font-bold text-[10px]">Contact Details:</span>
+                <span className="text-slate-800 block mt-0.5">{currentApp.personalInfo.email}</span>
+                <span className="text-slate-600 font-mono text-[11px]">{currentApp.personalInfo.phone}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block uppercase font-bold text-[10px]">Residential Address:</span>
+                <span className="text-slate-700 block mt-0.5 line-clamp-2">
+                  {currentApp.personalInfo.residentialAddress}
+                </span>
               </div>
             </div>
 
-            {/* AI Screening Review Box */}
-            <div className="p-6 bg-gradient-to-r from-blue-50/50 to-slate-50 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded bg-[#024794] text-white flex items-center justify-center">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-900 text-xs">
-                      AI Qualification Standards (QS) Audit Report
-                    </h4>
-                    <span className="text-[10px] text-slate-500">
-                      Evaluated by Gemini AI Engine against CSC Qualification Standards
-                    </span>
-                  </div>
-                </div>
-
-                <div className="text-right">
-                  <span className="text-[10px] text-slate-500 block uppercase font-bold">
-                    Suitability Index
-                  </span>
-                  <span className="text-base font-black text-[#024794]">
-                    {currentApp.aiScreening?.overallScore || 90}/100
-                  </span>
-                </div>
+            {/* REVISED 5-STAGE MILESTONE PIPELINE TRACKER */}
+            <div className="p-4 sm:p-6 bg-slate-50/50">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="font-bold text-xs sm:text-sm text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-[#024794]" />
+                  <span>Civil Service Recruitment &amp; Selection Milestone Pipeline</span>
+                </h4>
+                <span className="text-[10px] text-slate-500">DA-BFAR Merit Selection Plan (MSP)</span>
               </div>
 
-              {/* 4 QS pillars */}
-              {currentApp.aiScreening?.qsCompliance && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
-                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                    <span className="font-bold text-slate-800 block">Education:</span>
-                    <span className="text-slate-600 text-[10px]">
-                      {currentApp.aiScreening.qsCompliance.educationAnalysis}
-                    </span>
-                  </div>
-                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                    <span className="font-bold text-slate-800 block">Experience:</span>
-                    <span className="text-slate-600 text-[10px]">
-                      {currentApp.aiScreening.qsCompliance.experienceAnalysis}
-                    </span>
-                  </div>
-                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                    <span className="font-bold text-slate-800 block">Training Hours (CSC):</span>
-                    <span className="text-slate-600 text-[10px] block">
-                      {currentApp.aiScreening.qsCompliance.trainingAnalysis}
-                    </span>
-                    {currentApp.aiScreening.qsCompliance.flaggedTrainingEntries &&
-                      currentApp.aiScreening.qsCompliance.flaggedTrainingEntries.length > 0 && (
-                        <div className="mt-1 bg-amber-50 text-amber-800 border border-amber-200 p-1.5 rounded text-[9px] flex items-start gap-1">
-                          <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0 mt-0.5" />
-                          <span>
-                            <strong>CSC Rule:</strong> {currentApp.aiScreening.qsCompliance.excludedTrainingHours} hrs excluded (RP/Facilitator/Conference roles).
-                          </span>
-                        </div>
-                      )}
-                  </div>
-                  <div className="bg-white p-2.5 rounded-lg border border-slate-200">
-                    <span className="font-bold text-slate-800 block">Eligibility:</span>
-                    <span className="text-slate-600 text-[10px]">
-                      {currentApp.aiScreening.qsCompliance.eligibilityAnalysis}
-                    </span>
-                  </div>
-                </div>
-              )}
+              <div className="relative pl-6 sm:pl-8 space-y-6 before:absolute before:left-2.5 sm:before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+                {currentApp.statusTimeline.map((step, idx) => {
+                  const isDone = step.isCompleted;
+                  const isCur = step.isCurrent;
 
-              {/* Evaluator Remarks */}
-              <div className="bg-white p-3 rounded-lg border border-slate-200 text-xs">
-                <span className="font-bold text-slate-800 block mb-1">
-                  HR Reviewer &amp; HRMPSB Secretariat Remarks:
-                </span>
-                <p className="text-slate-600 italic">
-                  "{currentApp.adminRemarks || 'Document verification underway.'}"
-                </p>
-                {currentApp.interviewScore && (
-                  <div className="mt-2 inline-flex items-center gap-2 bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-1 rounded text-xs font-semibold">
-                    <span>HRMPSB Interview Score:</span>
-                    <span className="font-mono font-bold">{currentApp.interviewScore} / 100</span>
-                  </div>
-                )}
-                {currentApp.finalBoardDecision && (
-                  <div className="mt-2 inline-flex items-center gap-2 bg-blue-50 text-[#024794] border border-blue-200 px-2.5 py-1 rounded text-xs font-bold">
-                    <span>Application Result Decision:</span>
-                    <span>{currentApp.finalBoardDecision}</span>
-                  </div>
-                )}
+                  return (
+                    <div key={idx} className="relative group">
+                      {/* Step Circle Marker */}
+                      <div
+                        className={`absolute -left-6 sm:-left-8 top-0.5 w-5 h-5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center font-bold text-xs transition-all ${
+                          isDone
+                            ? 'bg-emerald-600 text-white ring-4 ring-emerald-100'
+                            : isCur
+                            ? 'bg-[#024794] text-white ring-4 ring-blue-100 animate-pulse'
+                            : 'bg-white border-2 border-slate-300 text-slate-400'
+                        }`}
+                      >
+                        {isDone ? (
+                          <Check className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+                        ) : (
+                          <span className="text-[10px] sm:text-xs">{idx + 1}</span>
+                        )}
+                      </div>
+
+                      {/* Step Content */}
+                      <div className="bg-white p-3.5 rounded-xl border border-slate-200/80 shadow-2xs space-y-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <h5
+                            className={`font-bold text-xs sm:text-sm ${
+                              isCur ? 'text-[#024794]' : isDone ? 'text-slate-900' : 'text-slate-500'
+                            }`}
+                          >
+                            {step.step}
+                          </h5>
+                          <div className="flex items-center gap-2">
+                            {isCur && (
+                              <span className="bg-amber-100 text-amber-900 text-[9px] font-extrabold px-1.5 py-0.2 rounded uppercase tracking-wide">
+                                In Progress
+                              </span>
+                            )}
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              {step.date}
+                            </span>
+                          </div>
+                        </div>
+
+                        <p className="text-xs text-slate-600">{step.notes}</p>
+                        <div className="text-[10px] text-slate-400 pt-1">
+                          Evaluated by: <strong className="text-slate-600">{step.by}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
 
-          {/* Applicant Credentials Summary Drawer */}
-          <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
-            <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider pb-2 border-b border-slate-200">
-              Submitted Application Dossier (CS Form 212 &amp; Mandatory Attachments)
-            </h4>
+          {/* GEMINI AI AUTOMATED QUALIFICATION STANDARDS (QS) ADVISORY EVALUATION */}
+          {currentApp.aiScreening && (
+            <div className="bg-white rounded-xl shadow-xs border border-blue-200 overflow-hidden space-y-4">
+              <div className="bg-gradient-to-r from-blue-900 to-[#024794] text-white p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-amber-300" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-sm text-white">
+                      Automated Qualification Standards (QS) Fit Evaluation
+                    </h4>
+                    <span className="text-[11px] text-blue-200">
+                      Powered by Gemini AI Engine • Generated at submission
+                    </span>
+                  </div>
+                </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
-              <div>
-                <span className="text-slate-400 text-[10px] block">Applicant Name</span>
-                <span className="font-semibold text-slate-800">{currentApp.personalInfo.fullName}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 text-[10px] block">Contact Email</span>
-                <span className="font-semibold text-slate-800">{currentApp.personalInfo.email}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 text-[10px] block">Mobile Phone</span>
-                <span className="font-semibold text-slate-800">{currentApp.personalInfo.phone}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 text-[10px] block">Highest Degree &amp; Honors</span>
-                <span className="font-semibold text-slate-800">
-                  {currentApp.education[0]?.degree || 'Bachelor Degree'}
-                  {currentApp.education[0]?.honors && currentApp.education[0].honors !== 'None' ? ` (${currentApp.education[0].honors})` : ''}
-                </span>
-                {currentApp.education[0]?.unitsEarned && (
-                  <span className="text-[10px] text-blue-700 block font-medium">
-                    Units Earned: {currentApp.education[0].unitsEarned}
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-blue-200">QS Fit Score:</span>
+                  <span className="bg-amber-400 text-slate-950 font-black text-xs px-2.5 py-1 rounded shadow-xs">
+                    {currentApp.aiScreening.overallScore} / 100
                   </span>
-                )}
+                </div>
               </div>
-              <div>
-                <span className="text-slate-400 text-[10px] block">Civil Service / PRC License</span>
-                <span className="font-semibold text-slate-800">
-                  {currentApp.eligibility[0]?.type || 'CS Professional'}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 text-[10px] block">Current / Recent Position</span>
-                <span className="font-semibold text-slate-800">
-                  {currentApp.workExperience[0]?.position || 'Specialist'}
-                </span>
-              </div>
-            </div>
 
-            {/* Document Checklist */}
-            <div className="pt-2">
-              <span className="text-[11px] font-bold text-slate-700 block mb-2">
-                Mandatory &amp; Supporting Documents Uploaded ({currentApp.documentsUploaded.length}):
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-                {currentApp.documentsUploaded.map((doc, idx) => (
-                  <div
-                    key={idx}
-                    className="p-2 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between gap-1.5"
-                  >
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="bg-[#024794] text-white font-mono font-bold text-[9px] px-1.5 py-0.5 rounded shrink-0">
-                        {doc.category || 'DOC'}
+              {/* MANDATORY LEGAL & CSC ADVISORY DISCLAIMER */}
+              <div className="px-5 pt-1">
+                <div className="bg-amber-50 border border-amber-300/80 rounded-lg p-3 flex items-start gap-2.5 text-xs text-amber-950">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5 leading-relaxed">
+                    <strong className="font-bold block text-amber-900">
+                      Notice of Advisory Status:
+                    </strong>
+                    <span>
+                      This AI-generated evaluation represents an automated preliminary pre-screening recommendation
+                      based strictly on CSC Qualification Standards (QS). <strong>It is NOT a final or binding hiring decision.</strong> Official
+                      review, comparative ranking, and final hiring recommendations remain exclusively under the authority
+                      of the DA-BFAR Human Resource Merit Promotion and Selection Board (HRMPSB) and the National Director.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-5 space-y-4 text-xs">
+                {/* Recommendation summary banner */}
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3.5 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">
+                    Initial Advisory Recommendation:
+                  </span>
+                  <div className="font-semibold text-slate-900 text-sm">
+                    {currentApp.aiScreening.summaryRecommendation}
+                  </div>
+                  <div className="text-[11px] text-slate-600 pt-0.5">
+                    Recommended Preliminary Status:{' '}
+                    <strong className="text-[#024794]">{currentApp.aiScreening.recommendedStatus}</strong>
+                  </div>
+                </div>
+
+                {/* 4 Pillars QS Compliance Breakdown */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Education */}
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                        <GraduationCap className="w-3.5 h-3.5 text-[#024794]" />
+                        Education QS
                       </span>
-                      <span className="truncate text-slate-800 text-[11px] font-medium" title={doc.name}>
-                        {doc.name}
+                      <span
+                        className={`font-bold text-[10px] px-1.5 py-0.2 rounded ${
+                          currentApp.aiScreening.qsCompliance.educationMatch
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {currentApp.aiScreening.qsCompliance.educationMatch ? 'Passed' : 'Review Needed'}
                       </span>
                     </div>
-                    {doc.autoCorrected && (
-                      <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1 rounded shrink-0">
-                        Auto-Sorted
-                      </span>
-                    )}
+                    <p className="text-[11px] text-slate-600">
+                      {currentApp.aiScreening.qsCompliance.educationAnalysis}
+                    </p>
                   </div>
-                ))}
+
+                  {/* Experience */}
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                        <Briefcase className="w-3.5 h-3.5 text-[#024794]" />
+                        Experience QS
+                      </span>
+                      <span
+                        className={`font-bold text-[10px] px-1.5 py-0.2 rounded ${
+                          currentApp.aiScreening.qsCompliance.experienceMatch
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {currentApp.aiScreening.qsCompliance.experienceMatch ? 'Passed' : 'Review Needed'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600">
+                      {currentApp.aiScreening.qsCompliance.experienceAnalysis}
+                    </p>
+                  </div>
+
+                  {/* Training Hours (With strict exclusion audit) */}
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                        <Award className="w-3.5 h-3.5 text-[#024794]" />
+                        Training Hours QS
+                      </span>
+                      <span
+                        className={`font-bold text-[10px] px-1.5 py-0.2 rounded ${
+                          currentApp.aiScreening.qsCompliance.trainingMatch
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {currentApp.aiScreening.qsCompliance.trainingMatch ? 'Passed' : 'Review Needed'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600">
+                      {currentApp.aiScreening.qsCompliance.trainingAnalysis}
+                    </p>
+                    <div className="pt-1 flex flex-wrap gap-2 text-[10px]">
+                      <span className="bg-emerald-50 text-emerald-800 font-bold px-1.5 py-0.2 rounded border border-emerald-200">
+                        Qualifying: {currentApp.aiScreening.qsCompliance.qualifyingTrainingHours || 0} Hours
+                      </span>
+                      {currentApp.aiScreening.qsCompliance.excludedTrainingHours > 0 && (
+                        <span className="bg-amber-50 text-amber-900 font-bold px-1.5 py-0.2 rounded border border-amber-300">
+                          Excluded non-qualifying: {currentApp.aiScreening.qsCompliance.excludedTrainingHours} Hours
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Eligibility */}
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                        <BadgeCheck className="w-3.5 h-3.5 text-[#024794]" />
+                        Civil Service Eligibility QS
+                      </span>
+                      <span
+                        className={`font-bold text-[10px] px-1.5 py-0.2 rounded ${
+                          currentApp.aiScreening.qsCompliance.eligibilityMatch
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {currentApp.aiScreening.qsCompliance.eligibilityMatch ? 'Passed' : 'Review Needed'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600">
+                      {currentApp.aiScreening.qsCompliance.eligibilityAnalysis}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Strengths */}
+                {currentApp.aiScreening.strengths && currentApp.aiScreening.strengths.length > 0 && (
+                  <div className="pt-2">
+                    <span className="font-bold text-slate-700 block mb-1">Key Strengths Identified:</span>
+                    <ul className="space-y-1">
+                      {currentApp.aiScreening.strengths.map((str, i) => (
+                        <li key={i} className="text-slate-600 flex items-start gap-2 text-[11px]">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                          <span>{str}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
+            </div>
+          )}
+
+          {/* Uploaded Documents Verification Status */}
+          <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-3">
+            <h4 className="font-bold text-xs sm:text-sm text-slate-900 uppercase tracking-wide flex items-center gap-2">
+              <FileCheck2 className="w-4 h-4 text-[#024794]" />
+              <span>Mandatory Application Documents Attached ({currentApp.documentsUploaded.length})</span>
+            </h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              {currentApp.documentsUploaded.map((doc, idx) => (
+                <div
+                  key={idx}
+                  className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between gap-2"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="w-4 h-4 text-[#024794] shrink-0" />
+                    <div className="truncate">
+                      <span className="font-semibold text-slate-800 block truncate">{doc.name}</span>
+                      <span className="text-[10px] text-slate-400">
+                        Category: {doc.category} • {doc.fileSize || 'PDF'}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="bg-emerald-100 text-emerald-800 font-bold text-[9px] px-2 py-0.5 rounded shrink-0">
+                    {doc.status || 'Verified'}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         </div>

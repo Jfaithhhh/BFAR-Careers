@@ -304,4 +304,39 @@ export interface ApplicationRecord {
     | 'Shortlisted / Lineup'
     | 'Deferred'
     | 'Not Selected';
+  // Internal Employee Specific Fields (Restricted to Internal DA-BFAR Personnel Only)
+  applicantType?: 'internal';
+  bfarEmployeeId?: string;
+  currentDivision?: string;
+  currentPlantillaItem?: string;
+  currentSalaryGrade?: number;
+  yearsInBfar?: number;
+  latestIpcrRating?: number;
+  ipcrPeriod?: string;
+  promotionTrack?: 'Promotion' | 'Lateral Transfer' | 'Reassignment';
 }
+
+export interface InternalEmployeeProfile {
+  employeeId: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  birthDate?: string;
+  civilStatus?: string;
+  residentialAddress?: string;
+  division: string;
+  station: string;
+  currentPlantillaItem: string;
+  currentPositionTitle: string;
+  salaryGrade: number;
+  monthlySalary: number;
+  yearsInBfar: number;
+  latestIpcrRating: number;
+  ipcrPeriod: string;
+  eligibility: string;
+  highestEducation: string;
+  degree: string;
+  trainingHours: number;
+  sex?: 'Male' | 'Female' | '';
+}
+

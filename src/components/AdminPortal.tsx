@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PlantillaJob, ApplicationRecord } from '../types';
+import { updateApplicationInFirestore } from '../lib/firestoreService';
 import {
   Users,
   Briefcase,
@@ -66,6 +67,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [jobFilter, setJobFilter] = useState('All');
+  const [applicantTypeFilter, setApplicantTypeFilter] = useState<'All' | 'internal'>('All');
 
   // Selected candidate for deep evaluation dossier
   const [selectedApp, setSelectedApp] = useState<ApplicationRecord | null>(null);
@@ -113,6 +115,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   ).length;
   const interviewCount = applications.filter((a) => a.status.includes('Interview')).length;
   const appointedCount = applications.filter((a) => a.status.includes('Appointment') || a.status.includes('Result')).length;
+  const internalCount = applications.filter((a) => a.applicantType === 'internal').length;
 
   // Filtered applicants
   const filteredApps = applications.filter((app) => {
@@ -123,7 +126,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       app.positionTitle.toLowerCase().includes(s);
     const matchesStatus = statusFilter === 'All' || app.status === statusFilter;
     const matchesJob = jobFilter === 'All' || app.jobId === jobFilter;
-    return matchesSearch && matchesStatus && matchesJob;
+    const matchesType =
+      applicantTypeFilter === 'All' ||
+      (applicantTypeFilter === 'internal' ? app.applicantType === 'internal' : app.applicantType !== 'internal');
+    return matchesSearch && matchesStatus && matchesJob && matchesType;
   });
 
   // Open dossier modal
@@ -155,6 +161,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       });
       const json = await res.json();
       if (json.success && json.data) {
+        // Real-time Firestore sync
+        try {
+          await updateApplicationInFirestore(selectedApp.id, updates);
+        } catch (fErr) {
+          console.warn('Firestore update sync error handled:', fErr);
+        }
         onUpdateApplication(selectedApp.id, json.data);
         setSelectedApp(json.data);
       }
@@ -517,21 +529,35 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
             </div>
 
-            <div className="flex items-center space-x-2">
-              <span className="text-slate-500 font-medium">Stage:</span>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-white border border-slate-300 rounded-md px-2 py-1.5 text-xs"
-              >
-                <option value="All">All Stages</option>
-                <option value="Submitted">Submitted</option>
-                <option value="Document Under Review">Document Under Review</option>
-                <option value="CSC QS Qualified - Under Review">CSC QS Qualified</option>
-                <option value="HRMPSB Deliberation & Interview Scheduled">HRMPSB Interview Scheduled</option>
-                <option value="HRMPSB Recommended for Appointment">Recommended for Appointment</option>
-                <option value="Application Result Released">Application Result Released</option>
-              </select>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center space-x-1">
+                <span className="text-slate-500 font-medium">Track:</span>
+                <select
+                  value={applicantTypeFilter}
+                  onChange={(e: any) => setApplicantTypeFilter(e.target.value)}
+                  className="bg-white border border-slate-300 rounded-md px-2 py-1.5 text-xs font-semibold text-purple-900"
+                >
+                  <option value="All">All Internal Staff ({totalApps})</option>
+                  <option value="internal">Promotion Track ({internalCount})</option>
+                </select>
+              </div>
+
+              <div className="flex items-center space-x-1">
+                <span className="text-slate-500 font-medium">Stage:</span>
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="bg-white border border-slate-300 rounded-md px-2 py-1.5 text-xs font-semibold text-slate-800"
+                >
+                  <option value="All">All Stages</option>
+                  <option value="Submitted">Submitted</option>
+                  <option value="Document Under Review">Document Under Review</option>
+                  <option value="CSC QS Qualified - Under Review">CSC QS Qualified</option>
+                  <option value="HRMPSB Deliberation & Interview Scheduled">HRMPSB Interview Scheduled</option>
+                  <option value="HRMPSB Recommended for Appointment">Recommended for Appointment</option>
+                  <option value="Application Result Released">Application Result Released</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -563,7 +589,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         {app.trackingCode}
                       </td>
                       <td className="py-3 px-3">
-                        <div className="font-bold text-slate-900">{app.personalInfo.fullName}</div>
+                        <div className="font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
+                          <span>{app.personalInfo.fullName}</span>
+                          {app.applicantType === 'internal' && (
+                            <span className="bg-purple-100 text-purple-900 text-[9px] font-extrabold px-1.5 py-0.2 rounded inline-flex items-center gap-1 border border-purple-200">
+                              <UserCheck className="w-2.5 h-2.5" />
+                              <span>BFAR Staff (SG {app.currentSalaryGrade || 11})</span>
+                            </span>
+                          )}
+                        </div>
                         <div className="text-[10px] text-slate-500">{app.personalInfo.email}</div>
                       </td>
                       <td className="py-3 px-3">
@@ -794,6 +828,47 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     </span>
                   </div>
                 </div>
+
+                {/* MANDATORY LEGAL & CSC ADVISORY DISCLAIMER */}
+                <div className="bg-amber-50 border border-amber-300 rounded-lg p-2.5 flex items-start gap-2 text-[11px] text-amber-900">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5 leading-relaxed">
+                    <strong className="font-bold">Initial AI Screening Recommendation (Advisory Only):</strong>
+                    <span>
+                      {' '}The QS evaluation below is an automated assessment to assist HRMPSB evaluators. Official qualification standards verification and final appointment decisions rest solely with authorized HR personnel, the HRMPSB, and the National Director.
+                    </span>
+                  </div>
+                </div>
+
+                {/* If Internal Applicant: Display Verified Internal Personnel Card */}
+                {selectedApp.applicantType === 'internal' && (
+                  <div className="bg-purple-100/70 border border-purple-200 rounded-lg p-3 text-[11px] text-purple-950 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <UserCheck className="w-4 h-4 text-purple-700 shrink-0" />
+                      <div>
+                        <strong className="block text-purple-900">
+                          DA-BFAR Internal Staff Promotion Profile
+                        </strong>
+                        <span className="text-purple-800">
+                          ID: <strong className="font-mono">{selectedApp.bfarEmployeeId || 'BFAR-EMP-VERIFIED'}</strong> • Division: {selectedApp.currentDivision || 'Central Office'} • Track: {selectedApp.promotionTrack || 'Promotion'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {selectedApp.currentSalaryGrade && (
+                        <span className="bg-white px-2 py-0.5 rounded font-bold text-purple-800 border border-purple-200">
+                          Current: SG {selectedApp.currentSalaryGrade}
+                        </span>
+                      )}
+                      {selectedApp.latestIpcrRating && (
+                        <span className="bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded font-bold border border-emerald-300 flex items-center gap-1">
+                          <BadgeCheck className="w-3 h-3 text-emerald-600" />
+                          IPCR: {selectedApp.latestIpcrRating.toFixed(2)}/5.00
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* 4 Pillars Matrix with Training Exclusion Notice */}
                 {selectedApp.aiScreening?.qsCompliance && (

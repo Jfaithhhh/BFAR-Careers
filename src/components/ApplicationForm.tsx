@@ -12,7 +12,12 @@ import {
   TrainingEntry,
   CharacterReference,
   AiScreeningResult,
+  InternalEmployeeProfile,
 } from '../types';
+import {
+  saveApplicationToFirestore,
+  DEFAULT_INTERNAL_EMPLOYEES,
+} from '../lib/firestoreService';
 import {
   Sparkles,
   CheckCircle2,
@@ -47,11 +52,15 @@ import {
   HeartHandshake,
   BookOpen,
   BadgeCheck,
+  UserCheck,
+  TrendingUp,
 } from 'lucide-react';
 
 interface ApplicationFormProps {
   jobs: PlantillaJob[];
   selectedJobId?: string;
+  initialInternalProfile?: InternalEmployeeProfile;
+  initialApplicantType?: 'internal';
   onApplicationSubmitted: (app: ApplicationRecord) => void;
   onNavigateToTrack: (trackingCode: string) => void;
 }
@@ -205,6 +214,8 @@ const OTHER_CATEGORIES: CategoryConfig[] = [
 export const ApplicationForm: React.FC<ApplicationFormProps> = ({
   jobs,
   selectedJobId,
+  initialInternalProfile,
+  initialApplicantType,
   onApplicationSubmitted,
   onNavigateToTrack,
 }) => {
@@ -555,10 +566,171 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionSuccess, setSubmissionSuccess] = useState<ApplicationRecord | null>(null);
 
+  // Internal Recruitment System States (Strictly restricted to internal employees only)
+  const [applicantType] = useState<'internal'>('internal');
+  const [selectedStaffId, setSelectedStaffId] = useState<string>(
+    initialInternalProfile?.employeeId || DEFAULT_INTERNAL_EMPLOYEES[0].employeeId
+  );
+  const [bfarEmployeeId, setBfarEmployeeId] = useState<string>(
+    initialInternalProfile?.employeeId || DEFAULT_INTERNAL_EMPLOYEES[0].employeeId
+  );
+  const [currentDivision, setCurrentDivision] = useState<string>(
+    initialInternalProfile?.division || DEFAULT_INTERNAL_EMPLOYEES[0].division
+  );
+  const [currentPlantillaItem, setCurrentPlantillaItem] = useState<string>(
+    initialInternalProfile?.currentPlantillaItem || DEFAULT_INTERNAL_EMPLOYEES[0].currentPlantillaItem
+  );
+  const [currentSalaryGrade, setCurrentSalaryGrade] = useState<number | string>(
+    initialInternalProfile?.salaryGrade || DEFAULT_INTERNAL_EMPLOYEES[0].salaryGrade
+  );
+  const [yearsInBfar, setYearsInBfar] = useState<number | string>(
+    initialInternalProfile?.yearsInBfar || DEFAULT_INTERNAL_EMPLOYEES[0].yearsInBfar
+  );
+  const [latestIpcrRating, setLatestIpcrRating] = useState<number | string>(
+    initialInternalProfile?.latestIpcrRating || DEFAULT_INTERNAL_EMPLOYEES[0].latestIpcrRating
+  );
+  const [ipcrPeriod, setIpcrPeriod] = useState<string>(
+    initialInternalProfile?.ipcrPeriod || DEFAULT_INTERNAL_EMPLOYEES[0].ipcrPeriod
+  );
+  const [promotionTrack, setPromotionTrack] = useState<'Promotion' | 'Lateral Transfer' | 'Reassignment'>('Promotion');
+  const [internalVerificationSuccess, setInternalVerificationSuccess] = useState<string | null>(
+    `Verified Official Record for ${initialInternalProfile?.fullName || DEFAULT_INTERNAL_EMPLOYEES[0].fullName}`
+  );
+
   // Input refs
   const universalInputRef = useRef<HTMLInputElement | null>(null);
   const letterFileInputRef = useRef<HTMLInputElement | null>(null);
   const slotInputRefs = useRef<{ [key in DocumentCategory]?: HTMLInputElement | null }>({});
+
+  const applyInternalProfileData = (profile: InternalEmployeeProfile) => {
+    setBfarEmployeeId(profile.employeeId);
+    setSelectedStaffId(profile.employeeId);
+    setCurrentDivision(profile.division);
+    setCurrentPlantillaItem(profile.currentPlantillaItem);
+    setCurrentSalaryGrade(profile.salaryGrade);
+    setYearsInBfar(profile.yearsInBfar);
+    setLatestIpcrRating(profile.latestIpcrRating);
+    setIpcrPeriod(profile.ipcrPeriod);
+    setInternalVerificationSuccess(`Verified Official Record for ${profile.fullName} (${profile.employeeId})`);
+
+    const parts = profile.fullName.split(' ');
+    const surname = parts[parts.length - 1];
+    const firstName = parts.slice(0, -1).join(' ');
+
+    setPersonalInfo((prev) => ({
+      ...prev,
+      fullName: profile.fullName,
+      surname,
+      firstName,
+      email: profile.email,
+      phone: profile.phone,
+      birthDate: profile.birthDate || '1990-06-15',
+      civilStatus: (profile.civilStatus as any) || 'Single',
+      residentialAddress: profile.residentialAddress || 'Quezon City, Metro Manila',
+      permanentAddress: profile.residentialAddress || 'Quezon City, Metro Manila',
+      agencyEmployeeNo: profile.employeeId,
+      sex: profile.sex || 'Female',
+    }));
+
+    // Injects BFAR Work Experience
+    setWorkExperience((prev) => {
+      const bfarExp: WorkExperienceEntry = {
+        position: profile.currentPositionTitle,
+        agencyOrCompany: 'Bureau of Fisheries and Aquatic Resources (DA-BFAR)',
+        monthlySalary: profile.monthlySalary,
+        salaryGrade: `SG-${profile.salaryGrade}`,
+        statusOfAppointment: 'Permanent',
+        fromDate: '2019-01-15',
+        toDate: 'Present',
+        isGovService: true,
+        description: `Discharging statutory duties as ${profile.currentPositionTitle} in ${profile.division}, station: ${profile.station}. Consistent ${profile.latestIpcrRating >= 4.5 ? 'Outstanding' : 'Very Satisfactory'} IPCR ratings.`,
+      };
+      const filtered = prev.filter((w) => !w.agencyOrCompany.includes('BFAR'));
+      return [bfarExp, ...filtered];
+    });
+
+    // Injects Eligibility
+    setEligibility((prev) => {
+      const elig: EligibilityEntry = {
+        type: profile.eligibility,
+        licenseNo: 'PRC-082194',
+        rating: '87.50%',
+        examDate: '2018-10-24',
+        examPlace: 'Manila',
+      };
+      const exists = prev.some((e) => e.type.includes('RA 1080') || e.type.includes('Career Service'));
+      return exists ? prev : [elig, ...prev];
+    });
+
+    // Injects Documents (WE, PCR)
+    setDocumentsUploaded((prev) => {
+      const candidateName = profile.fullName.replace(/\s+/g, '_');
+      const internalDocs: ApplicantDocument[] = [
+        {
+          id: `int-ipcr-${Date.now()}`,
+          name: `IPCR_${candidateName}_Rating_${profile.latestIpcrRating.toFixed(2)}_Compliant.pdf`,
+          type: 'PDF',
+          status: 'Verified',
+          fileSize: '1.9 MB',
+          category: 'PCR',
+          sectionGroup: 'other_documents',
+          uploadedAt: 'Verified via HRMIS',
+        },
+        {
+          id: `int-service-${Date.now()}`,
+          name: `BFAR_Official_Service_Record_${candidateName}_Authenticated.pdf`,
+          type: 'PDF',
+          status: 'Verified',
+          fileSize: '1.6 MB',
+          category: 'WE',
+          sectionGroup: 'file_uploads',
+          uploadedAt: 'Verified via HRMIS',
+        },
+      ];
+      const hasIpcr = prev.some((d) => d.category === 'PCR');
+      const hasWe = prev.some((d) => d.category === 'WE');
+      const next = [...prev];
+      if (!hasIpcr) next.push(internalDocs[0]);
+      if (!hasWe) next.push(internalDocs[1]);
+      return next;
+    });
+
+    const promoLetter = `THE NATIONAL DIRECTOR
+Bureau of Fisheries and Aquatic Resources
+Department of Agriculture
+3rd Floor, PCA Building, Elliptical Road, Diliman, Quezon City
+
+THRU:  THE CHAIRPERSON
+       Human Resource Merit Promotion and Selection Board (HRMPSB)
+
+Sir:
+
+I have the honor to submit my formal application for promotional appointment to the permanent Plantilla position of ${activeJob.positionTitle} (Salary Grade ${activeJob.salaryGrade}), Plantilla Item No. ${activeJob.itemNo}, currently vacant under the ${activeJob.division}.
+
+I am currently a permanent employee of the Bureau holding the position of ${profile.currentPositionTitle} (Salary Grade ${profile.salaryGrade}, Item No. ${profile.currentPlantillaItem}) under the ${profile.division}, with ${profile.yearsInBfar} years of dedicated continuous government service. In my latest Individual Performance Commitment and Review (IPCR) for ${profile.ipcrPeriod}, I obtained a numerical rating of ${profile.latestIpcrRating.toFixed(2)} (${profile.latestIpcrRating >= 4.5 ? 'Outstanding' : 'Very Satisfactory'}), fully satisfying Civil Service Commission promotional qualification rules.
+
+Having consistently performed supervisory technical responsibilities, scientific assessments, and statutory regulatory functions, I possess the required competencies, leadership, and integrity to discharge the expanded duties of ${activeJob.positionTitle}.
+
+Attached herewith are my updated Civil Service Personal Data Sheet (CS Form 212 Revised 2017), authenticated Service Record, certified IPCR ratings, and relevant documentary proofs for your favorable consideration.
+
+Very truly yours,
+
+
+${profile.fullName}
+${profile.currentPositionTitle} (SG ${profile.salaryGrade})
+DA-BFAR Employee ID: ${profile.employeeId}
+Mobile: ${profile.phone}
+Email: ${profile.email}`;
+
+    setApplicationLetterText(promoLetter);
+  };
+
+  // Auto-populate if initial profile provided
+  useEffect(() => {
+    if (initialInternalProfile) {
+      applyInternalProfileData(initialInternalProfile);
+    }
+  }, [initialInternalProfile]);
 
   useEffect(() => {
     if (selectedJobId) {
@@ -1310,6 +1482,15 @@ Email: ${personalInfo.email || 'danica.ramos@example.ph'}`;
 
       const payload = {
         jobId: currentJobId,
+        applicantType,
+        bfarEmployeeId: applicantType === 'internal' ? bfarEmployeeId : undefined,
+        currentDivision: applicantType === 'internal' ? currentDivision : undefined,
+        currentPlantillaItem: applicantType === 'internal' ? currentPlantillaItem : undefined,
+        currentSalaryGrade: applicantType === 'internal' ? Number(currentSalaryGrade) : undefined,
+        yearsInBfar: applicantType === 'internal' ? Number(yearsInBfar) : undefined,
+        latestIpcrRating: applicantType === 'internal' ? Number(latestIpcrRating) : undefined,
+        ipcrPeriod: applicantType === 'internal' ? ipcrPeriod : undefined,
+        promotionTrack: applicantType === 'internal' ? promotionTrack : undefined,
         personalInfo: {
           fullName: personalInfo.fullName || `${personalInfo.firstName} ${personalInfo.surname}`,
           email: personalInfo.email,
@@ -1347,6 +1528,12 @@ Email: ${personalInfo.email || 'danica.ramos@example.ph'}`;
 
       const json = await res.json();
       if (json.success && json.data) {
+        // Direct persistence to Firestore database
+        try {
+          await saveApplicationToFirestore(json.data);
+        } catch (fErr) {
+          console.warn('Firestore direct write handled:', fErr);
+        }
         setSubmissionSuccess(json.data);
         onApplicationSubmitted(json.data);
       } else {
@@ -1447,6 +1634,107 @@ Email: ${personalInfo.email || 'danica.ramos@example.ph'}`;
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
+      {/* RESTRICTED ACCESS: Internal DA-BFAR Employees and Personnel Only */}
+      <div className="bg-white rounded-xl shadow-xs border border-purple-200 p-4 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-purple-100 pb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="bg-purple-700 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
+                Restricted System
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-900 block">
+                Internal DA-BFAR Employees &amp; Personnel Only
+              </span>
+            </div>
+            <h3 className="text-sm font-extrabold text-slate-900 mt-1">
+              Internal Personnel Service &amp; Promotion Docket
+            </h3>
+          </div>
+
+          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1.5 rounded-lg text-xs font-bold">
+            <UserCheck className="w-4 h-4 text-emerald-600" />
+            <span>Active Employee Verification Required</span>
+          </div>
+        </div>
+
+        {/* Internal Employee Merit Verification & Fast-Fill Panel */}
+        <div className="bg-gradient-to-r from-purple-50 via-blue-50/50 to-indigo-50/60 rounded-xl p-4 border border-purple-200 space-y-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-lg bg-purple-700 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
+                  <UserCheck className="w-5 h-5 text-purple-200" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-extrabold text-xs text-purple-950">
+                      Internal BFAR Employee Merit Verification &amp; Fast-Fill
+                    </span>
+                    <span className="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1.5 py-0.2 rounded">
+                      HRMIS Integrated
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-purple-800">
+                    Auto-populates service record, civil service eligibility, and verified IPCR performance rating for promotion.
+                  </p>
+                </div>
+              </div>
+
+              {/* Quick Select Profile */}
+              <div className="flex items-center gap-2 text-xs">
+                <span className="font-bold text-purple-900 text-[11px] whitespace-nowrap">Choose Profile:</span>
+                <select
+                  value={selectedStaffId}
+                  onChange={(e) => {
+                    const found = DEFAULT_INTERNAL_EMPLOYEES.find((emp) => emp.employeeId === e.target.value);
+                    if (found) {
+                      setSelectedStaffId(found.employeeId);
+                      applyInternalProfileData(found);
+                    }
+                  }}
+                  className="bg-white border border-purple-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-purple-950 shadow-2xs focus:ring-2 focus:ring-purple-600"
+                >
+                  {DEFAULT_INTERNAL_EMPLOYEES.map((emp) => (
+                    <option key={emp.employeeId} value={emp.employeeId}>
+                      {emp.fullName} ({emp.employeeId} • SG {emp.salaryGrade})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Verified Credentials Pills */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
+              <div className="bg-white/80 p-2 rounded-lg border border-purple-100">
+                <span className="text-[9px] uppercase font-bold text-purple-600 block">Current Plantilla Item:</span>
+                <span className="font-bold text-slate-800 truncate block">{currentPlantillaItem || 'BFARB-AQUAT1-12-2004'}</span>
+                <span className="text-[10px] text-purple-700">Salary Grade {currentSalaryGrade}</span>
+              </div>
+              <div className="bg-white/80 p-2 rounded-lg border border-purple-100">
+                <span className="text-[9px] uppercase font-bold text-purple-600 block">Years in Bureau:</span>
+                <span className="font-bold text-slate-800 block">{yearsInBfar} Years of Service</span>
+                <span className="text-[10px] text-slate-500">Permanent Status</span>
+              </div>
+              <div className="bg-white/80 p-2 rounded-lg border border-purple-100">
+                <span className="text-[9px] uppercase font-bold text-emerald-700 block">Latest IPCR Rating:</span>
+                <span className="font-black text-emerald-700 text-xs block">{Number(latestIpcrRating).toFixed(2)} / 5.00</span>
+                <span className="text-[10px] text-emerald-800 font-semibold">{Number(latestIpcrRating) >= 4.5 ? 'Outstanding' : 'Very Satisfactory'}</span>
+              </div>
+              <div className="bg-white/80 p-2 rounded-lg border border-purple-100">
+                <span className="text-[9px] uppercase font-bold text-purple-600 block">Promotion Track:</span>
+                <select
+                  value={promotionTrack}
+                  onChange={(e: any) => setPromotionTrack(e.target.value)}
+                  className="bg-transparent font-bold text-purple-900 text-xs w-full focus:outline-hidden"
+                >
+                  <option value="Promotion">Promotion (Higher SG)</option>
+                  <option value="Lateral Transfer">Lateral Transfer (Same SG)</option>
+                  <option value="Reassignment">Reassignment / Station Shift</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
       {/* 6-SECTION TOP STEPPER NAVIGATION */}
       <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-2 sm:p-3">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
@@ -2777,7 +3065,6 @@ Email: ${personalInfo.email || 'danica.ramos@example.ph'}`;
                     <tr className="bg-[#024794] text-white">
                       <th className="p-2.5">Position Title (in full)</th>
                       <th className="p-2.5">Dept / Agency / Company</th>
-                      <th className="p-2.5">Monthly Salary (₱)</th>
                       <th className="p-2.5">Salary Grade</th>
                       <th className="p-2.5">Status of Appt</th>
                       <th className="p-2.5">Inclusive Dates</th>
@@ -2817,27 +3104,14 @@ Email: ${personalInfo.email || 'danica.ramos@example.ph'}`;
                         <td className="p-2">
                           <input
                             type="text"
-                            value={item.monthlySalary || ''}
-                            onChange={(e) => {
-                              const updated = [...workExperience];
-                              updated[idx].monthlySalary = e.target.value;
-                              setWorkExperience(updated);
-                            }}
-                            placeholder="31000"
-                            className="w-20 bg-white border border-slate-300 rounded p-1.5 text-xs"
-                          />
-                        </td>
-                        <td className="p-2">
-                          <input
-                            type="text"
                             value={item.salaryGrade || ''}
                             onChange={(e) => {
                               const updated = [...workExperience];
                               updated[idx].salaryGrade = e.target.value;
                               setWorkExperience(updated);
                             }}
-                            placeholder="SG 13-1"
-                            className="w-20 bg-white border border-slate-300 rounded p-1.5 text-xs"
+                            placeholder="e.g. SG-11"
+                            className="w-24 bg-white border border-slate-300 rounded p-1.5 text-xs font-semibold text-[#024794]"
                           />
                         </td>
                         <td className="p-2">

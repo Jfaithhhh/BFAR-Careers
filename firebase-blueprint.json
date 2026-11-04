@@ -1,0 +1,69 @@
+{
+  "entities": {
+    "applications": {
+      "title": "Job Applications",
+      "description": "Plantilla vacancy applications from external and internal BFAR applicants, including CS Form 212 PDS, document uploads, and Gemini AI qualification evaluations.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "jobId": { "type": "string" },
+        "jobTitle": { "type": "string" },
+        "itemNumber": { "type": "string" },
+        "salaryGrade": { "type": "number" },
+        "division": { "type": "string" },
+        "applicantType": { "type": "string", "enum": ["internal"] },
+        "applicantName": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "bfarEmployeeId": { "type": "string" },
+        "currentDivision": { "type": "string" },
+        "currentPlantillaItem": { "type": "string" },
+        "currentSalaryGrade": { "type": "number" },
+        "yearsInBfar": { "type": "number" },
+        "latestIpcrRating": { "type": "number" },
+        "promotionTrack": { "type": "string" },
+        "applicationLetterText": { "type": "string" },
+        "applicationLetterUploadedFile": { "type": "string" },
+        "status": { "type": "string" },
+        "currentMilestone": { "type": "string" },
+        "finalDecision": { "type": "string" },
+        "hrRemarks": { "type": "string" },
+        "aiAssessment": { "type": "object" },
+        "pdsData": { "type": "object" },
+        "uploadedDocuments": { "type": "object" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "jobId", "jobTitle", "applicantName", "email", "applicantType", "bfarEmployeeId", "status"]
+    },
+    "internal_employees": {
+      "title": "BFAR Internal Employees",
+      "description": "Internal employee directory records for BFAR personnel applying for promotion or lateral transfer.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "fullName": { "type": "string" },
+        "email": { "type": "string" },
+        "division": { "type": "string" },
+        "plantillaItem": { "type": "string" },
+        "positionTitle": { "type": "string" },
+        "salaryGrade": { "type": "number" },
+        "yearsInService": { "type": "number" },
+        "latestIpcrRating": { "type": "number" },
+        "eligibility": { "type": "string" }
+      },
+      "required": ["employeeId", "fullName", "division"]
+    }
+  },
+  "firestore": {
+    "/applications/{applicationId}": {
+      "schema": "applications",
+      "description": "Applicant submissions tracking recruitment lifecycle and Gemini AI evaluations."
+    },
+    "/internal_employees/{employeeId}": {
+      "schema": "internal_employees",
+      "description": "Internal BFAR employee directory records for verification."
+    }
+  }
+}

@@ -2,23 +2,49 @@ import React, { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { JobsTable } from './components/JobsTable';
 import { ApplicationForm } from './components/ApplicationForm';
+import { InternalRecruitmentPortal } from './components/InternalRecruitmentPortal';
 import { ApplicationTracker } from './components/ApplicationTracker';
 import { AdminPortal } from './components/AdminPortal';
 import { Footer } from './components/Footer';
-import { PlantillaJob, ApplicationRecord } from './types';
+import { PlantillaJob, ApplicationRecord, InternalEmployeeProfile } from './types';
+import {
+  subscribeToApplications,
+  seedInternalEmployeesIfEmpty,
+} from './lib/firestoreService';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'jobs' | 'apply' | 'track' | 'admin'>('jobs');
+  const [activeTab, setActiveTab] = useState<'jobs' | 'apply' | 'internal' | 'track' | 'admin'>('jobs');
   const [jobs, setJobs] = useState<PlantillaJob[]>([]);
   const [applications, setApplications] = useState<ApplicationRecord[]>([]);
   const [selectedJobIdForApply, setSelectedJobIdForApply] = useState<string>('');
+  const [selectedInternalProfile, setSelectedInternalProfile] = useState<InternalEmployeeProfile | undefined>(undefined);
   const [activeTrackingCode, setActiveTrackingCode] = useState<string>('');
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
 
-  // Load jobs and applications on mount
+  // Load jobs and initialize real-time Firestore listeners
   useEffect(() => {
     fetchJobs();
     fetchApplications();
+    seedInternalEmployeesIfEmpty();
+
+    // Subscribe to Firestore applications collection in real-time
+    const unsubscribe = subscribeToApplications((firestoreApps) => {
+      if (firestoreApps && firestoreApps.length > 0) {
+        setApplications((prev) => {
+          // Merge Firestore apps with memory store prioritizing Firestore records
+          const map = new Map<string, ApplicationRecord>();
+          prev.forEach((a) => map.set(a.id, a));
+          firestoreApps.forEach((a) => map.set(a.id, a));
+          return Array.from(map.values()).sort(
+            (a, b) => new Date(b.submissionDate).getTime() - new Date(a.submissionDate).getTime()
+          );
+        });
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const fetchJobs = async () => {
@@ -48,16 +74,25 @@ export default function App() {
     }
   };
 
-  // When applicant clicks "Apply" on a job
+  // When applicant clicks "Apply" on a job (External or Standard)
   const handleSelectJobForApply = (job: PlantillaJob) => {
     setSelectedJobIdForApply(job.id);
+    setSelectedInternalProfile(undefined);
+    setActiveTab('apply');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // When BFAR Employee clicks "Apply for Promotion" from Internal Portal
+  const handleSelectJobForInternalApply = (job: PlantillaJob, profile: InternalEmployeeProfile) => {
+    setSelectedJobIdForApply(job.id);
+    setSelectedInternalProfile(profile);
     setActiveTab('apply');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // When a new application is submitted
   const handleApplicationSubmitted = (newApp: ApplicationRecord) => {
-    setApplications((prev) => [newApp, ...prev]);
+    setApplications((prev) => [newApp, ...prev.filter((a) => a.id !== newApp.id)]);
     setActiveTrackingCode(newApp.trackingCode);
   };
 
@@ -91,6 +126,8 @@ export default function App() {
     (a) => a.status === 'Submitted' || a.status === 'Document Under Review'
   ).length;
 
+  const internalCount = applications.filter((a) => a.applicantType === 'internal').length;
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-100 font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Official Government & BFAR Header */}
@@ -102,6 +139,7 @@ export default function App() {
         }}
         pendingCount={pendingCount}
         openCount={jobs.filter((j) => j.status === 'Open').length}
+        internalCount={internalCount}
       />
 
       {/* Main Content Area */}
@@ -114,10 +152,21 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'internal' && (
+          <InternalRecruitmentPortal
+            jobs={jobs}
+            applications={applications}
+            onSelectJobForInternalApply={handleSelectJobForInternalApply}
+            onTrackApplication={handleNavigateToTrack}
+          />
+        )}
+
         {activeTab === 'apply' && (
           <ApplicationForm
             jobs={jobs}
             selectedJobId={selectedJobIdForApply}
+            initialInternalProfile={selectedInternalProfile}
+            initialApplicantType="internal"
             onApplicationSubmitted={handleApplicationSubmitted}
             onNavigateToTrack={handleNavigateToTrack}
           />

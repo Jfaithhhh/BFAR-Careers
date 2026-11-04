@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Fish, Award, ExternalLink, UserCheck, Briefcase, FileSearch, Lock } from 'lucide-react';
 
 interface HeaderProps {
-  activeTab: 'jobs' | 'apply' | 'track' | 'admin';
-  setActiveTab: (tab: 'jobs' | 'apply' | 'track' | 'admin') => void;
+  activeTab: 'jobs' | 'apply' | 'internal' | 'track' | 'admin';
+  setActiveTab: (tab: 'jobs' | 'apply' | 'internal' | 'track' | 'admin') => void;
   pendingCount?: number;
   openCount?: number;
+  internalCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -49,8 +50,8 @@ export const Header: React.FC<HeaderProps> = ({
             <span>REPUBLIC OF THE PHILIPPINES</span>
           </div>
           <span className="hidden md:inline text-blue-400">|</span>
-          <span className="hidden md:inline text-slate-300 text-[11px]">
-            Official Recruitment &amp; HRMIS Portal
+          <span className="hidden md:inline text-amber-200 font-semibold text-[11px]">
+            Internal Recruitment &amp; Personnel Promotion Portal
           </span>
         </div>
 
@@ -174,9 +175,25 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
               </span>
-              <span>Online Application (AI Fast-Fill)</span>
+              <span>Internal Application (Fast-Fill)</span>
               <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide">
-                AI Powered
+                Staff Only
+              </span>
+            </button>
+
+            {/* Dedicated Internal Recruitment Portal for BFAR Employees */}
+            <button
+              onClick={() => setActiveTab('internal')}
+              className={`px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
+                activeTab === 'internal'
+                  ? 'bg-blue-50 text-[#024794] border-b-2 border-[#024794]'
+                  : 'text-slate-600 hover:text-[#024794] hover:bg-slate-50'
+              }`}
+            >
+              <UserCheck className="w-4 h-4 text-emerald-600" />
+              <span>Internal Recruitment (BFAR Personnel)</span>
+              <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide">
+                Promotion Hub
               </span>
             </button>
 
