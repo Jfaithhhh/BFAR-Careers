@@ -76,7 +76,7 @@ interface PlantillaJob {
   region: string;
   placeOfAssignment: string;
   salaryGrade: number;
-  monthlySalary: number;
+  monthlySalary?: number;
   plantillaType: 'Permanent' | 'Contract of Service (COS)' | 'Project-Based';
   postingDate: string;
   closingDate: string;
@@ -224,7 +224,6 @@ let jobsStore: PlantillaJob[] = [
     region: 'Central Office (NCR) - Quezon City',
     placeOfAssignment: 'BFAR Central Office, PCA Building, Elliptical Road, Diliman, Quezon City',
     salaryGrade: 15,
-    monthlySalary: 36619,
     plantillaType: 'Permanent',
     postingDate: '21 Oct 2026',
     closingDate: '05 Nov 2026',
@@ -257,7 +256,6 @@ let jobsStore: PlantillaJob[] = [
     region: 'Central Office (NCR) - Quezon City',
     placeOfAssignment: 'BFAR Central Office, PCA Building, Elliptical Road, Diliman, Quezon City',
     salaryGrade: 15,
-    monthlySalary: 36619,
     plantillaType: 'Permanent',
     postingDate: '21 Oct 2026',
     closingDate: '03 Nov 2026',
@@ -290,7 +288,6 @@ let jobsStore: PlantillaJob[] = [
     region: 'Central Office (NCR) - Quezon City',
     placeOfAssignment: 'BFAR Central Office, PCA Building, Elliptical Road, Diliman, Quezon City',
     salaryGrade: 19,
-    monthlySalary: 51357,
     plantillaType: 'Permanent',
     postingDate: '21 Oct 2026',
     closingDate: '08 Nov 2026',
@@ -323,7 +320,6 @@ let jobsStore: PlantillaJob[] = [
     region: 'Central Office (NCR) - Quezon City',
     placeOfAssignment: 'BFAR Central Office, PCA Building, Elliptical Road, Diliman, Quezon City',
     salaryGrade: 8,
-    monthlySalary: 19744,
     plantillaType: 'Permanent',
     postingDate: '21 Oct 2026',
     closingDate: '29 Oct 2026',
@@ -356,7 +352,6 @@ let jobsStore: PlantillaJob[] = [
     region: 'Central Office (NCR) - Quezon City',
     placeOfAssignment: 'BFAR Central Office, PCA Building, Elliptical Road, Diliman, Quezon City',
     salaryGrade: 11,
-    monthlySalary: 27000,
     plantillaType: 'Permanent',
     postingDate: '21 Oct 2026',
     closingDate: '06 Nov 2026',
@@ -389,7 +384,6 @@ let jobsStore: PlantillaJob[] = [
     region: 'Central Office (NCR) - Quezon City',
     placeOfAssignment: 'BFAR Central Office, PCA Building, Elliptical Road, Diliman, Quezon City',
     salaryGrade: 19,
-    monthlySalary: 51357,
     plantillaType: 'Permanent',
     postingDate: '21 Oct 2026',
     closingDate: '10 Nov 2026',
@@ -422,7 +416,6 @@ let jobsStore: PlantillaJob[] = [
     region: 'Central Office (NCR) - Quezon City',
     placeOfAssignment: 'BFAR Central Office, PCA Building, Elliptical Road, Diliman, Quezon City',
     salaryGrade: 24,
-    monthlySalary: 90078,
     plantillaType: 'Permanent',
     postingDate: '21 Oct 2026',
     closingDate: '12 Nov 2026',
@@ -455,7 +448,6 @@ let jobsStore: PlantillaJob[] = [
     region: 'Central Office (NCR) - Quezon City',
     placeOfAssignment: 'BFAR Central Office, PCA Building, Elliptical Road, Diliman, Quezon City',
     salaryGrade: 15,
-    monthlySalary: 36619,
     plantillaType: 'Permanent',
     postingDate: '21 Oct 2026',
     closingDate: '07 Nov 2026',
@@ -481,310 +473,7 @@ let jobsStore: PlantillaJob[] = [
   },
 ];
 
-let applicationsStore: ApplicationRecord[] = [
-  {
-    id: 'appl-101',
-    trackingCode: 'BFAR-2026-CO-8942',
-    jobId: 'job-1',
-    positionTitle: 'Aquaculturist II',
-    plantillaItemNo: 'BFAR-OSEC-CO-AQ2-2026-042',
-    region: 'Central Office (NCR) - Quezon City',
-    submissionDate: '2026-10-21 08:30 AM',
-    applicantType: 'internal',
-    bfarEmployeeId: 'BFAR-EMP-2021-0988',
-    currentDivision: 'Aquaculture Division - National Fisheries Research & Broodstock Center',
-    currentPlantillaItem: 'BFARB-AQUAT1-04-2021',
-    currentSalaryGrade: 11,
-    yearsInBfar: 2.5,
-    latestIpcrRating: 4.80,
-    ipcrPeriod: 'January - June 2026 (Outstanding)',
-    promotionTrack: 'Promotion',
-    personalInfo: {
-      fullName: 'Engr. Danica Flores Ramos',
-      email: 'danica.ramos@example.ph',
-      phone: '+63 917 845 2311',
-      birthDate: '1995-04-14',
-      civilStatus: 'Single',
-      residentialAddress: 'Brgy. Central, Diliman, Quezon City 1101',
-    },
-    education: [
-      {
-        level: 'College / Tertiary',
-        degree: 'Bachelor of Science in Fisheries (Major in Aquaculture)',
-        school: 'University of the Philippines Los Baños (UPLB)',
-        yearGraduated: '2018',
-        unitsEarned: '148 Units (Degree Completed)',
-        honors: 'Cum Laude',
-        transcriptFile: 'TOR_Danica_Ramos_UPLB.pdf',
-        diplomaFile: 'BS_Fisheries_Diploma_UPLB.pdf',
-      },
-    ],
-    eligibility: [
-      {
-        type: 'RA 1080 - Registered Fisheries Technologist',
-        licenseNo: 'FT-004821',
-        rating: '88.40%',
-        examDate: '2019-10-24',
-      },
-      {
-        type: 'Career Service Professional (CSC)',
-        licenseNo: 'CSC-2018-0912',
-        rating: '85.20%',
-        examDate: '2018-08-12',
-      },
-    ],
-    workExperience: [
-      {
-        position: 'Aquaculture Research Assistant',
-        agencyOrCompany: 'SEAFDEC Aquaculture Department',
-        fromDate: '2021-01-15',
-        toDate: '2024-03-30',
-        isGovService: false,
-        description: 'Managed broodstock conditioning, artificial fertilization, and larval rearing for milkfish and giant tiger prawn.',
-      },
-      {
-        position: 'Contractual Technical Assistant',
-        agencyOrCompany: 'BFAR Central Office - Aquaculture Division',
-        fromDate: '2024-04-01',
-        toDate: 'Present',
-        isGovService: true,
-        description: 'Assisted in national tilapia breeding distribution and LGU technology demonstration projects.',
-      },
-    ],
-    training: [
-      {
-        title: 'Advanced Hatchery Management and Biosecurity in Tilapia Farming',
-        hours: 16,
-        provider: 'BFAR Central Office - National Freshwater Fisheries Technology Center',
-        year: '2025',
-      },
-      {
-        title: 'Fish Health Surveillance and Disease Diagnostics',
-        hours: 24,
-        provider: 'Southeast Asian Fisheries Development Center (SEAFDEC)',
-        year: '2024',
-      },
-      {
-        title: 'Resource Speaker: Sustainable Broodstock Practices at Regional Fish Forum',
-        hours: 8,
-        provider: 'Provincial Fisheries Office',
-        year: '2024',
-      },
-    ],
-    statementOfIntent: 'I wish to dedicate my technical competencies in sustainable aquaculture and fish genetics to serve at the BFAR Central Office in Quezon City, formulating national policies to promote higher aquaculture yield.',
-    documentsUploaded: [
-      { name: 'Application Letter (AL) addressed to National Director', type: 'PDF', status: 'Verified', fileSize: '1.2 MB', category: 'AL' },
-      { name: 'Fully Accomplished CS Form 212 (PDS Revised 2017)', type: 'PDF', status: 'Verified', fileSize: '2.4 MB', category: 'PDS' },
-      { name: 'Individual Performance Commitment and Review (IPCR 2025 - Rating: 4.80 / Outstanding)', type: 'PDF', status: 'Verified', fileSize: '1.5 MB', category: 'IPCR' },
-      { name: 'Potential / Competency Evaluation (Technical Leadership Rating)', type: 'PDF', status: 'Verified', fileSize: '980 KB', category: 'COMPETENCY' },
-      { name: 'Transcript of Records (TOR - UPLB) & Diploma', type: 'PDF', status: 'Verified', fileSize: '3.1 MB', category: 'TOR' },
-      { name: 'PRC Board Rating & License (Fisheries Technologist)', type: 'PDF', status: 'Verified', fileSize: '850 KB', category: 'ELIGIBILITY' },
-    ],
-    aiScreening: {
-      overallScore: 96,
-      qsCompliance: {
-        educationMatch: true,
-        educationScore: 100,
-        educationAnalysis: 'BS Fisheries (Major in Aquaculture) from UPLB (Cum Laude, 148 units) perfectly matches the educational requirement.',
-        experienceMatch: true,
-        experienceScore: 95,
-        experienceAnalysis: 'Over 4 years of verified aquaculture research and hatchery management experience exceeds the 1-year requirement.',
-        trainingMatch: true,
-        trainingScore: 98,
-        trainingAnalysis: '40 qualifying CSC training hours in Hatchery Management and Biosecurity exceeds the 4-hour requirement. Note: 8 hours of Resource Speaker engagement was flagged and excluded per CSC training rules.',
-        qualifyingTrainingHours: 40,
-        excludedTrainingHours: 8,
-        flaggedTrainingEntries: [
-          {
-            title: 'Resource Speaker: Sustainable Broodstock Practices at Regional Fish Forum',
-            hours: 8,
-            reason: 'Resource Person (RP) / Speaker role (classified as work experience/instruction, not CSC learning & development)',
-          },
-        ],
-        eligibilityMatch: true,
-        eligibilityScore: 100,
-        eligibilityAnalysis: 'Valid RA 1080 Registered Fisheries Technologist (88.40% rating) complies with 2nd level professional requirements.',
-      },
-      strengths: [
-        'Graduated Cum Laude from leading agricultural/fisheries institution (UPLB)',
-        'Dual experience across international research (SEAFDEC) and public sector extension (BFAR Central Office)',
-        'Extensive hands-on expertise in water quality, selective breeding, and fingerling transport logistics',
-      ],
-      gapsOrRisk: [
-        'Needs verification of updated PRC Professional Identification Card expiration date during face-to-face HRMPSB deliberation',
-      ],
-      summaryRecommendation: 'Outstanding candidate who exceeds all Civil Service Qualification Standards. Strongly recommended for HRMPSB interview and evaluation.',
-      recommendedStatus: 'Qualified - Highly Recommended',
-      tailoredInterviewQuestions: [
-        'How would you manage national water quality monitoring for inland aquaculture facilities from Central Office?',
-        'Describe your specific protocol for preventing pathogen transmission between freshwater nursery ponds.',
-        'Given BFAR’s thrust on food security, what strategy will you propose to lower commercial feed dependence for small-scale tilapia growers?',
-      ],
-      generatedAt: '2026-10-21T08:35:10Z',
-    },
-    status: 'HRMPSB Deliberation & Interview Scheduled',
-    statusTimeline: [
-      { step: 'Application Submitted', date: '21 Oct 2026 08:30 AM', notes: 'Online application submitted with complete attachments.', by: 'Applicant', isCompleted: true, isCurrent: false },
-      { step: 'Initial AI-Assisted Screening', date: '21 Oct 2026 08:35 AM', notes: 'Automated QS compliance score 96/100 verified.', by: 'BFAR AI Engine', isCompleted: true, isCurrent: false },
-      { step: 'HR Evaluation', date: '21 Oct 2026 09:15 AM', notes: 'All mandatory documents (AL, CS Form 212, IPCR, Competency Ratings) verified.', by: 'Central Office HR Administrative Section', isCompleted: true, isCurrent: false },
-      { step: 'Qualification Assessment', date: '21 Oct 2026 10:00 AM', notes: 'Candidate meets Education, Experience, Training (40 qualifying hrs), and Eligibility QS.', by: 'Central Office HR Recruitment Unit', isCompleted: true, isCurrent: true },
-      { step: 'Final Status / Notice of Result', date: 'Pending', notes: 'Final board deliberation and appointment decision to be promulgated.', by: 'National Director / HRMPSB', isCompleted: false, isCurrent: false },
-    ],
-    adminRemarks: 'Top-ranking applicant for Plantilla Item BFAR-OSEC-CO-AQ2-2026-042. Endorsed to HRMPSB for deliberation.',
-    interviewScore: undefined,
-  },
-  {
-    id: 'appl-102',
-    trackingCode: 'BFAR-2026-CO-7719',
-    jobId: 'job-2',
-    positionTitle: 'Fisheries Regulations Officer II',
-    plantillaItemNo: 'BFAR-OSEC-CO-FRO2-2026-118',
-    region: 'Central Office (NCR) - Quezon City',
-    submissionDate: '2026-10-21 09:12 AM',
-    applicantType: 'internal',
-    bfarEmployeeId: 'BFAR-EMP-2019-0834',
-    currentDivision: 'Fisheries Protection and Law Enforcement Group (FPLEG)',
-    currentPlantillaItem: 'BFARB-FI1-45-2014',
-    currentSalaryGrade: 11,
-    yearsInBfar: 5,
-    latestIpcrRating: 4.75,
-    ipcrPeriod: 'July - December 2024',
-    promotionTrack: 'Promotion',
-    personalInfo: {
-      fullName: 'Marc Joshua Bautista Dela Cruz',
-      email: 'mj.delacruz@example.ph',
-      phone: '+63 928 334 1902',
-      birthDate: '1993-11-20',
-      civilStatus: 'Married',
-      residentialAddress: 'Project 4, Quezon City, Metro Manila',
-    },
-    education: [
-      {
-        level: 'College / Tertiary',
-        degree: 'Bachelor of Science in Criminology',
-        school: 'Philippine College of Criminology',
-        yearGraduated: '2016',
-        unitsEarned: 'Full Degree (142 Units)',
-        honors: 'Consistent Dean’s Lister',
-        transcriptFile: 'TOR_MJ_DelaCruz_PCCR.pdf',
-        diplomaFile: 'BS_Criminology_Diploma.pdf',
-      },
-    ],
-    eligibility: [
-      {
-        type: 'Career Service Professional (CSC)',
-        licenseNo: 'CSC-2017-48191',
-        rating: '84.10%',
-        examDate: '2017-03-19',
-      },
-      {
-        type: 'RA 6506 - Registered Criminologist (PRC)',
-        licenseNo: 'RC-081290',
-        rating: '82.50%',
-        examDate: '2016-12-10',
-      },
-    ],
-    workExperience: [
-      {
-        position: 'Maritime Enforcement Officer',
-        agencyOrCompany: 'Philippine Ports Authority',
-        fromDate: '2019-06-01',
-        toDate: '2023-12-31',
-        isGovService: true,
-        description: 'Port security inspection, vessel manifest validation, and coordination with coast guard on maritime safety protocols.',
-      },
-      {
-        position: 'Compliance Investigator',
-        agencyOrCompany: 'Maritime Regulatory Consultants Inc.',
-        fromDate: '2024-02-01',
-        toDate: 'Present',
-        isGovService: false,
-        description: 'Conducted shipping compliance audits and crew safety inspections.',
-      },
-    ],
-    training: [
-      {
-        title: 'Maritime Law Enforcement and Rules of Engagement Course',
-        hours: 40,
-        provider: 'Philippine Coast Guard Training Command',
-        year: '2022',
-      },
-      {
-        title: 'Introductory Seminar on Philippine Fisheries Code (RA 8550/10654)',
-        hours: 8,
-        provider: 'DA-BFAR Central Office',
-        year: '2024',
-      },
-      {
-        title: 'Annual Philippine Maritime Security Convention & Conference',
-        hours: 16,
-        provider: 'Maritime Law Association',
-        year: '2023',
-      },
-    ],
-    statementOfIntent: 'I am committed to protecting our Philippine territorial seas from destructive and illegal fishing methods by implementing rigorous enforcement and law-compliant boarding procedures.',
-    documentsUploaded: [
-      { name: 'Application Letter (AL)', type: 'PDF', status: 'Verified', fileSize: '980 KB', category: 'AL' },
-      { name: 'CS Form 212 Revised 2017 with Work Experience Sheet', type: 'PDF', status: 'Verified', fileSize: '2.1 MB', category: 'PDS' },
-      { name: 'Performance Rating / IPCR (Rating: 4.60 / Very Satisfactory)', type: 'PDF', status: 'Verified', fileSize: '1.4 MB', category: 'IPCR' },
-      { name: 'Potential / Competency Evaluation Form', type: 'PDF', status: 'Verified', fileSize: '890 KB', category: 'COMPETENCY' },
-      { name: 'College Transcript of Records & Diploma', type: 'PDF', status: 'Verified', fileSize: '2.9 MB', category: 'TOR' },
-      { name: 'Certificate of CSC Professional & PRC Criminologist', type: 'PDF', status: 'Verified', fileSize: '1.1 MB', category: 'ELIGIBILITY' },
-    ],
-    aiScreening: {
-      overallScore: 89,
-      qsCompliance: {
-        educationMatch: true,
-        educationScore: 90,
-        educationAnalysis: 'BS Criminology aligns with the regulatory and law enforcement profile required for FPLEG.',
-        experienceMatch: true,
-        experienceScore: 92,
-        experienceAnalysis: 'More than 4 years of maritime compliance and port security experience satisfies the 1-year requirement.',
-        trainingMatch: true,
-        trainingScore: 88,
-        trainingAnalysis: '48 qualifying hours in Maritime Law and RA 8550/10654 exceeds the 4-hour threshold. Note: 16 hours of Annual Maritime Security Convention attendance was flagged and excluded from meeting QS requirements.',
-        qualifyingTrainingHours: 48,
-        excludedTrainingHours: 16,
-        flaggedTrainingEntries: [
-          {
-            title: 'Annual Philippine Maritime Security Convention & Conference',
-            hours: 16,
-            reason: 'General Conference / Convention attendance (does not meet structured technical training requirement per CSC guidelines)',
-          },
-        ],
-        eligibilityMatch: true,
-        eligibilityScore: 95,
-        eligibilityAnalysis: 'Career Service Professional Eligibility and Registered Criminologist PRC meet civil service standards.',
-      },
-      strengths: [
-        'Extensive background in maritime security and vessel boarding with Philippine Ports Authority',
-        'Formal training with Philippine Coast Guard Training Command',
-        'Solid knowledge of evidence preservation and filing of administrative charges',
-      ],
-      gapsOrRisk: [
-        'Lacks deep technical background in fish taxonomy / species identification; recommended for specialized Fisheries Observers training if appointed',
-      ],
-      summaryRecommendation: 'Meets and complies with CSC Qualification Standards. Recommended for HRMPSB deliberation and interview.',
-      recommendedStatus: 'Qualified - Meets Standards',
-      tailoredInterviewQuestions: [
-        'How would you handle a situation where a commercial fishing boat within municipal waters refuses boarding inspection?',
-        'What are the mandatory chain-of-custody protocols when seizing prohibited fishing gear or blast-fishing evidence at sea?',
-        'Explain how the Vessel Monitoring System (VMS) data is utilized as primary evidence in administrative adjudication.',
-      ],
-      generatedAt: '2026-10-21T09:15:33Z',
-    },
-    status: 'CSC QS Qualified - Under Review',
-    statusTimeline: [
-      { step: 'Application Submitted', date: '21 Oct 2026 09:12 AM', notes: 'Submitted through online recruitment portal.', by: 'Applicant', isCompleted: true, isCurrent: false },
-      { step: 'Initial AI-Assisted Screening', date: '21 Oct 2026 09:15 AM', notes: 'Automated QS compliance score 89/100 verified.', by: 'BFAR AI Engine', isCompleted: true, isCurrent: false },
-      { step: 'HR Evaluation', date: '21 Oct 2026 10:00 AM', notes: 'AL, CS Form 212, IPCR, and credentials verified.', by: 'HR Specialist II', isCompleted: true, isCurrent: false },
-      { step: 'Qualification Assessment', date: '21 Oct 2026 10:45 AM', notes: 'Qualified under 2nd level CS Professional criteria (48 qualifying training hours).', by: 'HR Recruitment Unit', isCompleted: true, isCurrent: true },
-      { step: 'Final Status / Notice of Result', date: 'Pending', notes: 'Awaiting board deliberation.', by: 'National Director / HRMPSB', isCompleted: false, isCurrent: false },
-    ],
-    adminRemarks: 'Document verification and QS compliance complete. Ready for HRMPSB interview docket.',
-    interviewScore: undefined,
-  },
-];
+let applicationsStore: ApplicationRecord[] = [];
 
 const internalEmployeesStore = [
   {
@@ -800,7 +489,6 @@ const internalEmployeesStore = [
     currentPlantillaItem: 'BFARB-AQUAT1-12-2004',
     currentPositionTitle: 'Aquaculturist I',
     salaryGrade: 11,
-    monthlySalary: 27000,
     yearsInBfar: 6,
     latestIpcrRating: 4.88,
     ipcrPeriod: 'July - December 2024 (Outstanding)',
@@ -823,7 +511,6 @@ const internalEmployeesStore = [
     currentPlantillaItem: 'BFARB-FI1-45-2014',
     currentPositionTitle: 'Fishing Regulations Officer I',
     salaryGrade: 11,
-    monthlySalary: 27000,
     yearsInBfar: 5,
     latestIpcrRating: 4.75,
     ipcrPeriod: 'July - December 2024 (Very Satisfactory)',
@@ -846,7 +533,6 @@ const internalEmployeesStore = [
     currentPlantillaItem: 'BFARB-ENG2-08-2016',
     currentPositionTitle: 'Engineer II',
     salaryGrade: 16,
-    monthlySalary: 39672,
     yearsInBfar: 4,
     latestIpcrRating: 4.92,
     ipcrPeriod: 'July - December 2024 (Outstanding)',
@@ -869,7 +555,6 @@ const internalEmployeesStore = [
     currentPlantillaItem: 'BFARB-ECO1-18-2019',
     currentPositionTitle: 'Economist I',
     salaryGrade: 11,
-    monthlySalary: 27000,
     yearsInBfar: 3,
     latestIpcrRating: 4.65,
     ipcrPeriod: 'July - December 2024 (Very Satisfactory)',
@@ -985,6 +670,17 @@ app.post('/api/applications', async (req, res) => {
       return res.status(403).json({
         success: false,
         error: 'Access Restricted: The DA-BFAR Recruitment & HRMIS Portal is exclusively restricted to verified internal DA-BFAR employees and personnel.',
+      });
+    }
+
+    const cleanEmpId = String(body.bfarEmployeeId || '').trim().toUpperCase();
+    const verifiedEmployee = internalEmployeesStore.find(
+      (emp) => emp.employeeId.trim().toUpperCase() === cleanEmpId
+    );
+    if (!verifiedEmployee) {
+      return res.status(403).json({
+        success: false,
+        error: `Access Denied: Employee ID "${body.bfarEmployeeId}" was not found in the verified DA-BFAR internal employee registry. Only active DA-BFAR personnel may apply.`,
       });
     }
 

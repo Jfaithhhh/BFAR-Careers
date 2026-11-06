@@ -17,6 +17,7 @@ import {
 import {
   saveApplicationToFirestore,
   DEFAULT_INTERNAL_EMPLOYEES,
+  getInternalEmployees,
 } from '../lib/firestoreService';
 import {
   Sparkles,
@@ -249,36 +250,36 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     | 'declaration'
   >('personal');
 
-  // 1. Personal Information
+  // 1. Personal Information (Blank state, auto-populated upon internal employee verification)
   const [personalInfo, setPersonalInfo] = useState({
-    surname: 'Ramos',
-    firstName: 'Danica',
-    middleName: 'Flores',
+    surname: '',
+    firstName: '',
+    middleName: '',
     nameExtension: '',
-    fullName: 'Danica Flores Ramos',
-    email: 'danica.ramos@example.ph',
-    phone: '+63 917 845 2311',
-    birthDate: '1995-04-14',
-    birthPlace: 'Quezon City',
-    sex: 'Female' as 'Male' | 'Female' | '',
+    fullName: '',
+    email: '',
+    phone: '',
+    birthDate: '',
+    birthPlace: '',
+    sex: '' as 'Male' | 'Female' | '',
     civilStatus: 'Single' as 'Single' | 'Married' | 'Widowed' | 'Separated' | 'Other',
     citizenship: 'Filipino' as 'Filipino' | 'Dual Citizenship' | '',
     citizenshipType: 'by birth' as 'by birth' | 'by naturalization' | '',
     citizenshipCountry: '',
-    heightMeters: '1.62',
-    weightKg: '54',
-    bloodType: 'O+',
-    gsisNo: '12345678901',
-    pagibigNo: '121098765432',
-    philhealthNo: '098765432101',
-    sssNo: '3456789012',
-    tinNo: '456-789-012-000',
-    agencyEmployeeNo: 'BFAR-2024-C09',
-    residentialAddress: 'Block 4 Lot 12, Fisheries Village, Brgy. Central, Diliman, Quezon City',
-    residentialZip: '1101',
-    permanentAddress: 'Block 4 Lot 12, Fisheries Village, Brgy. Central, Diliman, Quezon City',
-    permanentZip: '1101',
-    telephoneNumber: '(02) 8928-1234',
+    heightMeters: '',
+    weightKg: '',
+    bloodType: '',
+    gsisNo: '',
+    pagibigNo: '',
+    philhealthNo: '',
+    sssNo: '',
+    tinNo: '',
+    agencyEmployeeNo: '',
+    residentialAddress: '',
+    residentialZip: '',
+    permanentAddress: '',
+    permanentZip: '',
+    telephoneNumber: '',
   });
 
   // 2. Family Background
@@ -291,148 +292,36 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     spouseEmployer: '',
     spouseBusinessAddress: '',
     spouseTelephone: '',
-    fatherSurname: 'Ramos',
-    fatherFirstName: 'Eduardo',
-    fatherMiddleName: 'Cruz',
+    fatherSurname: '',
+    fatherFirstName: '',
+    fatherMiddleName: '',
     fatherNameExtension: '',
-    motherMaidenSurname: 'Flores',
-    motherFirstName: 'Lourdes',
-    motherMiddleName: 'Santos',
-    children: [
-      { fullName: '', birthDate: '' },
-    ].filter((c) => c.fullName),
+    motherMaidenSurname: '',
+    motherFirstName: '',
+    motherMiddleName: '',
+    children: [] as { fullName: string; birthDate: string }[],
   });
 
   // 3. Educational Background
-  const [education, setEducation] = useState<EducationEntry[]>([
-    {
-      level: 'College',
-      school: 'University of the Philippines Los Baños (UPLB)',
-      degree: 'Bachelor of Science in Fisheries (Major in Aquaculture)',
-      periodFrom: '2014',
-      periodTo: '2018',
-      unitsEarned: '148 Units (Graduated)',
-      yearGraduated: '2018',
-      honors: 'Cum Laude',
-    },
-    {
-      level: 'Secondary',
-      school: 'Quezon City Science High School',
-      degree: 'High School Diploma',
-      periodFrom: '2010',
-      periodTo: '2014',
-      unitsEarned: 'Graduated',
-      yearGraduated: '2014',
-      honors: 'Honorable Mention',
-    },
-  ]);
+  const [education, setEducation] = useState<EducationEntry[]>([]);
 
   // 4. Civil Service Eligibility
-  const [eligibility, setEligibility] = useState<EligibilityEntry[]>([
-    {
-      type: 'RA 1080 - Registered Fisheries Technologist',
-      licenseNo: 'FT-004821',
-      rating: '88.40%',
-      examDate: '2019-10-24',
-      examPlace: 'PRC Manila',
-      validityDate: '2027-04-14',
-    },
-    {
-      type: 'Career Service Professional (CSC Level 2)',
-      licenseNo: 'CSC-NCR-2018-0941',
-      rating: '85.20%',
-      examDate: '2018-08-12',
-      examPlace: 'CSC NCR Quezon City',
-      validityDate: 'Lifetime',
-    },
-  ]);
+  const [eligibility, setEligibility] = useState<EligibilityEntry[]>([]);
 
   // 5. Work Experience
-  const [workExperience, setWorkExperience] = useState<WorkExperienceEntry[]>([
-    {
-      position: 'Contractual Technical Assistant',
-      agencyOrCompany: 'Bureau of Fisheries and Aquatic Resources (BFAR Central Office)',
-      monthlySalary: 31000,
-      salaryGrade: 'SG 13-1',
-      statusOfAppointment: 'Contractual / COS',
-      fromDate: '2024-04-15',
-      toDate: 'Present',
-      isGovService: true,
-      description:
-        'Assisted in nationwide fingerling broodstock logistics, fish seed certification, and aquaculture technical advisory.',
-    },
-    {
-      position: 'Aquaculture Research Assistant',
-      agencyOrCompany: 'SEAFDEC Aquaculture Department',
-      monthlySalary: 28000,
-      salaryGrade: 'N/A',
-      statusOfAppointment: 'Project-Based',
-      fromDate: '2021-01-15',
-      toDate: '2024-03-31',
-      isGovService: false,
-      description:
-        'Conducted controlled larval rearing, feed formulations, and water quality diagnostics for milkfish and tilapia.',
-    },
-  ]);
+  const [workExperience, setWorkExperience] = useState<WorkExperienceEntry[]>([]);
 
   // 6. Voluntary Work
-  const [voluntaryWork, setVoluntaryWork] = useState<VoluntaryWorkEntry[]>([
-    {
-      organizationName: 'Philippine Fisheries Association - Youth Wing',
-      organizationAddress: 'Diliman, Quezon City',
-      fromDate: '2022-01-01',
-      toDate: '2023-12-31',
-      hours: 120,
-      positionOrNature: 'Volunteer Coastal Resource Officer',
-    },
-  ]);
+  const [voluntaryWork, setVoluntaryWork] = useState<VoluntaryWorkEntry[]>([]);
 
   // 7. Learning and Development / Trainings
-  const [training, setTraining] = useState<TrainingEntry[]>([
-    {
-      title: 'Advanced Hatchery Management and Biosecurity in Tilapia Farming',
-      fromDate: '2025-03-10',
-      toDate: '2025-03-12',
-      hours: 16,
-      typeOfLd: 'Technical',
-      provider: 'BFAR - National Freshwater Fisheries Technology Center (NFFTC)',
-      year: '2025',
-    },
-    {
-      title: 'Fish Health Surveillance and Aquatic Disease Diagnostics',
-      fromDate: '2024-07-15',
-      toDate: '2024-07-18',
-      hours: 24,
-      typeOfLd: 'Technical',
-      provider: 'SEAFDEC Aquaculture Department',
-      year: '2024',
-    },
-    {
-      title: 'Resource Speaker: Sustainable Broodstock Practices at Regional Forum',
-      fromDate: '2024-09-05',
-      toDate: '2024-09-05',
-      hours: 8,
-      typeOfLd: 'Lecturer / RP',
-      provider: 'Provincial Fisheries Office',
-      year: '2024',
-    },
-  ]);
+  const [training, setTraining] = useState<TrainingEntry[]>([]);
 
   // 8. Other Information
   const [otherInformation, setOtherInformation] = useState({
-    specialSkills: [
-      'Aquaculture Recirculating System (RAS) Design',
-      'Water Chemistry Testing (Hach Spectrophotometer)',
-      'Scientific Diving (Rescue Diver)',
-    ],
-    nonAcademicDistinctions: [
-      'Best Undergraduate Fisheries Thesis - UPLB 2018',
-      'BFAR Regional Technology Demonstration Commendation 2024',
-    ],
-    memberships: [
-      'Philippine Association of Fisheries Professionals Inc. (PAFPI)',
-      'World Aquaculture Society (WAS) - Asian-Pacific Chapter',
-    ],
+    specialSkills: [] as string[],
+    nonAcademicDistinctions: [] as string[],
+    memberships: [] as string[],
   });
 
   // 9. Declarations & Questions
@@ -477,12 +366,12 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       },
     ],
     govIssuedId: {
-      idType: 'PRC Identification Card',
-      idNumber: 'FT-004821',
-      datePlaceIssuance: 'Oct 2019 / PRC Manila',
+      idType: '',
+      idNumber: '',
+      datePlaceIssuance: '',
     },
-    confirmedAuthenticity: true,
-    digitalSignatureConfirmation: 'Danica Flores Ramos',
+    confirmedAuthenticity: false,
+    digitalSignatureConfirmation: '',
     dateSigned: new Date().toISOString().split('T')[0],
   });
 
@@ -510,48 +399,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
   // ==========================================
   // SECTION 4 & 5: FILE UPLOADS & OTHER DOCUMENTS
   // ==========================================
-  const [documentsUploaded, setDocumentsUploaded] = useState<ApplicantDocument[]>([
-    {
-      id: 'doc-init-pl',
-      name: 'Application_Letter_National_Director_and_PDS.pdf',
-      type: 'PDF',
-      status: 'Uploaded',
-      fileSize: '2.4 MB',
-      category: 'PL',
-      sectionGroup: 'file_uploads',
-      uploadedAt: 'Ready for Review',
-    },
-    {
-      id: 'doc-init-elig',
-      name: 'PRC_Fisheries_Technologist_Board_Rating_FT004821.pdf',
-      type: 'PDF',
-      status: 'Uploaded',
-      fileSize: '890 KB',
-      category: 'ELIGIBILITY',
-      sectionGroup: 'file_uploads',
-      uploadedAt: 'Ready for Review',
-    },
-    {
-      id: 'doc-init-trainings',
-      name: 'Fisheries_Advanced_Hatchery_Trainings_32hrs.pdf',
-      type: 'PDF',
-      status: 'Uploaded',
-      fileSize: '3.1 MB',
-      category: 'TRAININGS',
-      sectionGroup: 'file_uploads',
-      uploadedAt: 'Ready for Review',
-    },
-    {
-      id: 'doc-init-we',
-      name: 'Service_Record_and_Work_Experience_Sheet_Signed.pdf',
-      type: 'PDF',
-      status: 'Uploaded',
-      fileSize: '1.6 MB',
-      category: 'WE',
-      sectionGroup: 'file_uploads',
-      uploadedAt: 'Ready for Review',
-    },
-  ]);
+  const [documentsUploaded, setDocumentsUploaded] = useState<ApplicantDocument[]>([]);
 
   // Real-time Auto-Correction Alert Toast
   const [autoCorrectionAlert, setAutoCorrectionAlert] = useState<{
@@ -568,33 +416,43 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
   // Internal Recruitment System States (Strictly restricted to internal employees only)
   const [applicantType] = useState<'internal'>('internal');
+  const [internalEmployees, setInternalEmployees] = useState<InternalEmployeeProfile[]>(DEFAULT_INTERNAL_EMPLOYEES);
+
+  useEffect(() => {
+    getInternalEmployees().then((list) => {
+      if (list && list.length > 0) {
+        setInternalEmployees(list);
+      }
+    });
+  }, []);
+
   const [selectedStaffId, setSelectedStaffId] = useState<string>(
-    initialInternalProfile?.employeeId || DEFAULT_INTERNAL_EMPLOYEES[0].employeeId
+    initialInternalProfile?.employeeId || ''
   );
   const [bfarEmployeeId, setBfarEmployeeId] = useState<string>(
-    initialInternalProfile?.employeeId || DEFAULT_INTERNAL_EMPLOYEES[0].employeeId
+    initialInternalProfile?.employeeId || ''
   );
   const [currentDivision, setCurrentDivision] = useState<string>(
-    initialInternalProfile?.division || DEFAULT_INTERNAL_EMPLOYEES[0].division
+    initialInternalProfile?.division || ''
   );
   const [currentPlantillaItem, setCurrentPlantillaItem] = useState<string>(
-    initialInternalProfile?.currentPlantillaItem || DEFAULT_INTERNAL_EMPLOYEES[0].currentPlantillaItem
+    initialInternalProfile?.currentPlantillaItem || ''
   );
   const [currentSalaryGrade, setCurrentSalaryGrade] = useState<number | string>(
-    initialInternalProfile?.salaryGrade || DEFAULT_INTERNAL_EMPLOYEES[0].salaryGrade
+    initialInternalProfile?.salaryGrade || ''
   );
   const [yearsInBfar, setYearsInBfar] = useState<number | string>(
-    initialInternalProfile?.yearsInBfar || DEFAULT_INTERNAL_EMPLOYEES[0].yearsInBfar
+    initialInternalProfile?.yearsInBfar || ''
   );
   const [latestIpcrRating, setLatestIpcrRating] = useState<number | string>(
-    initialInternalProfile?.latestIpcrRating || DEFAULT_INTERNAL_EMPLOYEES[0].latestIpcrRating
+    initialInternalProfile?.latestIpcrRating || ''
   );
   const [ipcrPeriod, setIpcrPeriod] = useState<string>(
-    initialInternalProfile?.ipcrPeriod || DEFAULT_INTERNAL_EMPLOYEES[0].ipcrPeriod
+    initialInternalProfile?.ipcrPeriod || ''
   );
   const [promotionTrack, setPromotionTrack] = useState<'Promotion' | 'Lateral Transfer' | 'Reassignment'>('Promotion');
   const [internalVerificationSuccess, setInternalVerificationSuccess] = useState<string | null>(
-    `Verified Official Record for ${initialInternalProfile?.fullName || DEFAULT_INTERNAL_EMPLOYEES[0].fullName}`
+    initialInternalProfile ? `Verified Official Record for ${initialInternalProfile.fullName} (${initialInternalProfile.employeeId})` : null
   );
 
   // Input refs
@@ -637,7 +495,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       const bfarExp: WorkExperienceEntry = {
         position: profile.currentPositionTitle,
         agencyOrCompany: 'Bureau of Fisheries and Aquatic Resources (DA-BFAR)',
-        monthlySalary: profile.monthlySalary,
         salaryGrade: `SG-${profile.salaryGrade}`,
         statusOfAppointment: 'Permanent',
         fromDate: '2019-01-15',
@@ -762,10 +619,10 @@ Attached herewith are my fully accomplished Civil Service Personal Data Sheet (C
 Very truly yours,
 
 
-${personalInfo.fullName || 'Danica Flores Ramos'}
-${personalInfo.residentialAddress || 'Quezon City, Metro Manila'}
-Mobile: ${personalInfo.phone || '+63 917 845 2311'}
-Email: ${personalInfo.email || 'danica.ramos@example.ph'}`;
+${personalInfo.fullName || '[Applicant Full Name]'}
+${personalInfo.residentialAddress || '[Residential Address]'}
+Mobile: ${personalInfo.phone || '+63 9XX XXX XXXX'}
+Email: ${personalInfo.email || 'employee@bfar.da.gov.ph'}`;
 
       setApplicationLetterText(defaultLetter);
     }
@@ -1083,335 +940,6 @@ Email: ${personalInfo.email || 'danica.ramos@example.ph'}`;
     }
   };
 
-  // Load sample candidates to easily test the extensive PDS Form 212
-  const handleLoadSample = (sampleType: 'fisheries' | 'criminology' | 'marine') => {
-    if (sampleType === 'fisheries') {
-      const matchJob = jobs.find((j) => j.positionTitle.toLowerCase().includes('aqua')) || jobs[0];
-      setCurrentJobId(matchJob.id);
-      setPersonalInfo({
-        surname: 'Ramos',
-        firstName: 'Danica',
-        middleName: 'Flores',
-        nameExtension: '',
-        fullName: 'Danica Flores Ramos',
-        email: 'danica.ramos@example.ph',
-        phone: '+63 917 845 2311',
-        birthDate: '1995-04-14',
-        birthPlace: 'Quezon City',
-        sex: 'Female',
-        civilStatus: 'Single',
-        citizenship: 'Filipino',
-        citizenshipType: 'by birth',
-        citizenshipCountry: '',
-        heightMeters: '1.62',
-        weightKg: '54',
-        bloodType: 'O+',
-        gsisNo: '12345678901',
-        pagibigNo: '121098765432',
-        philhealthNo: '098765432101',
-        sssNo: '3456789012',
-        tinNo: '456-789-012-000',
-        agencyEmployeeNo: 'BFAR-2024-C09',
-        residentialAddress: 'Block 4 Lot 12, Fisheries Village, Brgy. Central, Diliman, Quezon City',
-        residentialZip: '1101',
-        permanentAddress: 'Block 4 Lot 12, Fisheries Village, Brgy. Central, Diliman, Quezon City',
-        permanentZip: '1101',
-        telephoneNumber: '(02) 8928-1234',
-      });
-      setEducation([
-        {
-          level: 'College',
-          school: 'University of the Philippines Los Baños (UPLB)',
-          degree: 'Bachelor of Science in Fisheries (Major in Aquaculture)',
-          periodFrom: '2014',
-          periodTo: '2018',
-          unitsEarned: '148 Units (Degree Completed)',
-          yearGraduated: '2018',
-          honors: 'Cum Laude',
-        },
-      ]);
-      setEligibility([
-        {
-          type: 'RA 1080 - Registered Fisheries Technologist',
-          licenseNo: 'FT-004821',
-          rating: '88.40%',
-          examDate: '2019-10-24',
-          examPlace: 'PRC Manila',
-          validityDate: '2027-04-14',
-        },
-      ]);
-      setAiParseStatus('✨ Loaded candidate: Danica Flores Ramos (Fisheries Technologist)');
-    } else if (sampleType === 'criminology') {
-      const matchJob =
-        jobs.find((j) => j.positionTitle.toLowerCase().includes('regulations')) || jobs[0];
-      setCurrentJobId(matchJob.id);
-      setPersonalInfo({
-        surname: 'Dela Cruz',
-        firstName: 'Marc Joshua',
-        middleName: 'Bautista',
-        nameExtension: '',
-        fullName: 'Marc Joshua Bautista Dela Cruz',
-        email: 'mj.delacruz@example.ph',
-        phone: '+63 928 334 1902',
-        birthDate: '1993-11-20',
-        birthPlace: 'Manila',
-        sex: 'Male',
-        civilStatus: 'Married',
-        citizenship: 'Filipino',
-        citizenshipType: 'by birth',
-        citizenshipCountry: '',
-        heightMeters: '1.75',
-        weightKg: '72',
-        bloodType: 'B+',
-        gsisNo: '98765432109',
-        pagibigNo: '234567890123',
-        philhealthNo: '112233445566',
-        sssNo: '0987654321',
-        tinNo: '123-456-789-000',
-        agencyEmployeeNo: 'PPA-2019-E44',
-        residentialAddress: '15 Katipunan St., Project 4, Quezon City',
-        residentialZip: '1109',
-        permanentAddress: '15 Katipunan St., Project 4, Quezon City',
-        permanentZip: '1109',
-        telephoneNumber: '(02) 8913-5678',
-      });
-      setEducation([
-        {
-          level: 'College',
-          school: 'Philippine College of Criminology',
-          degree: 'Bachelor of Science in Criminology',
-          periodFrom: '2012',
-          periodTo: '2016',
-          unitsEarned: '142 Units (Graduated)',
-          yearGraduated: '2016',
-          honors: "Dean's Lister",
-        },
-      ]);
-      setEligibility([
-        {
-          type: 'RA 6506 - Registered Criminologist',
-          licenseNo: 'RC-081290',
-          rating: '82.50%',
-          examDate: '2017-04-12',
-          examPlace: 'PRC Manila',
-          validityDate: '2028-11-20',
-        },
-      ]);
-      setAiParseStatus('✨ Loaded candidate: Marc Joshua Dela Cruz (Registered Criminologist)');
-    } else {
-      const matchJob = jobs.find((j) => j.positionTitle.toLowerCase().includes('marine')) || jobs[0];
-      setCurrentJobId(matchJob.id);
-      setPersonalInfo({
-        surname: 'Alcantara',
-        firstName: 'Roberto',
-        middleName: 'Villanueva',
-        nameExtension: 'Dr.',
-        fullName: 'Dr. Roberto Villanueva Alcantara',
-        email: 'roberto.alcantara@marine.ph',
-        phone: '+63 908 772 3418',
-        birthDate: '1991-03-24',
-        birthPlace: 'Batangas City',
-        sex: 'Male',
-        civilStatus: 'Single',
-        citizenship: 'Filipino',
-        citizenshipType: 'by birth',
-        citizenshipCountry: '',
-        heightMeters: '1.70',
-        weightKg: '68',
-        bloodType: 'A+',
-        gsisNo: '87654321098',
-        pagibigNo: '345678901234',
-        philhealthNo: '223344556677',
-        sssNo: '4567890123',
-        tinNo: '234-567-890-000',
-        agencyEmployeeNo: 'UPMSI-2018-02',
-        residentialAddress: 'Teachers Village, Diliman, Quezon City',
-        residentialZip: '1101',
-        permanentAddress: 'Teachers Village, Diliman, Quezon City',
-        permanentZip: '1101',
-        telephoneNumber: '(02) 8981-8500',
-      });
-      setEducation([
-        {
-          level: 'Graduate Studies',
-          school: 'UP Diliman Marine Science Institute',
-          degree: 'Master of Science in Marine Biology',
-          periodFrom: '2017',
-          periodTo: '2021',
-          unitsEarned: 'Completed 36 Academic Units',
-          yearGraduated: '2021',
-          honors: 'University Scholar',
-        },
-        {
-          level: 'College',
-          school: 'University of the Philippines Diliman',
-          degree: 'Bachelor of Science in Biology',
-          periodFrom: '2010',
-          periodTo: '2014',
-          unitsEarned: '144 Units (Graduated)',
-          yearGraduated: '2014',
-          honors: 'Magna Cum Laude',
-        },
-      ]);
-      setEligibility([
-        {
-          type: 'Career Service Professional (CSC Level 2)',
-          licenseNo: 'CSC-2014-0881',
-          rating: '89.60%',
-          examDate: '2014-10-15',
-          examPlace: 'CSC NCR',
-          validityDate: 'Lifetime',
-        },
-      ]);
-      setAiParseStatus('✨ Loaded candidate: Dr. Roberto Alcantara (Marine Biologist)');
-    }
-  };
-
-  // Quick Action: Pre-load Standard Plantilla Documents
-  const handleLoadStandardPlantillaDocs = () => {
-    const candidateName = (personalInfo.fullName || 'Candidate').replace(/\s+/g, '_');
-    const samplePlantillaDocs: ApplicantDocument[] = [
-      {
-        id: `pl-${Date.now()}-1`,
-        name: `PL_Application_Letter_National_Director_${candidateName}.pdf`,
-        type: 'PDF',
-        status: 'Uploaded',
-        fileSize: '1.4 MB',
-        category: 'PL',
-        sectionGroup: 'file_uploads',
-        uploadedAt: 'Just now',
-      },
-      {
-        id: `pl-${Date.now()}-2`,
-        name: `Eligibility_Certificate_${candidateName}.pdf`,
-        type: 'PDF',
-        status: 'Uploaded',
-        fileSize: '950 KB',
-        category: 'ELIGIBILITY',
-        sectionGroup: 'file_uploads',
-        uploadedAt: 'Just now',
-      },
-      {
-        id: `pl-${Date.now()}-3`,
-        name: `Trainings_Aquaculture_Biosecurity_Certificates.pdf`,
-        type: 'PDF',
-        status: 'Uploaded',
-        fileSize: '3.4 MB',
-        category: 'TRAININGS',
-        sectionGroup: 'file_uploads',
-        uploadedAt: 'Just now',
-      },
-      {
-        id: `pl-${Date.now()}-4`,
-        name: `WE_Service_Record_BFAR_and_COE_Signed.pdf`,
-        type: 'PDF',
-        status: 'Uploaded',
-        fileSize: '1.9 MB',
-        category: 'WE',
-        sectionGroup: 'file_uploads',
-        uploadedAt: 'Just now',
-      },
-    ];
-
-    setDocumentsUploaded((prev) => {
-      const filtered = prev.filter(
-        (d) => !['PL', 'ELIGIBILITY', 'TRAININGS', 'WE'].includes(d.category as string)
-      );
-      return [...filtered, ...samplePlantillaDocs];
-    });
-  };
-
-  // Quick Action: Pre-load All Other Documents (TOR, Diploma, REG, CERT, SWORNS, PCR, Potential)
-  const handleLoadAllOtherDocs = () => {
-    const otherSampleDocs: ApplicantDocument[] = [
-      {
-        id: `oth-${Date.now()}-tor`,
-        name: `TOR_Official_Transcript_of_Records_Authenticated.pdf`,
-        type: 'PDF',
-        status: 'Uploaded',
-        fileSize: '3.5 MB',
-        category: 'TOR',
-        sectionGroup: 'other_documents',
-        uploadedAt: 'Just now',
-      },
-      {
-        id: `oth-${Date.now()}-diploma`,
-        name: `Diploma_Bachelor_of_Science_in_Fisheries.pdf`,
-        type: 'PDF',
-        status: 'Uploaded',
-        fileSize: '2.1 MB',
-        category: 'DIPLOMA',
-        sectionGroup: 'other_documents',
-        uploadedAt: 'Just now',
-      },
-      {
-        id: `oth-${Date.now()}-reg`,
-        name: `REG_PRC_Professional_License_Card_FT.pdf`,
-        type: 'PDF',
-        status: 'Uploaded',
-        fileSize: '820 KB',
-        category: 'REG',
-        sectionGroup: 'other_documents',
-        uploadedAt: 'Just now',
-      },
-      {
-        id: `oth-${Date.now()}-cert`,
-        name: `CERT_Academic_Honors_Cum_Laude_Citation.pdf`,
-        type: 'PDF',
-        status: 'Uploaded',
-        fileSize: '1.2 MB',
-        category: 'CERT',
-        sectionGroup: 'other_documents',
-        uploadedAt: 'Just now',
-      },
-      {
-        id: `oth-${Date.now()}-sworns`,
-        name: `SWORNS_Omnibus_Sworn_Statement_Notarized.pdf`,
-        type: 'PDF',
-        status: 'Uploaded',
-        fileSize: '1.4 MB',
-        category: 'SWORNS',
-        sectionGroup: 'other_documents',
-        uploadedAt: 'Just now',
-      },
-      {
-        id: `oth-${Date.now()}-pcr`,
-        name: `PCR_Individual_Performance_Review_IPCR_2025.pdf`,
-        type: 'PDF',
-        status: 'Uploaded',
-        fileSize: '1.7 MB',
-        category: 'PCR',
-        sectionGroup: 'other_documents',
-        uploadedAt: 'Just now',
-      },
-      {
-        id: `oth-${Date.now()}-pot`,
-        name: `Potential_Supervisory_Competency_Evaluation.pdf`,
-        type: 'PDF',
-        status: 'Uploaded',
-        fileSize: '1.1 MB',
-        category: 'POTENTIAL',
-        sectionGroup: 'other_documents',
-        uploadedAt: 'Just now',
-      },
-    ];
-
-    setDocumentsUploaded((prev) => {
-      const filtered = prev.filter(
-        (d) =>
-          ![
-            'TOR',
-            'DIPLOMA',
-            'REG',
-            'CERT',
-            'SWORNS',
-            'PCR',
-            'POTENTIAL',
-          ].includes(d.category as string)
-      );
-      return [...filtered, ...otherSampleDocs];
-    });
-  };
 
   // Test Auto-Correction Simulation
   const handleTestAutoCorrection = (testType: 'ipcr-in-pl' | 'eligibility-in-trainings' | 'tor-in-we') => {
@@ -1469,7 +997,10 @@ Email: ${personalInfo.email || 'danica.ramos@example.ph'}`;
 
     try {
       const fullPdsPayload: PdsData = {
-        personalInfo,
+        personalInfo: {
+          ...personalInfo,
+          civilStatus: personalInfo.civilStatus || 'Single',
+        },
         familyBackground,
         education,
         eligibility,
@@ -1685,15 +1216,18 @@ Email: ${personalInfo.email || 'danica.ramos@example.ph'}`;
                 <select
                   value={selectedStaffId}
                   onChange={(e) => {
-                    const found = DEFAULT_INTERNAL_EMPLOYEES.find((emp) => emp.employeeId === e.target.value);
+                    const found = internalEmployees.find((emp) => emp.employeeId === e.target.value);
                     if (found) {
                       setSelectedStaffId(found.employeeId);
                       applyInternalProfileData(found);
+                    } else {
+                      setSelectedStaffId('');
                     }
                   }}
                   className="bg-white border border-purple-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-purple-950 shadow-2xs focus:ring-2 focus:ring-purple-600"
                 >
-                  {DEFAULT_INTERNAL_EMPLOYEES.map((emp) => (
+                  <option value="">-- Select Verified BFAR Employee Profile --</option>
+                  {internalEmployees.map((emp) => (
                     <option key={emp.employeeId} value={emp.employeeId}>
                       {emp.fullName} ({emp.employeeId} • SG {emp.salaryGrade})
                     </option>
@@ -2176,31 +1710,6 @@ Email: ${personalInfo.email || 'danica.ramos@example.ph'}`;
                 </p>
               </div>
 
-              {/* Sample Pre-fill Helpers */}
-              <div className="flex items-center gap-1.5 flex-wrap shrink-0">
-                <span className="text-[11px] text-slate-600 font-semibold">Fast-Fill Sample:</span>
-                <button
-                  type="button"
-                  onClick={() => handleLoadSample('fisheries')}
-                  className="bg-blue-50 hover:bg-blue-100 text-[#024794] text-[11px] font-bold px-2.5 py-1 rounded border border-blue-200"
-                >
-                  Fisheries Tech
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleLoadSample('criminology')}
-                  className="bg-blue-50 hover:bg-blue-100 text-[#024794] text-[11px] font-bold px-2.5 py-1 rounded border border-blue-200"
-                >
-                  Criminologist
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleLoadSample('marine')}
-                  className="bg-blue-50 hover:bg-blue-100 text-[#024794] text-[11px] font-bold px-2.5 py-1 rounded border border-blue-200"
-                >
-                  Marine Biologist
-                </button>
-              </div>
             </div>
 
             {aiParseStatus && (
@@ -3042,7 +2551,6 @@ Email: ${personalInfo.email || 'danica.ramos@example.ph'}`;
                       {
                         position: '',
                         agencyOrCompany: '',
-                        monthlySalary: '',
                         salaryGrade: '',
                         statusOfAppointment: 'Permanent',
                         fromDate: '',
@@ -4054,16 +3562,6 @@ Email: ${personalInfo.email || 'danica.ramos@example.ph'}`;
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={handleLoadStandardPlantillaDocs}
-                  className="bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-3 py-2 rounded-lg border border-white/20 transition-all flex items-center gap-1.5"
-                >
-                  <FileCheck className="w-3.5 h-3.5 text-amber-300" />
-                  <span>Attach Sample (PL, Elig, WE, Tr)</span>
-                </button>
-              </div>
             </div>
 
             {/* Universal Multi-File Auto-Classifier Dropzone Box */}
@@ -4283,14 +3781,6 @@ Email: ${personalInfo.email || 'danica.ramos@example.ph'}`;
                 </p>
               </div>
 
-              <button
-                type="button"
-                onClick={handleLoadAllOtherDocs}
-                className="bg-blue-50 hover:bg-blue-100 text-[#024794] border border-blue-300 text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-colors shrink-0"
-              >
-                <FileCheck className="w-4 h-4 text-[#024794]" />
-                <span>Attach All 7 Other Documents</span>
-              </button>
             </div>
 
             <div className="flex items-center justify-between text-xs bg-slate-50 p-3 rounded-lg border border-slate-200">

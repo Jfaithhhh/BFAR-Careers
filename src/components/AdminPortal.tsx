@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PlantillaJob, ApplicationRecord } from '../types';
 import { updateApplicationInFirestore } from '../lib/firestoreService';
+import { auth, signInWithGoogle } from '../lib/firebase';
 import {
   Users,
   Briefcase,
@@ -34,6 +35,8 @@ import {
   AlertTriangle,
   FileCheck2,
   BadgeCheck,
+  FileText,
+  Scale,
 } from 'lucide-react';
 
 interface AdminPortalProps {
@@ -90,7 +93,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     region: 'Central Office (NCR) - Quezon City',
     placeOfAssignment: 'BFAR Central Office, PCA Building, Elliptical Road, Diliman, Quezon City',
     salaryGrade: 15,
-    monthlySalary: 36619,
     plantillaType: 'Permanent',
     postingDate: '21 Oct 2026',
     closingDate: '06 Nov 2026',
@@ -306,14 +308,84 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </p>
           </div>
 
-          {loginError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-lg flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
-              <span>{loginError}</span>
-            </div>
-          )}
+            {loginError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-lg flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                <span>{loginError}</span>
+              </div>
+            )}
 
-          <form onSubmit={handleDoLogin} className="space-y-4 text-xs">
+            {/* Google Firebase Auth Quick Entry for Authorized HR Admin */}
+            <div className="space-y-3">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const user = await signInWithGoogle();
+                    const isAuthorized =
+                      user.email === 'jaiciervo7@gmail.com' ||
+                      user.email?.endsWith('@bfar.da.gov.ph');
+                    if (isAuthorized) {
+                      setLoginUsername(user.displayName || user.email || 'Admin jaiciervo7');
+                      setVerifiedRole('HR_Specialist');
+                      setIsAuthenticated(true);
+                      setLoginError(null);
+                    } else {
+                      setLoginError(`Google account ${user.email} is not in the authorized HR/HRMPSB admin registry.`);
+                    }
+                  } catch (err) {
+                    console.error('Google Sign-in failed:', err);
+                    setLoginError('Google sign-in was cancelled or encountered an error.');
+                  }
+                }}
+                className="w-full bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 py-2.5 rounded-lg font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 hover:border-slate-400"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24">
+                  <path
+                    fill="#4285F4"
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                  />
+                </svg>
+                <span>Sign in with Google (Authorized HR Admin)</span>
+              </button>
+
+              {auth.currentUser && (auth.currentUser.email === 'jaiciervo7@gmail.com' || auth.currentUser.email?.endsWith('@bfar.da.gov.ph')) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginUsername(auth.currentUser?.displayName || auth.currentUser?.email || 'Admin');
+                    setVerifiedRole('HR_Specialist');
+                    setIsAuthenticated(true);
+                  }}
+                  className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 py-2 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5"
+                >
+                  <UserCheck className="w-4 h-4 text-emerald-600" />
+                  <span>Enter as {auth.currentUser.email}</span>
+                </button>
+              )}
+
+              <div className="relative flex py-1 items-center">
+                <div className="flex-grow border-t border-slate-200"></div>
+                <span className="flex-shrink mx-2 text-slate-400 text-[10px] font-semibold uppercase">
+                  or employee credentials
+                </span>
+                <div className="flex-grow border-t border-slate-200"></div>
+              </div>
+            </div>
+
+            <form onSubmit={handleDoLogin} className="space-y-4 text-xs">
             <div>
               <label className="font-semibold text-slate-700 block mb-1">
                 Verified System Role:
@@ -578,8 +650,22 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <tbody className="divide-y divide-slate-200">
                 {filteredApps.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-8 text-center text-slate-500">
-                      No matching applicants found.
+                    <td colSpan={7} className="py-12 text-center">
+                      <div className="max-w-md mx-auto flex flex-col items-center justify-center text-center space-y-2">
+                        <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+                          <FileText className="w-6 h-6" />
+                        </div>
+                        <h4 className="font-bold text-slate-800 text-sm">
+                          {applications.length === 0
+                            ? 'No Internal Applications Submitted Yet'
+                            : 'No Matching Applications Found'}
+                        </h4>
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          {applications.length === 0
+                            ? 'As verified DA-BFAR employees submit their promotional applications, their CS Form 212 records, uploaded files, and automated Gemini AI evaluations will appear here in real-time.'
+                            : 'Try adjusting your search query, salary grade filter, or status selection.'}
+                        </p>
+                      </div>
                     </td>
                   </tr>
                 ) : (
@@ -739,7 +825,22 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {applications.map((app, idx) => {
+                {applications.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-12 text-center font-sans">
+                      <div className="max-w-md mx-auto flex flex-col items-center justify-center text-center space-y-2">
+                        <Scale className="w-8 h-8 text-slate-400" />
+                        <h4 className="font-bold text-slate-800 text-sm">
+                          Comparative Assessment Matrix Empty
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          No internal promotional candidates have submitted applications yet. When submissions are received, they will be ranked against the CSC Merit Selection Plan criteria here.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  applications.map((app, idx) => {
                   const edu = app.aiScreening?.qsCompliance?.educationScore || 90;
                   const exp = app.aiScreening?.qsCompliance?.experienceScore || 88;
                   const train = app.aiScreening?.qsCompliance?.trainingScore || 90;
@@ -768,7 +869,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       </td>
                     </tr>
                   );
-                })}
+                })
+              )}
               </tbody>
             </table>
           </div>

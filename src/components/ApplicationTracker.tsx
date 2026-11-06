@@ -25,6 +25,7 @@ import {
   UserCheck,
   TrendingUp,
   FileCheck2,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface ApplicationTrackerProps {
@@ -196,6 +197,27 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
           <div className="flex-1">
             <strong className="font-bold block">Application Not Found</strong>
             <span>{errorMessage}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Empty / Initial Instructions Card */}
+      {!currentApp && !errorMessage && !isLoading && (
+        <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-8 sm:p-12 text-center space-y-4">
+          <div className="w-16 h-16 bg-blue-50 text-[#024794] rounded-full flex items-center justify-center mx-auto">
+            <Search className="w-8 h-8 text-[#024794]" />
+          </div>
+          <div className="max-w-md mx-auto space-y-1">
+            <h3 className="text-base font-bold text-slate-900">
+              Track Your Application Status
+            </h3>
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Enter your BFAR Application Reference Number (e.g. <span className="font-mono text-[#024794] font-semibold">BFAR-2026-CO-XXXX</span>) in the search box above to view your real-time CSC milestone progress, document audit, and AI qualification assessment.
+            </p>
+          </div>
+          <div className="inline-flex items-center gap-2 text-[11px] text-slate-600 bg-slate-50 px-3.5 py-1.5 rounded-full border border-slate-200">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>Connected to DA-BFAR Firestore Live Database</span>
           </div>
         </div>
       )}

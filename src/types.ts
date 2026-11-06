@@ -7,7 +7,6 @@ export interface PlantillaJob {
   region: string;
   placeOfAssignment: string;
   salaryGrade: number;
-  monthlySalary: number;
   plantillaType: 'Permanent' | 'Contract of Service (COS)' | 'Project-Based';
   postingDate: string;
   closingDate: string;
@@ -115,7 +114,6 @@ export interface EligibilityEntry {
 export interface WorkExperienceEntry {
   position: string;
   agencyOrCompany: string;
-  monthlySalary?: number | string;
   salaryGrade?: string; // Salary / Job / Pay Grade & Step (Format "00-0")
   statusOfAppointment?: string; // Permanent / Temporary / Contractual / Casual / COS / Job Order
   fromDate: string;
@@ -329,7 +327,6 @@ export interface InternalEmployeeProfile {
   currentPlantillaItem: string;
   currentPositionTitle: string;
   salaryGrade: number;
-  monthlySalary: number;
   yearsInBfar: number;
   latestIpcrRating: number;
   ipcrPeriod: string;

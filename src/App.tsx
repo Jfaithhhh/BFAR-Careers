@@ -29,17 +29,8 @@ export default function App() {
 
     // Subscribe to Firestore applications collection in real-time
     const unsubscribe = subscribeToApplications((firestoreApps) => {
-      if (firestoreApps && firestoreApps.length > 0) {
-        setApplications((prev) => {
-          // Merge Firestore apps with memory store prioritizing Firestore records
-          const map = new Map<string, ApplicationRecord>();
-          prev.forEach((a) => map.set(a.id, a));
-          firestoreApps.forEach((a) => map.set(a.id, a));
-          return Array.from(map.values()).sort(
-            (a, b) => new Date(b.submissionDate).getTime() - new Date(a.submissionDate).getTime()
-          );
-        });
-      }
+      // Authoritative Firestore state (empty state when no applications are submitted)
+      setApplications(firestoreApps || []);
     });
 
     return () => {

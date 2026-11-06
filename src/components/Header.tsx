@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Fish, Award, ExternalLink, UserCheck, Briefcase, FileSearch, Lock } from 'lucide-react';
+import { Shield, Fish, Award, ExternalLink, UserCheck, Briefcase, FileSearch, Lock, LogIn, LogOut, User as UserIcon } from 'lucide-react';
+import { auth, signInWithGoogle, signOutUser } from '../lib/firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 interface HeaderProps {
   activeTab: 'jobs' | 'apply' | 'internal' | 'track' | 'admin';
@@ -16,6 +18,34 @@ export const Header: React.FC<HeaderProps> = ({
   openCount = 6,
 }) => {
   const [pstTime, setPstTime] = useState<string>('');
+  const [currentUser, setCurrentUser] = useState<User | null>(auth.currentUser);
+  const [isSigningIn, setIsSigningIn] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleSignIn = async () => {
+    try {
+      setIsSigningIn(true);
+      await signInWithGoogle();
+    } catch (err) {
+      console.error('Google Sign-in failed:', err);
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOutUser();
+    } catch (err) {
+      console.error('Sign-out failed:', err);
+    }
+  };
 
   useEffect(() => {
     const updateTime = () => {
@@ -71,6 +101,52 @@ export const Header: React.FC<HeaderProps> = ({
               <span>bfar.da.gov.ph/careers</span>
               <ExternalLink className="w-3 h-3 text-amber-300" />
             </a>
+            <span className="text-blue-500">·</span>
+
+            {/* Firebase Auth Staff Status / Login Gate */}
+            {currentUser ? (
+              <div className="flex items-center gap-1.5 bg-blue-950/80 border border-blue-700/60 rounded px-2 py-0.5">
+                {currentUser.photoURL ? (
+                  <img
+                    src={currentUser.photoURL}
+                    alt={currentUser.displayName || 'Staff'}
+                    className="w-4 h-4 rounded-full border border-sky-300"
+                  />
+                ) : (
+                  <UserIcon className="w-3.5 h-3.5 text-sky-300" />
+                )}
+                <span className="text-[10px] text-sky-100 max-w-[120px] truncate" title={currentUser.email || ''}>
+                  {currentUser.displayName || currentUser.email?.split('@')[0]}
+                </span>
+                {currentUser.email === 'jaiciervo7@gmail.com' || currentUser.email?.endsWith('@bfar.da.gov.ph') ? (
+                  <span className="bg-amber-400 text-slate-950 text-[9px] font-black px-1 rounded uppercase">
+                    Admin
+                  </span>
+                ) : (
+                  <span className="bg-sky-500/30 text-sky-200 text-[9px] font-bold px-1 rounded">
+                    Staff
+                  </span>
+                )}
+                <button
+                  onClick={handleSignOut}
+                  title="Sign out from DA-BFAR Portal"
+                  className="text-slate-400 hover:text-red-300 ml-1 p-0.5 transition-colors"
+                >
+                  <LogOut className="w-3 h-3" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleSignIn}
+                disabled={isSigningIn}
+                className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-sky-600 hover:bg-sky-500 text-white transition-all shadow-xs"
+                title="Sign in with your verified DA-BFAR Google Account"
+              >
+                <LogIn className="w-3 h-3" />
+                <span>{isSigningIn ? 'Signing In...' : 'Staff Sign In'}</span>
+              </button>
+            )}
+
             <span className="text-blue-500">·</span>
             {/* Restricted HR / HRMPSB Staff Access Gate */}
             <button

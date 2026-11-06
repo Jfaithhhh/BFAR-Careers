@@ -1,22 +1,97 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Applications collection - Restricted to internal DA-BFAR employees and applicants only
-    match /applications/{applicationId} {
-      allow read: if true;
-      allow create: if request.resource.data.applicantType == 'internal'
-                    && request.resource.data.bfarEmployeeId is string
-                    && (request.resource.data.applicantName is string || (request.resource.data.personalInfo != null && request.resource.data.personalInfo.fullName is string))
-                    && (request.resource.data.jobTitle is string || request.resource.data.positionTitle is string);
-      allow update: if true;
-      allow delete: if false;
+
+    // Global Safety Net (Default-Deny)
+    match /{document=**} {
+      allow read, write: if false;
     }
-    
-    // Internal employees directory collection for lookup/verification & seeding
+
+    // Hardened Global Helpers
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'jaiciervo7@gmail.com' ||
+        (request.auth.token.email != null && request.auth.token.email.matches('^[a-zA-Z0-9._%+-]+@bfar\\.da\\.gov\\.ph$'))
+      );
+    }
+
+    // Application validation helper - Enforces strict internal-only applicant type and field constraints
+    function isValidApplication(data) {
+      return data.applicantType == 'internal'
+        && data.bfarEmployeeId is string
+        && data.bfarEmployeeId.size() > 0
+        && data.bfarEmployeeId.size() <= 64
+        && (data.applicantName is string || (data.personalInfo != null && data.personalInfo.fullName is string))
+        && (data.jobTitle is string || data.positionTitle is string)
+        && (data.status is string);
+    }
+
+    // Internal Employee record validation helper
+    function isValidInternalEmployee(data) {
+      return data.employeeId is string
+        && data.employeeId.size() > 0
+        && data.employeeId.size() <= 64
+        && data.fullName is string
+        && data.fullName.size() > 0
+        && data.fullName.size() <= 128
+        && data.division is string
+        && data.division.size() <= 128;
+    }
+
+    // Applications collection:
+    // Read: Internal application tracking & HRMPSB comparative evaluation
+    // Create: Strictly restricted to verified internal DA-BFAR applications
+    // Update: State progression & HRMPSB evaluation remarks
+    match /applications/{applicationId} {
+      allow get, list: if true;
+      allow create: if isValidId(applicationId)
+                    && isValidApplication(incoming());
+      allow update: if isValidId(applicationId)
+                    && (
+                      isAdmin()
+                      || (
+                        isValidApplication(incoming())
+                        && incoming().diff(existing()).affectedKeys().hasOnly([
+                          'status',
+                          'currentMilestone',
+                          'finalDecision',
+                          'hrRemarks',
+                          'aiAssessment',
+                          'updatedAt'
+                        ])
+                      )
+                    );
+      allow delete: if isAdmin();
+    }
+
+    // Internal Employees directory:
+    // Read: Internal directory verification and profile synchronization
+    // Write: Directory maintenance and verification records
     match /internal_employees/{employeeId} {
-      allow read: if true;
-      allow create, update: if request.resource.data.employeeId is string;
-      allow delete: if false;
+      allow get, list: if true;
+      allow create, update: if isValidId(employeeId)
+                            && isValidInternalEmployee(incoming());
+      allow delete: if isAdmin();
     }
   }
 }

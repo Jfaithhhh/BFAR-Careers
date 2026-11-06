@@ -31,7 +31,6 @@ export const DEFAULT_INTERNAL_EMPLOYEES: InternalEmployeeProfile[] = [
     currentPlantillaItem: 'BFARB-AQUAT1-12-2004',
     currentPositionTitle: 'Aquaculturist I',
     salaryGrade: 11,
-    monthlySalary: 27000,
     yearsInBfar: 6,
     latestIpcrRating: 4.88, // Outstanding
     ipcrPeriod: 'July - December 2024',
@@ -54,7 +53,6 @@ export const DEFAULT_INTERNAL_EMPLOYEES: InternalEmployeeProfile[] = [
     currentPlantillaItem: 'BFARB-FI1-45-2014',
     currentPositionTitle: 'Fishing Regulations Officer I',
     salaryGrade: 11,
-    monthlySalary: 27000,
     yearsInBfar: 5,
     latestIpcrRating: 4.75, // Very Satisfactory
     ipcrPeriod: 'July - December 2024',
@@ -77,7 +75,6 @@ export const DEFAULT_INTERNAL_EMPLOYEES: InternalEmployeeProfile[] = [
     currentPlantillaItem: 'BFARB-ENG2-08-2016',
     currentPositionTitle: 'Engineer II',
     salaryGrade: 16,
-    monthlySalary: 39672,
     yearsInBfar: 4,
     latestIpcrRating: 4.92, // Outstanding
     ipcrPeriod: 'July - December 2024',
@@ -100,7 +97,6 @@ export const DEFAULT_INTERNAL_EMPLOYEES: InternalEmployeeProfile[] = [
     currentPlantillaItem: 'BFARB-ECO1-18-2019',
     currentPositionTitle: 'Economist I',
     salaryGrade: 11,
-    monthlySalary: 27000,
     yearsInBfar: 3,
     latestIpcrRating: 4.65, // Very Satisfactory
     ipcrPeriod: 'July - December 2024',
@@ -172,10 +168,9 @@ export function subscribeToApplications(
 ): Unsubscribe {
   try {
     const colRef = collection(db, APPLICATIONS_COLLECTION);
-    const q = query(colRef, orderBy('submissionDate', 'desc'));
 
     return onSnapshot(
-      q,
+      colRef,
       (snapshot) => {
         const apps: ApplicationRecord[] = [];
         snapshot.forEach((doc) => {
@@ -184,6 +179,12 @@ export function subscribeToApplications(
             ...data,
             id: doc.id,
           });
+        });
+        // Sort descending in memory by submission timestamp
+        apps.sort((a, b) => {
+          const timeA = new Date((a as any).createdAt || a.submissionDate || 0).getTime();
+          const timeB = new Date((b as any).createdAt || b.submissionDate || 0).getTime();
+          return timeB - timeA;
         });
         onUpdate(apps);
       },
@@ -238,19 +239,29 @@ export function subscribeToSingleApplication(
 
 // Save application to Firestore (Internal BFAR Applications Only)
 export async function saveApplicationToFirestore(app: ApplicationRecord): Promise<void> {
+  if (!app.bfarEmployeeId) {
+    throw new Error('Access Denied: A verified DA-BFAR Employee ID is required to submit an internal application.');
+  }
   try {
     const docRef = doc(db, APPLICATIONS_COLLECTION, app.id);
-    await setDoc(docRef, {
+    const sg = app.currentSalaryGrade ? `SG ${app.currentSalaryGrade}` : 'SG 11';
+    const payload: Record<string, any> = {
       ...app,
       applicantType: 'internal',
-      bfarEmployeeId: app.bfarEmployeeId || (app as any).bfarEmployeeId || 'BFAR-EMP-INTERNAL',
+      bfarEmployeeId: app.bfarEmployeeId,
       applicantName: app.personalInfo?.fullName || (app as any).applicantName || '',
       email: app.personalInfo?.email || (app as any).email || '',
       jobTitle: app.positionTitle || (app as any).jobTitle || '',
+      salaryGrade: (app as any).salaryGrade || sg,
+      status: app.status || 'Submitted',
+      createdAt: (app as any).createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-    });
+    };
+    // Absolute Salary Confidentiality Protection: never transmit or persist monthly numerical rate
+    delete payload.monthlySalary;
+    await setDoc(docRef, payload);
   } catch (err) {
-    const msg = handleFirestoreError(err, 'saveApplicationToFirestore');
+    const msg = handleFirestoreError(err, 'saveApplicationToFirestore', `${APPLICATIONS_COLLECTION}/${app.id}`);
     console.error(msg);
     throw new Error(msg);
   }

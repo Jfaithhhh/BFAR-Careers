@@ -278,18 +278,26 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
       </div>
 
       {/* Internal Applications Status Tracker (My Applications) */}
-      {myApplications.length > 0 && (
-        <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-3">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-[#024794]" />
-              <h3 className="text-sm font-bold text-slate-900">
-                My Internal Promotional Submissions ({myApplications.length})
-              </h3>
-            </div>
-            <span className="text-xs text-slate-500">Live Real-Time Status via Firestore</span>
+      <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-3">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-[#024794]" />
+            <h3 className="text-sm font-bold text-slate-900">
+              My Internal Promotional Submissions ({myApplications.length})
+            </h3>
           </div>
+          <span className="text-xs text-slate-500">Live Real-Time Status via Firestore</span>
+        </div>
 
+        {myApplications.length === 0 ? (
+          <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 space-y-2">
+            <FileText className="w-8 h-8 text-slate-400 mx-auto" />
+            <div className="text-xs font-bold text-slate-700">No active promotional applications submitted yet</div>
+            <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+              Select an open plantilla position from the list below and click <strong>Apply for Promotion</strong> to start your application process.
+            </p>
+          </div>
+        ) : (
           <div className="space-y-2">
             {myApplications.map((app) => (
               <div
@@ -340,8 +348,8 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Promotional Plantilla Opportunities */}
       <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
