@@ -1,5 +1,26 @@
 {
   "entities": {
+    "job_vacancies": {
+      "title": "Official BFAR Job Vacancies",
+      "description": "Plantilla vacancy records synchronized from the official DA-BFAR website (https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/) or verified by HR records.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "positionTitle": { "type": "string" },
+        "office": { "type": "string" },
+        "division": { "type": "string" },
+        "plantillaItemNumber": { "type": "string" },
+        "salaryGrade": { "type": "number" },
+        "datePosted": { "type": "string" },
+        "applicationDeadline": { "type": "string" },
+        "qualificationStandards": { "type": "object" },
+        "officialSourceUrl": { "type": "string" },
+        "sourceLastChecked": { "type": "string" },
+        "status": { "type": "string", "enum": ["Open", "Closed", "Under HRMPSB Review", "Expired"] },
+        "lastSyncedAt": { "type": "string" }
+      },
+      "required": ["id", "positionTitle", "plantillaItemNumber", "salaryGrade", "officialSourceUrl", "status"]
+    },
     "applications": {
       "title": "Job Applications",
       "description": "Plantilla vacancy applications from external and internal BFAR applicants, including CS Form 212 PDS, document uploads, and Gemini AI qualification evaluations.",
@@ -57,6 +78,10 @@
     }
   },
   "firestore": {
+    "/job_vacancies/{vacancyId}": {
+      "schema": "job_vacancies",
+      "description": "Authoritative job vacancies synchronized from official DA-BFAR publications."
+    },
     "/applications/{applicationId}": {
       "schema": "applications",
       "description": "Applicant submissions tracking recruitment lifecycle and Gemini AI evaluations."

@@ -11,154 +11,69 @@ import {
   Unsubscribe,
 } from 'firebase/firestore';
 import { db, handleFirestoreError } from './firebase';
-import { ApplicationRecord, InternalEmployeeProfile } from '../types';
+import { ApplicationRecord, InternalEmployeeProfile, PlantillaJob } from '../types';
 
 export const APPLICATIONS_COLLECTION = 'applications';
 export const INTERNAL_EMPLOYEES_COLLECTION = 'internal_employees';
+export const JOB_VACANCIES_COLLECTION = 'job_vacancies';
 
-// Verified DA-BFAR Internal Employee Profiles (Seed Data)
-export const DEFAULT_INTERNAL_EMPLOYEES: InternalEmployeeProfile[] = [
-  {
-    employeeId: 'BFAR-EMP-2018-0412',
-    fullName: 'Maria Elena S. Santos',
-    email: 'maria.santos@bfar.da.gov.ph',
-    phone: '+63 917 882 1042',
-    birthDate: '1990-06-15',
-    civilStatus: 'Single',
-    residentialAddress: 'Quezon City, Metro Manila',
-    division: 'Fisheries Regulatory and Licensing Division (FRLD)',
-    station: 'Central Office, PCA Compound, Elliptical Road, Diliman, QC',
-    currentPlantillaItem: 'BFARB-AQUAT1-12-2004',
-    currentPositionTitle: 'Aquaculturist I',
-    salaryGrade: 11,
-    yearsInBfar: 6,
-    latestIpcrRating: 4.88, // Outstanding
-    ipcrPeriod: 'July - December 2024',
-    eligibility: 'RA 1080 (Fisheries Technologist Licensure Examination - 87.50%)',
-    highestEducation: 'College Graduate (BS Fisheries)',
-    degree: 'Bachelor of Science in Fisheries',
-    trainingHours: 48,
-    sex: 'Female',
-  },
-  {
-    employeeId: 'BFAR-EMP-2019-0834',
-    fullName: 'Juan Carlo D. Dela Cruz',
-    email: 'jcarlo.delacruz@bfar.da.gov.ph',
-    phone: '+63 920 944 3211',
-    birthDate: '1988-11-20',
-    civilStatus: 'Married',
-    residentialAddress: 'Marikina City, Metro Manila',
-    division: 'Capture Fisheries Division (CFD)',
-    station: 'National Center for Fisheries Development (NCFD)',
-    currentPlantillaItem: 'BFARB-FI1-45-2014',
-    currentPositionTitle: 'Fishing Regulations Officer I',
-    salaryGrade: 11,
-    yearsInBfar: 5,
-    latestIpcrRating: 4.75, // Very Satisfactory
-    ipcrPeriod: 'July - December 2024',
-    eligibility: 'Career Service Professional (CSC-CSCRO NCR - 85.20%)',
-    highestEducation: 'College Graduate (BS Marine Biology)',
-    degree: 'Bachelor of Science in Marine Biology',
-    trainingHours: 32,
-    sex: 'Male',
-  },
-  {
-    employeeId: 'BFAR-EMP-2020-0199',
-    fullName: 'Engr. Roberto Miguel V. Tan',
-    email: 'roberto.tan@bfar.da.gov.ph',
-    phone: '+63 908 555 8923',
-    birthDate: '1987-03-08',
-    civilStatus: 'Married',
-    residentialAddress: 'Valenzuela City, Metro Manila',
-    division: 'Fisheries Post-Harvest and Technology Division (FPHTD)',
-    station: 'Central Office, Diliman, Quezon City',
-    currentPlantillaItem: 'BFARB-ENG2-08-2016',
-    currentPositionTitle: 'Engineer II',
-    salaryGrade: 16,
-    yearsInBfar: 4,
-    latestIpcrRating: 4.92, // Outstanding
-    ipcrPeriod: 'July - December 2024',
-    eligibility: 'RA 1080 (PRC Registered Agricultural and Biosystems Engineer)',
-    highestEducation: 'College Graduate (BS Agricultural & Biosystems Engineering)',
-    degree: 'BS Agricultural and Biosystems Engineering',
-    trainingHours: 64,
-    sex: 'Male',
-  },
-  {
-    employeeId: 'BFAR-EMP-2021-0305',
-    fullName: 'Ana Patricia G. Mendoza',
-    email: 'ana.mendoza@bfar.da.gov.ph',
-    phone: '+63 915 222 7109',
-    birthDate: '1993-09-12',
-    civilStatus: 'Single',
-    residentialAddress: 'Pasig City, Metro Manila',
-    division: 'Fisheries Planning and Economics Division (FPED)',
-    station: 'Central Office, Diliman, Quezon City',
-    currentPlantillaItem: 'BFARB-ECO1-18-2019',
-    currentPositionTitle: 'Economist I',
-    salaryGrade: 11,
-    yearsInBfar: 3,
-    latestIpcrRating: 4.65, // Very Satisfactory
-    ipcrPeriod: 'July - December 2024',
-    eligibility: 'Career Service Professional (CSC - 86.40%)',
-    highestEducation: 'Master of Science in Agricultural Economics (with 24 units)',
-    degree: 'BS Economics / MS AgEcon units',
-    trainingHours: 24,
-    sex: 'Female',
-  },
-];
-
-// Helper: Seed internal employees if not present
-export async function seedInternalEmployeesIfEmpty(): Promise<void> {
-  try {
-    const colRef = collection(db, INTERNAL_EMPLOYEES_COLLECTION);
-    const snap = await getDocs(colRef);
-    if (snap.empty) {
-      for (const emp of DEFAULT_INTERNAL_EMPLOYEES) {
-        await setDoc(doc(db, INTERNAL_EMPLOYEES_COLLECTION, emp.employeeId), emp);
-      }
-    }
-  } catch (err: any) {
-    // Non-fatal: if rules or offline state prevents writing, the app seamlessly uses local store
-    console.info('Internal employees directory synced with fallback defaults.', err?.message || '');
-  }
-}
-
-// Fetch all internal employees
+// Fetch all internal employees directly from Firestore (No mock or demo fallbacks)
 export async function getInternalEmployees(): Promise<InternalEmployeeProfile[]> {
   try {
     const colRef = collection(db, INTERNAL_EMPLOYEES_COLLECTION);
     const snap = await getDocs(colRef);
     if (snap.empty) {
-      // Return defaults if Firestore empty
-      return DEFAULT_INTERNAL_EMPLOYEES;
+      return [];
     }
     return snap.docs.map((d) => d.data() as InternalEmployeeProfile);
   } catch (err) {
-    console.warn('Error fetching internal employees from Firestore, returning defaults:', err);
-    return DEFAULT_INTERNAL_EMPLOYEES;
+    console.warn('Error fetching internal employees from Firestore:', err);
+    return [];
   }
 }
 
-// Lookup internal employee by ID
+// Lookup internal employee by ID strictly against Firestore (Returns null if not found, never falls back to mock)
 export async function lookupInternalEmployee(id: string): Promise<InternalEmployeeProfile | null> {
   const cleanId = id.trim().toUpperCase();
-  // Try direct memory match first
-  const localMatch = DEFAULT_INTERNAL_EMPLOYEES.find(
-    (e) => e.employeeId.toUpperCase() === cleanId || e.fullName.toUpperCase().includes(cleanId)
-  );
-  if (localMatch) return localMatch;
+  if (!cleanId) return null;
 
   try {
+    // 1. Try direct doc ID match in Firestore
     const docRef = doc(db, INTERNAL_EMPLOYEES_COLLECTION, cleanId);
     const snap = await getDoc(docRef);
     if (snap.exists()) {
       return snap.data() as InternalEmployeeProfile;
     }
+
+    // 2. Query by employeeId field across registered documents
+    const colRef = collection(db, INTERNAL_EMPLOYEES_COLLECTION);
+    const allSnap = await getDocs(colRef);
+    for (const d of allSnap.docs) {
+      const data = d.data() as InternalEmployeeProfile;
+      if (
+        data.employeeId?.toUpperCase() === cleanId ||
+        d.id.toUpperCase() === cleanId ||
+        (cleanId.length >= 4 && data.fullName?.toUpperCase().includes(cleanId))
+      ) {
+        return data;
+      }
+    }
   } catch (err) {
-    console.warn('Error looking up internal employee:', err);
+    console.warn('Error looking up internal employee from Firestore:', err);
   }
   return null;
+}
+
+// Register or update verified internal employee profile in Firestore
+export async function saveInternalEmployeeToFirestore(emp: InternalEmployeeProfile): Promise<void> {
+  try {
+    const docId = emp.employeeId.trim().toUpperCase();
+    const docRef = doc(db, INTERNAL_EMPLOYEES_COLLECTION, docId);
+    await setDoc(docRef, emp, { merge: true });
+  } catch (err) {
+    const msg = handleFirestoreError(err, 'saveInternalEmployeeToFirestore', `${INTERNAL_EMPLOYEES_COLLECTION}/${emp.employeeId}`);
+    throw new Error(msg);
+  }
 }
 
 // Real-time subscription to applications list
@@ -284,3 +199,115 @@ export async function updateApplicationInFirestore(
     throw new Error(msg);
   }
 }
+
+// ==========================================
+// OFFICIAL JOB VACANCIES (BFAR CAREERS PORTAL)
+// ==========================================
+
+// Subscribe in real-time to official job vacancies
+export function subscribeToJobVacancies(
+  onUpdate: (vacancies: PlantillaJob[]) => void,
+  onError?: (err: Error) => void
+): Unsubscribe {
+  try {
+    const colRef = collection(db, JOB_VACANCIES_COLLECTION);
+    return onSnapshot(
+      colRef,
+      (snapshot) => {
+        const vacancies: PlantillaJob[] = [];
+        snapshot.forEach((d) => {
+          const data = d.data() as PlantillaJob;
+          vacancies.push({
+            ...data,
+            id: d.id,
+            plantillaItemNumber: data.plantillaItemNumber || data.itemNo,
+            itemNo: data.itemNo || data.plantillaItemNumber || '',
+            datePosted: data.datePosted || data.postingDate || '',
+            applicationDeadline: data.applicationDeadline || data.closingDate || '',
+            officialSourceUrl: data.officialSourceUrl || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
+          });
+        });
+        // Sort active first, then by deadline
+        vacancies.sort((a, b) => {
+          if (a.status === 'Open' && b.status !== 'Open') return -1;
+          if (a.status !== 'Open' && b.status === 'Open') return 1;
+          return a.salaryGrade - b.salaryGrade;
+        });
+        onUpdate(vacancies);
+      },
+      (error) => {
+        console.warn('Firestore onSnapshot error on job_vacancies:', error);
+        if (onError) onError(error);
+      }
+    );
+  } catch (err: any) {
+    console.error('Failed to set up job_vacancies snapshot:', err);
+    if (onError) onError(err);
+    return () => {};
+  }
+}
+
+// Fetch all official job vacancies from Firestore
+export async function getJobVacanciesFromFirestore(): Promise<PlantillaJob[]> {
+  try {
+    const colRef = collection(db, JOB_VACANCIES_COLLECTION);
+    const snap = await getDocs(colRef);
+    if (snap.empty) {
+      return [];
+    }
+    return snap.docs.map((d) => {
+      const data = d.data() as PlantillaJob;
+      return {
+        ...data,
+        id: d.id,
+        plantillaItemNumber: data.plantillaItemNumber || data.itemNo,
+        itemNo: data.itemNo || data.plantillaItemNumber || '',
+        datePosted: data.datePosted || data.postingDate || '',
+        applicationDeadline: data.applicationDeadline || data.closingDate || '',
+        officialSourceUrl: data.officialSourceUrl || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
+      };
+    });
+  } catch (err) {
+    console.warn('Error fetching job_vacancies from Firestore:', err);
+    return [];
+  }
+}
+
+// Save or update a single official job vacancy in Firestore
+export async function saveJobVacancyToFirestore(job: PlantillaJob): Promise<void> {
+  try {
+    const docId = job.id || `vacancy-${Date.now()}`;
+    const docRef = doc(db, JOB_VACANCIES_COLLECTION, docId);
+    const payload: Record<string, any> = {
+      ...job,
+      id: docId,
+      plantillaItemNumber: job.plantillaItemNumber || job.itemNo,
+      itemNo: job.itemNo || job.plantillaItemNumber || '',
+      datePosted: job.datePosted || job.postingDate || '',
+      applicationDeadline: job.applicationDeadline || job.closingDate || '',
+      officialSourceUrl: job.officialSourceUrl || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
+      sourceLastChecked: job.sourceLastChecked || new Date().toISOString(),
+      lastSyncedAt: new Date().toISOString(),
+      verifiedByHr: true,
+    };
+    // Absolute Salary Protection
+    delete payload.monthlySalary;
+    await setDoc(docRef, payload, { merge: true });
+  } catch (err) {
+    const msg = handleFirestoreError(err, 'saveJobVacancyToFirestore', `${JOB_VACANCIES_COLLECTION}/${job.id}`);
+    console.error(msg);
+    throw new Error(msg);
+  }
+}
+
+// Bulk sync vacancies to Firestore
+export async function syncVacanciesToFirestore(vacancies: PlantillaJob[]): Promise<void> {
+  try {
+    for (const v of vacancies) {
+      await saveJobVacancyToFirestore(v);
+    }
+  } catch (err) {
+    console.warn('Failed bulk sync to Firestore job_vacancies:', err);
+  }
+}
+

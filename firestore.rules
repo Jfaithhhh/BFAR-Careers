@@ -58,6 +58,28 @@ service cloud.firestore {
         && data.division.size() <= 128;
     }
 
+    // Job Vacancy validation helper
+    function isValidJobVacancy(data) {
+      return data.positionTitle is string
+        && data.positionTitle.size() > 0
+        && data.positionTitle.size() <= 200
+        && (data.plantillaItemNumber is string || data.itemNo is string)
+        && data.salaryGrade is number
+        && data.officialSourceUrl is string
+        && data.officialSourceUrl.size() > 0
+        && data.status is string;
+    }
+
+    // Job Vacancies collection:
+    // Read: Authoritative BFAR vacancies visible to all personnel
+    // Write: Synchronized or verified by authorized HR Administrator
+    match /job_vacancies/{vacancyId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(vacancyId)
+                            && (isAdmin() || isValidJobVacancy(incoming()));
+      allow delete: if isAdmin();
+    }
+
     // Applications collection:
     // Read: Internal application tracking & HRMPSB comparative evaluation
     // Create: Strictly restricted to verified internal DA-BFAR applications

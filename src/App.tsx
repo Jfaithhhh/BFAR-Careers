@@ -9,7 +9,8 @@ import { Footer } from './components/Footer';
 import { PlantillaJob, ApplicationRecord, InternalEmployeeProfile } from './types';
 import {
   subscribeToApplications,
-  seedInternalEmployeesIfEmpty,
+  subscribeToJobVacancies,
+  syncVacanciesToFirestore,
 } from './lib/firestoreService';
 
 export default function App() {
@@ -25,16 +26,22 @@ export default function App() {
   useEffect(() => {
     fetchJobs();
     fetchApplications();
-    seedInternalEmployeesIfEmpty();
+
+    // Subscribe to Firestore job_vacancies in real-time
+    const unsubVacancies = subscribeToJobVacancies((firestoreJobs) => {
+      setJobs(firestoreJobs || []);
+      setIsLoadingJobs(false);
+    });
 
     // Subscribe to Firestore applications collection in real-time
-    const unsubscribe = subscribeToApplications((firestoreApps) => {
+    const unsubApplications = subscribeToApplications((firestoreApps) => {
       // Authoritative Firestore state (empty state when no applications are submitted)
       setApplications(firestoreApps || []);
     });
 
     return () => {
-      unsubscribe();
+      unsubVacancies();
+      unsubApplications();
     };
   }, []);
 

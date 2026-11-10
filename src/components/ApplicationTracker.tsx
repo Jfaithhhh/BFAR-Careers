@@ -166,7 +166,7 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
         </form>
 
         {/* Quick Click from Recent Submissions */}
-        {recentApplications.length > 0 && (
+        {recentApplications.length > 0 ? (
           <div className="max-w-xl mx-auto pt-2 flex flex-wrap items-center justify-center gap-2 text-xs">
             <span className="text-slate-500 font-medium text-[11px]">Recent Submissions:</span>
             {recentApplications.slice(0, 3).map((app) => (
@@ -186,6 +186,10 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
                 {app.trackingCode} {app.applicantType === 'internal' && '(Internal)'}
               </button>
             ))}
+          </div>
+        ) : (
+          <div className="max-w-xl mx-auto pt-2 text-center text-xs text-slate-400">
+            <span>You have not submitted any applications yet.</span>
           </div>
         )}
       </div>
@@ -267,7 +271,13 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
                       <span>BFAR Internal Track</span>
                     </span>
                   )}
-                  <span className="bg-amber-400 text-slate-950 font-black text-xs px-3 py-1 rounded-full uppercase tracking-wider shadow-xs">
+                  <span className={`font-black text-xs px-3 py-1 rounded-full uppercase tracking-wider shadow-xs ${
+                    currentApp.status === 'Rejected' || currentApp.status === 'Regret / Not Qualified'
+                      ? 'bg-rose-500 text-white'
+                      : currentApp.status.includes('Qualified')
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-amber-400 text-slate-950'
+                  }`}>
                     {currentApp.status}
                   </span>
                 </div>
@@ -312,6 +322,19 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
                       IPCR Rating: {currentApp.latestIpcrRating.toFixed(2)}/5.00
                     </span>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Rejection / Non-Selection Advisory Notice */}
+            {(currentApp.status === 'Rejected' || currentApp.status === 'Regret / Not Qualified') && (
+              <div className="bg-rose-50 border-b border-rose-200 p-4 text-xs text-rose-900 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <strong className="block font-bold text-rose-950">Notice of Disqualification / Non-Compliance</strong>
+                  <p className="text-rose-800 leading-relaxed">
+                    {currentApp.adminRemarks || 'The applicant does not meet the minimum Civil Service Qualification Standards or mandatory documentary requirements for this Plantilla position.'}
+                  </p>
                 </div>
               </div>
             )}

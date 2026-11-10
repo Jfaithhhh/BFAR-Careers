@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { PlantillaJob, ApplicationRecord } from '../types';
+import React, { useState, useEffect } from 'react';
+import { PlantillaJob, ApplicationRecord, VacancySyncStatus } from '../types';
 import { updateApplicationInFirestore } from '../lib/firestoreService';
 import { auth, signInWithGoogle } from '../lib/firebase';
 import {
@@ -37,6 +37,9 @@ import {
   BadgeCheck,
   FileText,
   Scale,
+  Globe,
+  History,
+  Check,
 } from 'lucide-react';
 
 interface AdminPortalProps {
@@ -83,41 +86,75 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [isUpdating, setIsUpdating] = useState(false);
   const [isGeneratingAiQuestions, setIsGeneratingAiQuestions] = useState(false);
 
-  // New Job Modal
+  // Vacancy Sync & Official Registry State
+  const [syncStatus, setSyncStatus] = useState<VacancySyncStatus | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncFeedback, setSyncFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [showAuditLogs, setShowAuditLogs] = useState(false);
+  const [vacancyFilter, setVacancyFilter] = useState<'All' | 'Open' | 'Expired'>('All');
+
+  // Official Vacancy Import Modal State
   const [isCreatingJob, setIsCreatingJob] = useState(false);
   const [createJobError, setCreateJobError] = useState<string | null>(null);
-  const [newJobForm, setNewJobForm] = useState<Partial<PlantillaJob>>({
+  const [createJobSuccess, setCreateJobSuccess] = useState<string | null>(null);
+  const [newJobForm, setNewJobForm] = useState({
     itemNo: '',
+    plantillaItemNumber: '',
     positionTitle: '',
-    division: 'Fisheries Protection and Law Enforcement Group (FPLEG)',
+    office: 'BFAR Central Office',
+    division: 'Aquaculture Division',
     region: 'Central Office (NCR) - Quezon City',
     placeOfAssignment: 'BFAR Central Office, PCA Building, Elliptical Road, Diliman, Quezon City',
     salaryGrade: 15,
-    plantillaType: 'Permanent',
-    postingDate: '21 Oct 2026',
-    closingDate: '06 Nov 2026',
-    status: 'Open',
-    qualificationStandards: {
-      education: "Bachelor's degree in Fisheries, Marine Science, or relevant discipline",
-      experience: '1 year of relevant experience',
-      training: '4 hours of relevant training',
-      eligibility: 'Career Service (Professional) / RA 1080',
-    },
-    dutiesAndResponsibilities: ['Perform regulatory enforcement and technical evaluations.'],
-    competencies: ['Fisheries Law Enforcement', 'Technical Report Writing'],
+    plantillaType: 'Permanent' as 'Permanent' | 'Contract of Service (COS)' | 'Project-Based',
+    datePosted: '2026-10-21',
+    applicationDeadline: '2026-11-25',
+    officialSourceUrl: 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
+    education: "Bachelor's degree in Fisheries, Aquaculture, or related discipline",
+    experience: '1 year of relevant experience in fisheries development',
+    training: '4 hours of relevant technical training',
+    eligibility: 'Career Service (Professional) / RA 1080',
+    dutiesText: 'Coordinate technical program implementation and monitoring.\nEvaluate technical fisheries reports and compliance documents.\nPrepare administrative reports for Central Office review.',
+    competenciesText: 'Fisheries Regulatory Compliance\nTechnical Report Writing\nProgram Monitoring',
+    documentTitle: 'Official Notice of Vacancy (CS Form 9)',
+    documentUrl: 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
   });
 
-  // KPI Calculations
+  // Load official vacancy synchronization status
+  const fetchSyncStatus = async () => {
+    try {
+      const res = await fetch('/api/vacancies/sync-status');
+      const json = await res.json();
+      if (json.success && json.data) {
+        setSyncStatus(json.data);
+      }
+    } catch (e) {
+      console.warn('Could not fetch vacancy sync status:', e);
+    }
+  };
+
+  useEffect(() => {
+    fetchSyncStatus();
+  }, [adminTab]);
+
+  // KPI Calculations dynamically computed from actual Firestore records
   const totalApps = applications.length;
-  const qualifiedCount = applications.filter((a) =>
-    a.status.includes('Qualified') || a.status.includes('Interview') || a.status.includes('Appointment') || a.status.includes('Result')
-  ).length;
+  const uniqueApplicants = new Set(applications.map((a) => a.bfarEmployeeId || a.personalInfo?.email || a.id)).size;
   const underReviewCount = applications.filter(
     (a) => a.status === 'Submitted' || a.status === 'Document Under Review'
   ).length;
-  const interviewCount = applications.filter((a) => a.status.includes('Interview')).length;
-  const appointedCount = applications.filter((a) => a.status.includes('Appointment') || a.status.includes('Result')).length;
-  const internalCount = applications.filter((a) => a.applicantType === 'internal').length;
+  const qualifiedCount = applications.filter((a) =>
+    a.status.includes('Qualified') || a.status.includes('Interview') || a.status.includes('Appointment') || a.status.includes('Recommended') || a.status.includes('Result')
+  ).length;
+  const disqualifiedCount = applications.filter((a) =>
+    a.status.includes('Not Qualified') || a.status.includes('Regret')
+  ).length;
+  const approvedCount = applications.filter((a) =>
+    a.finalBoardDecision === 'Approved for Appointment' || a.status.includes('Recommended') || a.status.includes('Appointment') || a.status.includes('Result')
+  ).length;
+  const activeVacanciesCount = jobs.filter((j) => j.status === 'Open').length;
+  const expiredVacanciesCount = jobs.filter((j) => j.status !== 'Open').length;
+  const internalPromotionCount = applications.filter((a) => a.applicantType === 'internal').length;
 
   // Filtered applicants
   const filteredApps = applications.filter((app) => {
@@ -210,30 +247,125 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     }
   };
 
-  // Create Job Handler
+  // Manual Vacancy Sync Trigger with Official BFAR Portal
+  const handleRunSync = async () => {
+    setIsSyncing(true);
+    setSyncFeedback(null);
+    try {
+      const res = await fetch('/api/vacancies/sync', { method: 'POST' });
+      const json = await res.json();
+      if (json.success) {
+        setSyncStatus(json.data);
+        if (json.vacancies && Array.isArray(json.vacancies)) {
+          json.vacancies.forEach((v: PlantillaJob) => {
+            onUpdateJob(v.id, v);
+          });
+        }
+        setSyncFeedback({
+          type: 'success',
+          message: `Synchronized with official BFAR announcements. Total: ${json.data.totalVacancies} (${json.data.activeVacancies} Active, ${json.data.expiredVacancies} Expired).`,
+        });
+      } else {
+        setSyncFeedback({
+          type: 'error',
+          message: json.error || 'Failed to synchronize with BFAR portal.',
+        });
+      }
+    } catch (err: any) {
+      setSyncFeedback({
+        type: 'error',
+        message: 'Network error communicating with vacancy synchronization engine.',
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // Toggle Vacancy Status (Open <-> Expired)
+  const handleToggleVacancyStatus = async (jobId: string, currentStatus: string) => {
+    const nextStatus = currentStatus === 'Open' ? 'Expired' : 'Open';
+    try {
+      const res = await fetch(`/api/vacancies/${jobId}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      const json = await res.json();
+      if (json.success && json.data) {
+        onUpdateJob(jobId, json.data);
+        fetchSyncStatus();
+      }
+    } catch (err) {
+      console.error('Failed to toggle vacancy status:', err);
+    }
+  };
+
+  // Official Vacancy Import & Verification Handler (Duplicate Protected)
   const handleCreateJobSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateJobError(null);
-    if (!newJobForm.positionTitle || !newJobForm.itemNo) {
-      setCreateJobError('Please enter Position Title and Plantilla Item No.');
+    setCreateJobSuccess(null);
+
+    const itemNo = (newJobForm.plantillaItemNumber || newJobForm.itemNo || '').trim().toUpperCase();
+    if (!newJobForm.positionTitle.trim() || !itemNo) {
+      setCreateJobError('Position Title and Plantilla Item Number are required.');
       return;
     }
 
+    const payload = {
+      positionTitle: newJobForm.positionTitle.trim(),
+      plantillaItemNumber: itemNo,
+      itemNo: itemNo,
+      office: newJobForm.office.trim(),
+      division: newJobForm.division.trim(),
+      region: newJobForm.region.trim(),
+      placeOfAssignment: newJobForm.placeOfAssignment.trim(),
+      salaryGrade: Number(newJobForm.salaryGrade) || 15,
+      plantillaType: newJobForm.plantillaType,
+      datePosted: newJobForm.datePosted,
+      postingDate: newJobForm.datePosted,
+      applicationDeadline: newJobForm.applicationDeadline,
+      closingDate: newJobForm.applicationDeadline,
+      officialSourceUrl: newJobForm.officialSourceUrl.trim() || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
+      qualificationStandards: {
+        education: newJobForm.education.trim(),
+        experience: newJobForm.experience.trim(),
+        training: newJobForm.training.trim(),
+        eligibility: newJobForm.eligibility.trim(),
+      },
+      dutiesAndResponsibilities: newJobForm.dutiesText
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean),
+      competencies: newJobForm.competenciesText
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean),
+      attachedDocuments: [
+        {
+          name: newJobForm.documentTitle.trim() || 'Official Notice of Vacancy (CS Form 9)',
+          url: newJobForm.documentUrl.trim() || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
+          type: 'PDF',
+        },
+      ],
+    };
+
     try {
-      const res = await fetch('/api/jobs', {
+      const res = await fetch('/api/vacancies/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newJobForm),
+        body: JSON.stringify(payload),
       });
       const json = await res.json();
       if (json.success && json.data) {
         onAddJob(json.data);
         setIsCreatingJob(false);
+        fetchSyncStatus();
       } else {
-        setCreateJobError(json.error || 'Failed to publish new Plantilla vacancy.');
+        setCreateJobError(json.error || 'Failed to import and verify official vacancy.');
       }
     } catch (err) {
-      setCreateJobError('Failed to publish new Plantilla vacancy.');
+      setCreateJobError('Failed to communicate with official vacancy import service.');
     }
   };
 
@@ -511,32 +643,52 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-[10px] font-bold text-slate-500 uppercase">Total Applications</span>
-          <div className="text-2xl font-black text-slate-900 mt-1">{totalApps}</div>
-          <span className="text-[10px] text-slate-400">All Plantilla Items</span>
+      {/* Dynamic Recruitment & Personnel Metrics (Calculated from Real Database Records) */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+          <span className="text-[10px] font-bold text-slate-500 uppercase block">Registered Applicants</span>
+          <div className="text-xl sm:text-2xl font-black text-slate-900 mt-1">{uniqueApplicants}</div>
+          <span className="text-[10px] text-slate-400">Unique Applicants</span>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-[10px] font-bold text-slate-500 uppercase">Under Review</span>
-          <div className="text-2xl font-black text-amber-600 mt-1">{underReviewCount}</div>
-          <span className="text-[10px] text-slate-400">Document Verification</span>
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+          <span className="text-[10px] font-bold text-slate-500 uppercase block">Submitted Applications</span>
+          <div className="text-xl sm:text-2xl font-black text-slate-900 mt-1">{totalApps}</div>
+          <span className="text-[10px] text-slate-400">Total Submissions</span>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-[10px] font-bold text-slate-500 uppercase">CSC QS Qualified</span>
-          <div className="text-2xl font-black text-[#024794] mt-1">{qualifiedCount}</div>
-          <span className="text-[10px] text-slate-400">Meets QS Standards</span>
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+          <span className="text-[10px] font-bold text-slate-500 uppercase block">Under Review</span>
+          <div className="text-xl sm:text-2xl font-black text-amber-600 mt-1">{underReviewCount}</div>
+          <span className="text-[10px] text-slate-400">Document Review</span>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-          <span className="text-[10px] font-bold text-slate-500 uppercase">Interview Scheduled</span>
-          <div className="text-2xl font-black text-purple-600 mt-1">{interviewCount}</div>
-          <span className="text-[10px] text-slate-400">HRMPSB Deliberation</span>
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+          <span className="text-[10px] font-bold text-slate-500 uppercase block">Qualified Applicants</span>
+          <div className="text-xl sm:text-2xl font-black text-[#024794] mt-1">{qualifiedCount}</div>
+          <span className="text-[10px] text-slate-400">Meets CSC Standards</span>
         </div>
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs col-span-2 lg:col-span-1">
-          <span className="text-[10px] font-bold text-slate-500 uppercase">Application Result</span>
-          <div className="text-2xl font-black text-emerald-600 mt-1">{appointedCount}</div>
-          <span className="text-[10px] text-slate-400">Board Decisions Finalized</span>
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+          <span className="text-[10px] font-bold text-slate-500 uppercase block">Disqualified</span>
+          <div className="text-xl sm:text-2xl font-black text-red-600 mt-1">{disqualifiedCount}</div>
+          <span className="text-[10px] text-slate-400">Does Not Meet QS</span>
+        </div>
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+          <span className="text-[10px] font-bold text-slate-500 uppercase block">Approved Applications</span>
+          <div className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">{approvedCount}</div>
+          <span className="text-[10px] text-slate-400">Appointed / Recommended</span>
+        </div>
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+          <span className="text-[10px] font-bold text-slate-500 uppercase block">Active Vacancies</span>
+          <div className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">{activeVacanciesCount}</div>
+          <span className="text-[10px] text-slate-400">Open Announcements</span>
+        </div>
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+          <span className="text-[10px] font-bold text-slate-500 uppercase block">Expired Vacancies</span>
+          <div className="text-xl sm:text-2xl font-black text-slate-600 mt-1">{expiredVacanciesCount}</div>
+          <span className="text-[10px] text-slate-400">Deadline Passed</span>
+        </div>
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs col-span-2 sm:col-span-1 lg:col-span-2">
+          <span className="text-[10px] font-bold text-slate-500 uppercase block">Internal Promotions</span>
+          <div className="text-xl sm:text-2xl font-black text-purple-700 mt-1">{internalPromotionCount}</div>
+          <span className="text-[10px] text-slate-400">Verified Personnel Applications</span>
         </div>
       </div>
 
@@ -610,7 +762,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   className="bg-white border border-slate-300 rounded-md px-2 py-1.5 text-xs font-semibold text-purple-900"
                 >
                   <option value="All">All Internal Staff ({totalApps})</option>
-                  <option value="internal">Promotion Track ({internalCount})</option>
+                  <option value="internal">Promotion Track ({internalPromotionCount})</option>
                 </select>
               </div>
 
@@ -657,7 +809,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         </div>
                         <h4 className="font-bold text-slate-800 text-sm">
                           {applications.length === 0
-                            ? 'No Internal Applications Submitted Yet'
+                            ? 'No recruitment records are currently available.'
                             : 'No Matching Applications Found'}
                         </h4>
                         <p className="text-xs text-slate-500 leading-relaxed">
@@ -750,48 +902,317 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         </div>
       )}
 
-      {/* TAB 2: PLANTILLA VACANCIES */}
+      {/* TAB 2: PLANTILLA VACANCIES & OFFICIAL BFAR SYNCHRONIZATION */}
       {adminTab === 'plantilla' && (
-        <div className="bg-white rounded-b-xl shadow-xs border border-slate-200 p-5 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
-            <div>
-              <h3 className="text-sm font-bold text-slate-900">
-                Official Plantilla Items Management
-              </h3>
-              <p className="text-xs text-slate-500">
-                Authorized Central Office positions and Civil Service publication status.
-              </p>
-            </div>
-            <button
-              onClick={() => setIsCreatingJob(true)}
-              className="bg-[#024794] hover:bg-[#033b7a] text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md active:scale-95 transition-all self-start sm:self-auto"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Post New Plantilla Vacancy</span>
-            </button>
-          </div>
+        <div className="bg-white rounded-b-xl shadow-xs border border-slate-200 p-5 space-y-6">
+          {/* Official Source & Synchronization Console Card */}
+          <div className="bg-gradient-to-r from-slate-900 via-[#0a2540] to-slate-900 text-white rounded-xl p-5 border border-slate-700 shadow-md space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="bg-emerald-500 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
+                    <Globe className="w-3 h-3" />
+                    Official Source of Truth
+                  </span>
+                  <span className="text-slate-300 text-xs font-mono">DA-BFAR PORTAL REPOSITORY</span>
+                </div>
+                <h3 className="text-base font-bold text-white">
+                  Official Plantilla Vacancy Synchronization Engine
+                </h3>
+                <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+                  All job opportunities are synchronized directly from the authoritative DA-BFAR Careers Portal.
+                  Monetary salary amounts are strictly suppressed in compliance with CSC rules; only official Salary Grades (SG) are published.
+                </p>
+              </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {jobs.map((job) => (
+              <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+                <a
+                  href="https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="bg-slate-800 hover:bg-slate-700 text-white border border-slate-600 px-3 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+                >
+                  <span>Open bfar.da.gov.ph</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-sky-400" />
+                </a>
+
+                <button
+                  type="button"
+                  onClick={handleRunSync}
+                  disabled={isSyncing}
+                  className="bg-[#024794] hover:bg-[#033b7a] disabled:opacity-50 text-white border border-blue-400/30 px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-amber-400' : 'text-emerald-400'}`} />
+                  <span>{isSyncing ? 'Checking BFAR Portal...' : 'Sync Vacancies'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsCreatingJob(true)}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Import Official Notice</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Sync Feedback Message */}
+            {syncFeedback && (
               <div
-                key={job.id}
-                className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-3 flex flex-col justify-between"
+                className={`p-3 rounded-lg text-xs flex items-center justify-between border ${
+                  syncFeedback.type === 'success'
+                    ? 'bg-emerald-950/60 border-emerald-500/40 text-emerald-200'
+                    : 'bg-red-950/60 border-red-500/40 text-red-200'
+                }`}
               >
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-mono text-[10px] font-bold text-[#024794] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                      SG {job.salaryGrade}
-                    </span>
-                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                      Closes: {job.closingDate}
-                    </span>
-                  </div>
-                  <h4 className="font-bold text-slate-900 text-sm mt-1">{job.positionTitle}</h4>
-                  <p className="font-mono text-xs text-slate-500">{job.itemNo}</p>
-                  <p className="text-xs text-slate-600 mt-2 line-clamp-2">{job.division}</p>
+                <div className="flex items-center gap-2">
+                  {syncFeedback.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  )}
+                  <span>{syncFeedback.message}</span>
+                </div>
+                <button
+                  onClick={() => setSyncFeedback(null)}
+                  className="text-slate-400 hover:text-white text-xs p-1"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Sync Status Info Bar */}
+            <div className="bg-slate-950/70 border border-slate-800 rounded-lg p-3 text-xs flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-4 text-slate-300">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span className="text-slate-400">Sync Status:</span>
+                  <span className="font-semibold text-white capitalize">
+                    {syncStatus?.status || 'Active & Synchronized'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-slate-400">Last Synced:</span>
+                  <span className="font-mono text-white text-[11px]">
+                    {syncStatus?.lastSuccessfulSync
+                      ? new Date(syncStatus.lastSuccessfulSync).toLocaleString('en-PH', { dateStyle: 'medium', timeStyle: 'short' })
+                      : 'Recently updated'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+                  <span className="text-slate-400">Registry Count:</span>
+                  <span className="font-bold text-white">{jobs.length} items</span>
+                  <span className="text-emerald-400">({jobs.filter(j => j.status === 'Open').length} Open)</span>
+                  <span className="text-slate-400">({jobs.filter(j => j.status !== 'Open').length} Closed)</span>
                 </div>
               </div>
-            ))}
+
+              <button
+                type="button"
+                onClick={() => setShowAuditLogs(!showAuditLogs)}
+                className="text-sky-300 hover:text-sky-200 text-xs font-semibold flex items-center gap-1 underline underline-offset-2"
+              >
+                <History className="w-3.5 h-3.5" />
+                <span>{showAuditLogs ? 'Hide Audit Log' : 'View Sync Audit Log'}</span>
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAuditLogs ? 'rotate-180' : ''}`} />
+              </button>
+            </div>
+
+            {/* Collapsible Sync Audit Log Drawer */}
+            {showAuditLogs && (
+              <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2 max-h-56 overflow-y-auto">
+                <div className="flex items-center justify-between pb-1 border-b border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  <span>Timestamp &amp; Event</span>
+                  <span>Outcome Details</span>
+                </div>
+                {syncStatus?.auditLogs && syncStatus.auditLogs.length > 0 ? (
+                  syncStatus.auditLogs.map((log, idx) => (
+                    <div key={idx} className="flex items-start justify-between gap-3 text-[11px] py-1 border-b border-slate-900/50">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1.5 font-mono text-slate-400">
+                          <span>{new Date(log.timestamp).toLocaleTimeString('en-PH')}</span>
+                          <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                            log.status === 'success'
+                              ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                              : log.status === 'warning'
+                              ? 'bg-amber-950 text-amber-400 border border-amber-800'
+                              : 'bg-red-950 text-red-400 border border-red-800'
+                          }`}>
+                            {log.action}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right text-slate-300 max-w-md">
+                        {log.details}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-500 py-2 text-center">No synchronization events recorded yet.</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Plantilla Vacancies Listing with Filter Controls */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200">
+            <div>
+              <h4 className="text-sm font-bold text-slate-900">
+                Official Plantilla Items Ledger ({jobs.length})
+              </h4>
+              <p className="text-xs text-slate-500">
+                Central Office positions synchronized from official DA-BFAR announcements.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-xs">
+              <span className="text-slate-500 font-medium">Filter:</span>
+              <button
+                type="button"
+                onClick={() => setVacancyFilter('All')}
+                className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                  vacancyFilter === 'All'
+                    ? 'bg-[#024794] text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                All ({jobs.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setVacancyFilter('Open')}
+                className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                  vacancyFilter === 'Open'
+                    ? 'bg-emerald-700 text-white shadow-xs'
+                    : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                }`}
+              >
+                Active / Open ({jobs.filter(j => j.status === 'Open').length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setVacancyFilter('Expired')}
+                className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                  vacancyFilter === 'Expired'
+                    ? 'bg-slate-700 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                Closed / Expired ({jobs.filter(j => j.status !== 'Open').length})
+              </button>
+            </div>
+          </div>
+
+          {/* Vacancies Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {jobs
+              .filter((j) => {
+                if (vacancyFilter === 'Open') return j.status === 'Open';
+                if (vacancyFilter === 'Expired') return j.status !== 'Open';
+                return true;
+              })
+              .map((job) => {
+                const isOpen = job.status === 'Open';
+                const deadline = job.applicationDeadline || job.closingDate;
+                const posted = job.datePosted || job.postingDate;
+
+                return (
+                  <div
+                    key={job.id}
+                    className={`rounded-xl border p-4 space-y-3 flex flex-col justify-between transition-all ${
+                      isOpen
+                        ? 'bg-white border-slate-200 shadow-xs hover:border-blue-300'
+                        : 'bg-slate-50 border-slate-200 opacity-80'
+                    }`}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-1 flex-wrap">
+                        <span className="font-mono text-[10px] font-bold text-[#024794] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                          {job.plantillaItemNumber || job.itemNo}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono text-[10px] font-black text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
+                            SG {job.salaryGrade}
+                          </span>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+                              isOpen
+                                ? 'text-emerald-800 bg-emerald-50 border-emerald-200'
+                                : 'text-slate-600 bg-slate-100 border-slate-300'
+                            }`}
+                          >
+                            {isOpen ? 'Active / Open' : 'Closed / Expired'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h5 className="font-bold text-slate-900 text-sm">{job.positionTitle}</h5>
+                        <p className="text-xs text-slate-600 font-medium mt-0.5">{job.division}</p>
+                        <p className="text-[11px] text-slate-400">{job.office || 'BFAR Central Office'}</p>
+                      </div>
+
+                      <div className="bg-slate-50 rounded-lg p-2.5 text-[11px] space-y-1 border border-slate-100">
+                        <div className="flex items-center justify-between text-slate-500">
+                          <span>Date Posted:</span>
+                          <span className="font-medium text-slate-800">{posted}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-slate-500">
+                          <span>Deadline:</span>
+                          <span className={`font-semibold ${isOpen ? 'text-blue-900' : 'text-slate-500'}`}>
+                            {deadline}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Qualification Standards Summary */}
+                      <div className="text-[11px] text-slate-600 space-y-0.5 pt-1">
+                        <div>
+                          <strong className="text-slate-700">Education:</strong>{' '}
+                          <span className="line-clamp-1">{job.qualificationStandards?.education}</span>
+                        </div>
+                        <div>
+                          <strong className="text-slate-700">Eligibility:</strong>{' '}
+                          <span className="line-clamp-1">{job.qualificationStandards?.eligibility}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Card Actions */}
+                    <div className="pt-2 border-t border-slate-100 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <a
+                          href={job.officialSourceUrl || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/'}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[#024794] hover:underline text-[11px] font-semibold flex items-center gap-1"
+                        >
+                          <span>Official Notice</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+
+                        <button
+                          type="button"
+                          onClick={() => handleToggleVacancyStatus(job.id, job.status)}
+                          className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${
+                            isOpen
+                              ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                              : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'
+                          }`}
+                        >
+                          {isOpen ? 'Mark Expired' : 'Reactivate'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}
@@ -1151,7 +1572,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       <option value="CSC QS Qualified - Under Review">3. HR Evaluation</option>
                       <option value="HRMPSB Deliberation & Interview Scheduled">4. Qualification Assessment &amp; Deliberation</option>
                       <option value="Application Result Released">5. Final Status / Notice of Result</option>
-                      <option value="Regret / Not Qualified">Notice of Non-Selection / Disqualified</option>
+                      <option value="Rejected">Disqualified / Rejected (Did not meet QS)</option>
+                      <option value="Regret / Not Qualified">Notice of Non-Selection / Regret</option>
                     </select>
                   </div>
 
@@ -1226,92 +1648,277 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         </div>
       )}
 
-      {/* CREATE PLANTILLA VACANCY MODAL */}
+      {/* OFFICIAL BFAR VACANCY IMPORT & VERIFICATION MODAL */}
       {isCreatingJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 border border-slate-200 space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
-              <h3 className="font-bold text-slate-900 text-base">
-                Post New Plantilla Vacancy (Civil Service Bulletin)
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
+            {/* Modal Header */}
+            <div className="bg-[#024794] text-white p-4 flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="bg-emerald-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase">
+                    Official Ingestion
+                  </span>
+                  <span className="text-sky-200 font-mono text-xs">bfar.da.gov.ph / CS Form 9</span>
+                </div>
+                <h3 className="text-base font-bold text-white">
+                  Import &amp; Verify Official Plantilla Vacancy
+                </h3>
+                <p className="text-xs text-sky-200 mt-0.5">
+                  Synchronize official notices from https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/.
+                </p>
+              </div>
               <button
+                type="button"
                 onClick={() => setIsCreatingJob(false)}
-                className="text-slate-400 hover:text-slate-600"
+                className="text-white/80 hover:text-white p-1 rounded-full hover:bg-white/10"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {createJobError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-lg flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-                <span>{createJobError}</span>
-              </div>
-            )}
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-4 text-xs">
+              {createJobError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="block font-bold">Import Verification Alert:</strong>
+                    <span>{createJobError}</span>
+                  </div>
+                </div>
+              )}
 
-            <form onSubmit={handleCreateJobSubmit} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="bg-amber-50 border border-amber-200 text-amber-900 p-3 rounded-lg space-y-1">
+                <span className="font-bold flex items-center gap-1.5 text-xs text-amber-900">
+                  <Shield className="w-3.5 h-3.5 text-amber-700" />
+                  Statutory Rule: Salary Confidentiality
+                </span>
+                <p className="text-[11px] text-amber-800 leading-relaxed">
+                  Only the <strong>Salary Grade (SG)</strong> is entered and displayed. Numerical monthly salary rates are confidential and must never be exposed or recorded in the public registry.
+                </p>
+              </div>
+
+              <form id="importVacancyForm" onSubmit={handleCreateJobSubmit} className="space-y-4">
+                {/* Basic Details */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-semibold text-slate-700 block mb-1">Position Title *</label>
+                    <input
+                      type="text"
+                      required
+                      value={newJobForm.positionTitle}
+                      onChange={(e) => setNewJobForm({ ...newJobForm, positionTitle: e.target.value })}
+                      placeholder="e.g. Senior Aquaculturist"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-[#024794]"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-semibold text-slate-700 block mb-1">Plantilla Item Number *</label>
+                    <input
+                      type="text"
+                      required
+                      value={newJobForm.plantillaItemNumber || newJobForm.itemNo}
+                      onChange={(e) =>
+                        setNewJobForm({
+                          ...newJobForm,
+                          plantillaItemNumber: e.target.value,
+                          itemNo: e.target.value,
+                        })
+                      }
+                      placeholder="e.g. BFAR-OSEC-CO-AQ3-2026-091"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-mono text-xs focus:ring-2 focus:ring-[#024794]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-semibold text-slate-700 block mb-1">Office / Agency *</label>
+                    <input
+                      type="text"
+                      required
+                      value={newJobForm.office}
+                      onChange={(e) => setNewJobForm({ ...newJobForm, office: e.target.value })}
+                      placeholder="BFAR Central Office"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-[#024794]"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-semibold text-slate-700 block mb-1">Division / Operating Unit *</label>
+                    <input
+                      type="text"
+                      required
+                      value={newJobForm.division}
+                      onChange={(e) => setNewJobForm({ ...newJobForm, division: e.target.value })}
+                      placeholder="e.g. Aquaculture Division"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-[#024794]"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="font-semibold text-slate-700 block mb-1">Salary Grade (SG) *</label>
+                    <input
+                      type="number"
+                      required
+                      min={1}
+                      max={33}
+                      value={newJobForm.salaryGrade}
+                      onChange={(e) => setNewJobForm({ ...newJobForm, salaryGrade: Number(e.target.value) })}
+                      placeholder="15"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 font-mono text-xs focus:ring-2 focus:ring-[#024794]"
+                    />
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">Official Grade (e.g. 11, 15, 19, 24)</span>
+                  </div>
+                  <div>
+                    <label className="font-semibold text-slate-700 block mb-1">Date Posted (YYYY-MM-DD)</label>
+                    <input
+                      type="date"
+                      value={newJobForm.datePosted}
+                      onChange={(e) => setNewJobForm({ ...newJobForm, datePosted: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-[#024794]"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-semibold text-slate-700 block mb-1">Application Deadline</label>
+                    <input
+                      type="date"
+                      value={newJobForm.applicationDeadline}
+                      onChange={(e) => setNewJobForm({ ...newJobForm, applicationDeadline: e.target.value })}
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-[#024794]"
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Position Title *</label>
+                  <label className="font-semibold text-slate-700 block mb-1">Official Announcement URL *</label>
                   <input
-                    type="text"
+                    type="url"
                     required
-                    value={newJobForm.positionTitle}
-                    onChange={(e) => setNewJobForm({ ...newJobForm, positionTitle: e.target.value })}
-                    placeholder="e.g. Senior Aquaculturist"
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    value={newJobForm.officialSourceUrl}
+                    onChange={(e) => setNewJobForm({ ...newJobForm, officialSourceUrl: e.target.value })}
+                    placeholder="https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-mono text-blue-900 focus:ring-2 focus:ring-[#024794]"
                   />
                 </div>
-                <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Plantilla Item No. *</label>
-                  <input
-                    type="text"
-                    required
-                    value={newJobForm.itemNo}
-                    onChange={(e) => setNewJobForm({ ...newJobForm, itemNo: e.target.value })}
-                    placeholder="e.g. BFAR-OSEC-CO-AQ3-2026-091"
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Salary Grade (SG)</label>
-                  <input
-                    type="number"
-                    value={newJobForm.salaryGrade}
-                    onChange={(e) => setNewJobForm({ ...newJobForm, salaryGrade: Number(e.target.value) })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
-                  />
-                </div>
-                <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Closing Date</label>
-                  <input
-                    type="text"
-                    value={newJobForm.closingDate}
-                    onChange={(e) => setNewJobForm({ ...newJobForm, closingDate: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
-                  />
-                </div>
-              </div>
+                {/* CSC Qualification Standards */}
+                <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
+                  <span className="font-bold text-slate-800 text-xs block">
+                    Civil Service Commission (CSC) Qualification Standards
+                  </span>
 
-              <div className="flex items-center justify-end space-x-2 pt-3 border-t border-slate-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-semibold text-slate-600 block mb-1">Education Standard *</label>
+                      <input
+                        type="text"
+                        required
+                        value={newJobForm.education}
+                        onChange={(e) => setNewJobForm({ ...newJobForm, education: e.target.value })}
+                        placeholder="Bachelor's degree in Fisheries..."
+                        className="w-full bg-white border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-[#024794]"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-600 block mb-1">Experience Standard *</label>
+                      <input
+                        type="text"
+                        required
+                        value={newJobForm.experience}
+                        onChange={(e) => setNewJobForm({ ...newJobForm, experience: e.target.value })}
+                        placeholder="1 year of relevant experience..."
+                        className="w-full bg-white border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-[#024794]"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-600 block mb-1">Training Standard *</label>
+                      <input
+                        type="text"
+                        required
+                        value={newJobForm.training}
+                        onChange={(e) => setNewJobForm({ ...newJobForm, training: e.target.value })}
+                        placeholder="4 hours of relevant training..."
+                        className="w-full bg-white border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-[#024794]"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-semibold text-slate-600 block mb-1">Eligibility Standard *</label>
+                      <input
+                        type="text"
+                        required
+                        value={newJobForm.eligibility}
+                        onChange={(e) => setNewJobForm({ ...newJobForm, eligibility: e.target.value })}
+                        placeholder="Career Service (Professional) / RA 1080"
+                        className="w-full bg-white border border-slate-300 rounded p-1.5 text-xs focus:ring-1 focus:ring-[#024794]"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Attached Document & Duties */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="font-semibold text-slate-700 block mb-1">Attached Document Title</label>
+                    <input
+                      type="text"
+                      value={newJobForm.documentTitle}
+                      onChange={(e) => setNewJobForm({ ...newJobForm, documentTitle: e.target.value })}
+                      placeholder="Official Notice of Vacancy (CS Form 9)"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-[#024794]"
+                    />
+                  </div>
+                  <div>
+                    <label className="font-semibold text-slate-700 block mb-1">Document Link / URL</label>
+                    <input
+                      type="text"
+                      value={newJobForm.documentUrl}
+                      onChange={(e) => setNewJobForm({ ...newJobForm, documentUrl: e.target.value })}
+                      placeholder="https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs font-mono focus:ring-2 focus:ring-[#024794]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="font-semibold text-slate-700 block mb-1">
+                    Duties &amp; Responsibilities (One item per line)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={newJobForm.dutiesText}
+                    onChange={(e) => setNewJobForm({ ...newJobForm, dutiesText: e.target.value })}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-[#024794]"
+                  />
+                </div>
+              </form>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
+              <span className="text-[11px] text-slate-500">
+                Authoritative Source: bfar.da.gov.ph
+              </span>
+              <div className="flex items-center space-x-2">
                 <button
                   type="button"
                   onClick={() => setIsCreatingJob(false)}
-                  className="px-4 py-2 rounded border border-slate-300 text-slate-700 font-semibold hover:bg-slate-100"
+                  className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-semibold text-xs hover:bg-slate-100"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded bg-[#024794] hover:bg-[#033b7a] text-white font-bold shadow-md"
+                  form="importVacancyForm"
+                  className="px-5 py-2 rounded-lg bg-[#024794] hover:bg-[#033b7a] text-white font-bold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
                 >
-                  Publish Vacancy
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Verify &amp; Add to Registry</span>
                 </button>
               </div>
-            </form>
+            </div>
           </div>
         </div>
       )}

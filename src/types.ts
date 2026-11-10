@@ -1,16 +1,27 @@
+export interface AttachedDocument {
+  name: string;
+  url: string;
+  type?: string;
+  fileSize?: string;
+}
+
 export interface PlantillaJob {
   id: string;
   itemNo: string;
+  plantillaItemNumber?: string;
   positionTitle: string;
   agency: string;
+  office?: string;
   division: string;
   region: string;
   placeOfAssignment: string;
   salaryGrade: number;
   plantillaType: 'Permanent' | 'Contract of Service (COS)' | 'Project-Based';
   postingDate: string;
+  datePosted?: string;
   closingDate: string;
-  status: 'Open' | 'Closed' | 'Under HRMPSB Review';
+  applicationDeadline?: string;
+  status: 'Open' | 'Closed' | 'Under HRMPSB Review' | 'Expired';
   qualificationStandards: {
     education: string;
     experience: string;
@@ -19,7 +30,33 @@ export interface PlantillaJob {
   };
   dutiesAndResponsibilities: string[];
   competencies: string[];
+  officialSourceUrl?: string;
+  sourceLastChecked?: string;
+  lastSyncedAt?: string;
+  attachedDocuments?: AttachedDocument[];
+  verifiedByHr?: boolean;
 }
+
+export interface VacancySyncLog {
+  timestamp: string;
+  action: string;
+  details: string;
+  status: 'success' | 'warning' | 'error';
+}
+
+export interface VacancySyncStatus {
+  officialSourceUrl: string;
+  lastSyncAttempt: string;
+  lastSuccessfulSync: string;
+  status: 'idle' | 'syncing' | 'success' | 'partial' | 'error';
+  totalVacancies: number;
+  activeVacancies: number;
+  expiredVacancies: number;
+  lastError?: string | null;
+  syncMethod: 'automated_backend_fetch' | 'hr_assisted_verified_import';
+  auditLogs: VacancySyncLog[];
+}
+
 
 export type DocumentCategory =
   | 'PL'
@@ -286,7 +323,8 @@ export interface ApplicationRecord {
     | 'HRMPSB Deliberation & Interview Scheduled'
     | 'HRMPSB Recommended for Appointment'
     | 'Application Result Released'
-    | 'Regret / Not Qualified';
+    | 'Regret / Not Qualified'
+    | 'Rejected';
   statusTimeline: Array<{
     step: string;
     date: string;

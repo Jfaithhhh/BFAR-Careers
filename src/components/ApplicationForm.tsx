@@ -16,7 +16,7 @@ import {
 } from '../types';
 import {
   saveApplicationToFirestore,
-  DEFAULT_INTERNAL_EMPLOYEES,
+  lookupInternalEmployee,
   getInternalEmployees,
 } from '../lib/firestoreService';
 import {
@@ -350,19 +350,19 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     q40_soloParentDetails: '',
     references: [
       {
-        name: 'Dr. Maria Cecilia Santos',
-        address: 'Institute of Aquaculture, UPLB College, Laguna',
-        telNo: '+63 918 223 4455',
+        name: '',
+        address: '',
+        telNo: '',
       },
       {
-        name: 'Atty. Roberto G. Mendoza',
-        address: 'DA-BFAR Central Office, Diliman, Quezon City',
-        telNo: '+63 920 889 1122',
+        name: '',
+        address: '',
+        telNo: '',
       },
       {
-        name: 'Engr. Nelson P. Valenzuela',
-        address: 'SEAFDEC/AQD Tigbauan Main Station, Iloilo',
-        telNo: '+63 917 554 9988',
+        name: '',
+        address: '',
+        telNo: '',
       },
     ],
     govIssuedId: {
@@ -414,21 +414,14 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionSuccess, setSubmissionSuccess] = useState<ApplicationRecord | null>(null);
 
-  // Internal Recruitment System States (Strictly restricted to internal employees only)
+  // Internal Recruitment System States (Strictly restricted to verified internal employees)
   const [applicantType] = useState<'internal'>('internal');
-  const [internalEmployees, setInternalEmployees] = useState<InternalEmployeeProfile[]>(DEFAULT_INTERNAL_EMPLOYEES);
-
-  useEffect(() => {
-    getInternalEmployees().then((list) => {
-      if (list && list.length > 0) {
-        setInternalEmployees(list);
-      }
-    });
-  }, []);
-
-  const [selectedStaffId, setSelectedStaffId] = useState<string>(
-    initialInternalProfile?.employeeId || ''
+  const [internalVerificationError, setInternalVerificationError] = useState<string | null>(null);
+  const [isVerifyingStaff, setIsVerifyingStaff] = useState(false);
+  const [verifiedStaffProfile, setVerifiedStaffProfile] = useState<InternalEmployeeProfile | null>(
+    initialInternalProfile || null
   );
+
   const [bfarEmployeeId, setBfarEmployeeId] = useState<string>(
     initialInternalProfile?.employeeId || ''
   );
@@ -462,62 +455,67 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
   const applyInternalProfileData = (profile: InternalEmployeeProfile) => {
     setBfarEmployeeId(profile.employeeId);
-    setSelectedStaffId(profile.employeeId);
-    setCurrentDivision(profile.division);
-    setCurrentPlantillaItem(profile.currentPlantillaItem);
-    setCurrentSalaryGrade(profile.salaryGrade);
-    setYearsInBfar(profile.yearsInBfar);
-    setLatestIpcrRating(profile.latestIpcrRating);
-    setIpcrPeriod(profile.ipcrPeriod);
+    setVerifiedStaffProfile(profile);
+    setCurrentDivision(profile.division || '');
+    setCurrentPlantillaItem(profile.currentPlantillaItem || '');
+    setCurrentSalaryGrade(profile.salaryGrade || '');
+    setYearsInBfar(profile.yearsInBfar || '');
+    setLatestIpcrRating(profile.latestIpcrRating || '');
+    setIpcrPeriod(profile.ipcrPeriod || '');
     setInternalVerificationSuccess(`Verified Official Record for ${profile.fullName} (${profile.employeeId})`);
+    setInternalVerificationError(null);
 
-    const parts = profile.fullName.split(' ');
-    const surname = parts[parts.length - 1];
-    const firstName = parts.slice(0, -1).join(' ');
+    const parts = profile.fullName ? profile.fullName.trim().split(' ') : [''];
+    const surname = parts[parts.length - 1] || '';
+    const firstName = parts.length > 1 ? parts.slice(0, -1).join(' ') : parts[0] || '';
 
     setPersonalInfo((prev) => ({
       ...prev,
-      fullName: profile.fullName,
-      surname,
-      firstName,
-      email: profile.email,
-      phone: profile.phone,
-      birthDate: profile.birthDate || '1990-06-15',
-      civilStatus: (profile.civilStatus as any) || 'Single',
-      residentialAddress: profile.residentialAddress || 'Quezon City, Metro Manila',
-      permanentAddress: profile.residentialAddress || 'Quezon City, Metro Manila',
+      fullName: profile.fullName || prev.fullName,
+      surname: surname || prev.surname,
+      firstName: firstName || prev.firstName,
+      email: profile.email || prev.email,
+      phone: profile.phone || prev.phone,
+      birthDate: profile.birthDate || prev.birthDate,
+      civilStatus: (profile.civilStatus as any) || prev.civilStatus,
+      residentialAddress: profile.residentialAddress || prev.residentialAddress,
+      permanentAddress: profile.residentialAddress || prev.permanentAddress,
       agencyEmployeeNo: profile.employeeId,
-      sex: profile.sex || 'Female',
+      sex: profile.sex || prev.sex,
     }));
 
-    // Injects BFAR Work Experience
-    setWorkExperience((prev) => {
-      const bfarExp: WorkExperienceEntry = {
-        position: profile.currentPositionTitle,
-        agencyOrCompany: 'Bureau of Fisheries and Aquatic Resources (DA-BFAR)',
-        salaryGrade: `SG-${profile.salaryGrade}`,
-        statusOfAppointment: 'Permanent',
-        fromDate: '2019-01-15',
-        toDate: 'Present',
-        isGovService: true,
-        description: `Discharging statutory duties as ${profile.currentPositionTitle} in ${profile.division}, station: ${profile.station}. Consistent ${profile.latestIpcrRating >= 4.5 ? 'Outstanding' : 'Very Satisfactory'} IPCR ratings.`,
-      };
-      const filtered = prev.filter((w) => !w.agencyOrCompany.includes('BFAR'));
-      return [bfarExp, ...filtered];
-    });
+    // Injects verified BFAR Work Experience
+    if (profile.currentPositionTitle) {
+      setWorkExperience((prev) => {
+        const bfarExp: WorkExperienceEntry = {
+          position: profile.currentPositionTitle,
+          agencyOrCompany: 'Bureau of Fisheries and Aquatic Resources (DA-BFAR)',
+          salaryGrade: `SG-${profile.salaryGrade}`,
+          statusOfAppointment: 'Permanent',
+          fromDate: profile.yearsInBfar ? `${new Date().getFullYear() - profile.yearsInBfar}-01-01` : 'Present',
+          toDate: 'Present',
+          isGovService: true,
+          description: `Discharging statutory duties as ${profile.currentPositionTitle} in ${profile.division || 'BFAR'}.`,
+        };
+        const filtered = prev.filter((w) => !w.agencyOrCompany.includes('BFAR'));
+        return [bfarExp, ...filtered];
+      });
+    }
 
     // Injects Eligibility
-    setEligibility((prev) => {
-      const elig: EligibilityEntry = {
-        type: profile.eligibility,
-        licenseNo: 'PRC-082194',
-        rating: '87.50%',
-        examDate: '2018-10-24',
-        examPlace: 'Manila',
-      };
-      const exists = prev.some((e) => e.type.includes('RA 1080') || e.type.includes('Career Service'));
-      return exists ? prev : [elig, ...prev];
-    });
+    if (profile.eligibility) {
+      setEligibility((prev) => {
+        const elig: EligibilityEntry = {
+          type: profile.eligibility,
+          licenseNo: '',
+          rating: '',
+          examDate: '',
+          examPlace: '',
+        };
+        const exists = prev.some((e) => e.type === profile.eligibility);
+        return exists ? prev : [elig, ...prev];
+      });
+    }
 
     // Injects Documents (WE, PCR)
     setDocumentsUploaded((prev) => {
@@ -552,34 +550,98 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       return next;
     });
 
-    const promoLetter = `THE NATIONAL DIRECTOR
-Bureau of Fisheries and Aquatic Resources
-Department of Agriculture
-3rd Floor, PCA Building, Elliptical Road, Diliman, Quezon City
+    // Note: In compliance with CSC & DA-BFAR rules, the Formal Application Letter must be written/submitted
+    // directly by the applicant (no pre-drafted template or automated generation provided by the system).
+  };
 
-THRU:  THE CHAIRPERSON
-       Human Resource Merit Promotion and Selection Board (HRMPSB)
+  const handleVerifyInForm = async () => {
+    const cleanId = bfarEmployeeId.trim().toUpperCase();
+    if (!cleanId) {
+      setInternalVerificationError('Please enter your official DA-BFAR Employee ID.');
+      return;
+    }
+    setIsVerifyingStaff(true);
+    setInternalVerificationError(null);
+    try {
+      const record = await lookupInternalEmployee(cleanId);
+      if (record) {
+        applyInternalProfileData(record);
+      } else {
+        setInternalVerificationError(
+          'Employee record not found. Please contact the Human Resource Management Division for verification.'
+        );
+        setInternalVerificationSuccess(null);
+      }
+    } catch (e) {
+      setInternalVerificationError(
+        'Employee record not found. Please contact the Human Resource Management Division for verification.'
+      );
+      setInternalVerificationSuccess(null);
+    } finally {
+      setIsVerifyingStaff(false);
+    }
+  };
 
-Sir:
+  // AI Fast-Fill Parser (Processes actual user credentials/CV against CSC Form 212 schema - No mock demo)
+  const handleParsePdsWithAI = async () => {
+    if (!rawResumeText || rawResumeText.trim().length < 20) {
+      setAiParseStatus('Please paste your resume, CV, or credentials text first (at least 20 characters).');
+      return;
+    }
 
-I have the honor to submit my formal application for promotional appointment to the permanent Plantilla position of ${activeJob.positionTitle} (Salary Grade ${activeJob.salaryGrade}), Plantilla Item No. ${activeJob.itemNo}, currently vacant under the ${activeJob.division}.
+    setIsParsingAi(true);
+    setAiParseStatus('AI is analyzing your credentials against Civil Service Form 212 standards...');
 
-I am currently a permanent employee of the Bureau holding the position of ${profile.currentPositionTitle} (Salary Grade ${profile.salaryGrade}, Item No. ${profile.currentPlantillaItem}) under the ${profile.division}, with ${profile.yearsInBfar} years of dedicated continuous government service. In my latest Individual Performance Commitment and Review (IPCR) for ${profile.ipcrPeriod}, I obtained a numerical rating of ${profile.latestIpcrRating.toFixed(2)} (${profile.latestIpcrRating >= 4.5 ? 'Outstanding' : 'Very Satisfactory'}), fully satisfying Civil Service Commission promotional qualification rules.
+    try {
+      const res = await fetch('/api/ai/parse-pds', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rawText: rawResumeText,
+          targetJobId: activeJob?.id || currentJobId,
+        }),
+      });
 
-Having consistently performed supervisory technical responsibilities, scientific assessments, and statutory regulatory functions, I possess the required competencies, leadership, and integrity to discharge the expanded duties of ${activeJob.positionTitle}.
+      const json = await res.json();
+      if (json.success && json.data) {
+        const parsed = json.data;
+        if (parsed.personalInfo) {
+          setPersonalInfo((prev) => ({
+            ...prev,
+            fullName: parsed.personalInfo.fullName || prev.fullName,
+            email: parsed.personalInfo.email || prev.email,
+            phone: parsed.personalInfo.phone || prev.phone,
+            birthDate: parsed.personalInfo.birthDate || prev.birthDate,
+            civilStatus: parsed.personalInfo.civilStatus || prev.civilStatus,
+            residentialAddress: parsed.personalInfo.residentialAddress || prev.residentialAddress,
+          }));
+        }
 
-Attached herewith are my updated Civil Service Personal Data Sheet (CS Form 212 Revised 2017), authenticated Service Record, certified IPCR ratings, and relevant documentary proofs for your favorable consideration.
+        if (Array.isArray(parsed.education) && parsed.education.length > 0) {
+          setEducation(parsed.education);
+        }
 
-Very truly yours,
+        if (Array.isArray(parsed.eligibility) && parsed.eligibility.length > 0) {
+          setEligibility(parsed.eligibility);
+        }
 
+        if (Array.isArray(parsed.workExperience) && parsed.workExperience.length > 0) {
+          setWorkExperience(parsed.workExperience);
+        }
 
-${profile.fullName}
-${profile.currentPositionTitle} (SG ${profile.salaryGrade})
-DA-BFAR Employee ID: ${profile.employeeId}
-Mobile: ${profile.phone}
-Email: ${profile.email}`;
+        if (Array.isArray(parsed.training) && parsed.training.length > 0) {
+          setTraining(parsed.training);
+        }
 
-    setApplicationLetterText(promoLetter);
+        setAiParseStatus('Successfully extracted credentials! Personal info, education, eligibility, work experience, and trainings have been populated into CS Form 212.');
+      } else {
+        setAiParseStatus(json.error || 'Failed to parse resume text. Please check your text and try again.');
+      }
+    } catch (err: any) {
+      setAiParseStatus('Network error during AI parsing. Please try again.');
+    } finally {
+      setIsParsingAi(false);
+    }
   };
 
   // Auto-populate if initial profile provided
@@ -595,38 +657,7 @@ Email: ${profile.email}`;
     }
   }, [selectedJobId]);
 
-  // Generate initial formal application letter on mount if empty
-  useEffect(() => {
-    if (!applicationLetterText) {
-      const defaultLetter = `THE NATIONAL DIRECTOR
-Bureau of Fisheries and Aquatic Resources
-Department of Agriculture
-3rd Floor, PCA Building, Elliptical Road, Diliman, Quezon City
-
-THRU:  THE CHAIRPERSON
-       Human Resource Merit Promotion and Selection Board (HRMPSB)
-
-Sir:
-
-I have the honor to submit my formal application for the permanent Plantilla position of ${activeJob.positionTitle} (Salary Grade ${activeJob.salaryGrade}), with Plantilla Item Number ${activeJob.itemNo}, currently vacant under the ${activeJob.division}.
-
-I am a graduate of ${education[0]?.degree || "Bachelor's degree in Fisheries"} from ${education[0]?.school || 'University of the Philippines'}, and a certified ${eligibility[0]?.type || 'RA 1080 Registered Fisheries Technologist'}. Over the past years, I have actively engaged in aquaculture development, regulatory compliance, and coastal fisheries enhancement. I have accumulated relevant qualifying technical hours and hands-on laboratory experience that align directly with the statutory mandates of the Bureau.
-
-Should I be favored with the appointment, I pledge to discharge the duties and responsibilities of the position with utmost integrity, competence, and patriotism in support of national food security and sustainable aquatic resource management.
-
-Attached herewith are my fully accomplished Civil Service Personal Data Sheet (CS Form 212 Revised 2017), Work Experience Sheet, authenticated credentials, and required documentary proofs for your esteemed evaluation.
-
-Very truly yours,
-
-
-${personalInfo.fullName || '[Applicant Full Name]'}
-${personalInfo.residentialAddress || '[Residential Address]'}
-Mobile: ${personalInfo.phone || '+63 9XX XXX XXXX'}
-Email: ${personalInfo.email || 'employee@bfar.da.gov.ph'}`;
-
-      setApplicationLetterText(defaultLetter);
-    }
-  }, [currentJobId]);
+  // Note: Formal Application Letter is drafted directly or uploaded as signed PDF by the applicant.
 
   // LIVE CSC TRAINING AUDIT: Real-time calculation of qualifying vs non-qualifying training hours
   const trainingAudit = useMemo(() => {
@@ -908,37 +939,7 @@ Email: ${personalInfo.email || 'employee@bfar.da.gov.ph'}`;
     ]);
   };
 
-  // Generate formal application letter with Gemini AI
-  const handleGenerateCoverLetter = async () => {
-    setIsGeneratingLetter(true);
-    setLetterSuccessNotice(null);
-    try {
-      const res = await fetch('/api/ai/generate-cover-letter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobId: currentJobId,
-          applicantData: {
-            personalInfo,
-            education,
-            eligibility,
-            workExperience,
-            training,
-          },
-        }),
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        setApplicationLetterText(json.data);
-        setLetterMode('generate');
-        setLetterSuccessNotice('✨ Official Application Letter generated by Gemini AI for DA-BFAR!');
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsGeneratingLetter(false);
-    }
-  };
+  // Note: Per Part 3, the Formal Application Letter must be written/submitted directly by the applicant (no AI generation).
 
 
   // Test Auto-Correction Simulation
@@ -1090,18 +1091,33 @@ Email: ${personalInfo.email || 'employee@bfar.da.gov.ph'}`;
   if (submissionSuccess) {
     return (
       <div className="max-w-3xl mx-auto my-8 bg-white rounded-2xl shadow-xl border border-emerald-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-6 sm:p-8 text-center space-y-3">
+        <div className={`p-6 sm:p-8 text-center space-y-3 ${
+          submissionSuccess.status === 'Rejected'
+            ? 'bg-gradient-to-r from-rose-700 to-red-800'
+            : 'bg-gradient-to-r from-emerald-600 to-teal-700'
+        } text-white`}>
           <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2 ring-4 ring-white/30">
-            <CheckCircle2 className="w-10 h-10 text-white" />
+            {submissionSuccess.status === 'Rejected' ? (
+              <AlertCircle className="w-10 h-10 text-white" />
+            ) : (
+              <CheckCircle2 className="w-10 h-10 text-white" />
+            )}
           </div>
-          <span className="bg-amber-300 text-slate-950 font-black text-xs px-3 py-1 rounded-full uppercase tracking-wider inline-block">
-            Official Application Received
+          <span className={`font-black text-xs px-3.5 py-1 rounded-full uppercase tracking-wider inline-block ${
+            submissionSuccess.status === 'Rejected'
+              ? 'bg-white text-rose-900 shadow-sm'
+              : 'bg-amber-300 text-slate-950 shadow-sm'
+          }`}>
+            Status: {submissionSuccess.status}
           </span>
-          <h2 className="text-2xl sm:text-3xl font-black">Application Successfully Logged</h2>
-          <p className="text-emerald-100 text-xs sm:text-sm max-w-lg mx-auto">
+          <h2 className="text-2xl sm:text-3xl font-black">
+            {submissionSuccess.status === 'Rejected'
+              ? 'Preliminary Evaluation Completed'
+              : 'Application Successfully Logged'}
+          </h2>
+          <p className="text-white/90 text-xs sm:text-sm max-w-lg mx-auto">
             Your application for <strong>{submissionSuccess.positionTitle}</strong> has been
-            officially registered in the DA-BFAR Recruitment &amp; HRMIS portal with complete CS Form 212
-            and supporting attachments.
+            logged in the DA-BFAR Recruitment &amp; HRMIS portal under Plantilla Item No. {submissionSuccess.plantillaItemNo}.
           </p>
         </div>
 
@@ -1109,16 +1125,37 @@ Email: ${personalInfo.email || 'employee@bfar.da.gov.ph'}`;
           {/* Reference Card */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 text-center space-y-2">
             <span className="text-xs uppercase font-bold text-slate-500 tracking-wider">
-              Application Reference Number
+              Official Application Reference Number
             </span>
             <div className="text-2xl sm:text-3xl font-mono font-black text-[#024794] select-all">
               {submissionSuccess.trackingCode}
             </div>
+            <div className="inline-flex items-center gap-2 mt-1">
+              <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+                submissionSuccess.status === 'Rejected'
+                  ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                  : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+              }`}>
+                Initial Status: {submissionSuccess.status}
+              </span>
+            </div>
             <p className="text-xs text-slate-500">
-              Please save this tracking code to monitor your document verification and HRMPSB
-              deliberation in the 5-Stage Milestone Tracker.
+              Please retain this tracking reference code to check real-time evaluation and deliberation updates.
             </p>
           </div>
+
+          {/* Rejection Advisory Alert if Status is Rejected */}
+          {submissionSuccess.status === 'Rejected' && (
+            <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-xs space-y-2 text-rose-900">
+              <div className="flex items-center gap-2 font-bold text-rose-950">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>Notice of Disqualification / Minimum QS Non-Compliance</span>
+              </div>
+              <p className="text-rose-800 leading-relaxed">
+                {submissionSuccess.adminRemarks}
+              </p>
+            </div>
+          )}
 
           {/* AI Pre-Screening Summary Badge */}
           {submissionSuccess.aiScreening && (
@@ -1127,11 +1164,11 @@ Email: ${personalInfo.email || 'employee@bfar.da.gov.ph'}`;
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-[#024794]" />
                   <span className="font-bold text-[#024794]">
-                    AI Automated Qualification Standards (QS) Fit:
+                    Civil Service Qualification Standards (QS) Evaluation:
                   </span>
                 </div>
                 <span className="font-extrabold text-[#024794] bg-white px-2.5 py-1 rounded shadow-xs">
-                  {submissionSuccess.aiScreening.overallScore} / 100
+                  QS Score: {submissionSuccess.aiScreening.overallScore} / 100
                 </span>
               </div>
               <p className="text-slate-700">
@@ -1158,6 +1195,36 @@ Email: ${personalInfo.email || 'employee@bfar.da.gov.ph'}`;
               Submit Another Application
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Official Empty State: Displayed when no official vacancies are currently active
+  if (jobs.length === 0 || !activeJob) {
+    return (
+      <div className="max-w-3xl mx-auto my-8 bg-white rounded-2xl shadow-sm border border-slate-200 p-8 sm:p-12 text-center space-y-4">
+        <div className="w-16 h-16 bg-blue-50 text-[#024794] rounded-full flex items-center justify-center mx-auto border border-blue-200">
+          <Building2 className="w-8 h-8 text-[#024794]" />
+        </div>
+        <div className="max-w-md mx-auto space-y-2">
+          <h3 className="text-lg font-black text-slate-900">
+            No official job vacancies are currently available.
+          </h3>
+          <p className="text-xs text-slate-500 leading-relaxed">
+            All plantilla vacancy postings are synchronized directly with the official DA-BFAR Careers directory (https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/). Applications can only be lodged against published and authorized Plantilla Item Numbers.
+          </p>
+        </div>
+        <div className="pt-2 flex flex-wrap justify-center gap-3">
+          <a
+            href="https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#024794] text-white text-xs font-bold hover:bg-blue-900 transition-colors shadow-xs"
+          >
+            <span>Visit Official BFAR Careers Page</span>
+            <ExternalLink className="w-3.5 h-3.5 text-sky-200" />
+          </a>
         </div>
       </div>
     );
@@ -1210,48 +1277,56 @@ Email: ${personalInfo.email || 'employee@bfar.da.gov.ph'}`;
                 </div>
               </div>
 
-              {/* Quick Select Profile */}
-              <div className="flex items-center gap-2 text-xs">
-                <span className="font-bold text-purple-900 text-[11px] whitespace-nowrap">Choose Profile:</span>
-                <select
-                  value={selectedStaffId}
-                  onChange={(e) => {
-                    const found = internalEmployees.find((emp) => emp.employeeId === e.target.value);
-                    if (found) {
-                      setSelectedStaffId(found.employeeId);
-                      applyInternalProfileData(found);
-                    } else {
-                      setSelectedStaffId('');
-                    }
-                  }}
-                  className="bg-white border border-purple-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-purple-950 shadow-2xs focus:ring-2 focus:ring-purple-600"
-                >
-                  <option value="">-- Select Verified BFAR Employee Profile --</option>
-                  {internalEmployees.map((emp) => (
-                    <option key={emp.employeeId} value={emp.employeeId}>
-                      {emp.fullName} ({emp.employeeId} • SG {emp.salaryGrade})
-                    </option>
-                  ))}
-                </select>
+              {/* Real Employee ID Verification */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
+                <span className="font-bold text-purple-900 text-[11px] whitespace-nowrap">Employee ID:</span>
+                <div className="flex items-center gap-1.5 flex-1">
+                  <input
+                    type="text"
+                    placeholder="e.g. BFAR-EMP-2024-001"
+                    value={bfarEmployeeId}
+                    onChange={(e) => setBfarEmployeeId(e.target.value)}
+                    className="bg-white border border-purple-300 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-purple-950 shadow-2xs focus:ring-2 focus:ring-purple-600 w-full sm:w-48"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleVerifyInForm}
+                    disabled={isVerifyingStaff}
+                    className="bg-purple-800 hover:bg-purple-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-1"
+                  >
+                    {isVerifyingStaff ? 'Verifying...' : 'Verify ID'}
+                  </button>
+                </div>
               </div>
             </div>
+
+            {internalVerificationError && (
+              <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-lg flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                <span>{internalVerificationError}</span>
+              </div>
+            )}
 
             {/* Verified Credentials Pills */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
               <div className="bg-white/80 p-2 rounded-lg border border-purple-100">
                 <span className="text-[9px] uppercase font-bold text-purple-600 block">Current Plantilla Item:</span>
-                <span className="font-bold text-slate-800 truncate block">{currentPlantillaItem || 'BFARB-AQUAT1-12-2004'}</span>
-                <span className="text-[10px] text-purple-700">Salary Grade {currentSalaryGrade}</span>
+                <span className="font-bold text-slate-800 truncate block">{currentPlantillaItem || 'Unverified'}</span>
+                <span className="text-[10px] text-purple-700">{currentSalaryGrade ? `Salary Grade ${currentSalaryGrade}` : 'SG Pending'}</span>
               </div>
               <div className="bg-white/80 p-2 rounded-lg border border-purple-100">
                 <span className="text-[9px] uppercase font-bold text-purple-600 block">Years in Bureau:</span>
-                <span className="font-bold text-slate-800 block">{yearsInBfar} Years of Service</span>
-                <span className="text-[10px] text-slate-500">Permanent Status</span>
+                <span className="font-bold text-slate-800 block">{yearsInBfar !== '' ? `${yearsInBfar} Years of Service` : 'Pending Verification'}</span>
+                <span className="text-[10px] text-slate-500">Service Record</span>
               </div>
               <div className="bg-white/80 p-2 rounded-lg border border-purple-100">
                 <span className="text-[9px] uppercase font-bold text-emerald-700 block">Latest IPCR Rating:</span>
-                <span className="font-black text-emerald-700 text-xs block">{Number(latestIpcrRating).toFixed(2)} / 5.00</span>
-                <span className="text-[10px] text-emerald-800 font-semibold">{Number(latestIpcrRating) >= 4.5 ? 'Outstanding' : 'Very Satisfactory'}</span>
+                <span className="font-black text-emerald-700 text-xs block">
+                  {latestIpcrRating ? `${Number(latestIpcrRating).toFixed(2)} / 5.00` : 'Pending'}
+                </span>
+                <span className="text-[10px] text-emerald-800 font-semibold">
+                  {latestIpcrRating ? (Number(latestIpcrRating) >= 4.5 ? 'Outstanding' : 'Very Satisfactory') : 'CSC Standard: Min 4.00'}
+                </span>
               </div>
               <div className="bg-white/80 p-2 rounded-lg border border-purple-100">
                 <span className="text-[9px] uppercase font-bold text-purple-600 block">Promotion Track:</span>
@@ -1543,40 +1618,41 @@ Email: ${personalInfo.email || 'employee@bfar.da.gov.ph'}`;
                   Application Letter addressed to the National Director
                 </h2>
                 <p className="text-xs text-slate-600 mt-1 max-w-2xl">
-                  Submit a formal application letter addressed to the National Director of BFAR. You can generate
-                  a formal draft with Gemini AI, upload an existing PDF letter, or manually edit the contents.
+                  <strong>Mandatory Requirement:</strong> The Formal Application Letter (AL) must be written and submitted directly by the applicant (no pre-drafted template provided by the system). Must be addressed to the National Director / Appointing Authority through the Chairperson of the HRMPSB, citing the target position title and plantilla item number.
                 </p>
               </div>
 
               {/* Position Quick Info */}
               <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg text-xs space-y-1 shrink-0 w-full md:w-64">
                 <span className="text-[10px] uppercase font-bold text-slate-500 block">
-                  Applying for Vacancy:
+                  Target Plantilla Vacancy:
                 </span>
                 <span className="font-extrabold text-[#024794] block truncate">
                   {activeJob.positionTitle}
                 </span>
                 <span className="text-[11px] text-slate-500 block">
-                  SG-{activeJob.salaryGrade} • {activeJob.itemNo}
+                  SG-{activeJob.salaryGrade} • Item No: {activeJob.itemNo}
                 </span>
               </div>
+            </div>
+
+            {/* Mandatory Guidelines Box */}
+            <div className="bg-amber-50/80 border border-amber-300 rounded-xl p-3.5 text-xs text-amber-900 space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-amber-950">
+                <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+                <span>Mandatory Civil Service Application Letter Guidelines</span>
+              </div>
+              <ul className="grid grid-cols-1 md:grid-cols-2 gap-1 text-[11px] pl-6 list-disc text-amber-800">
+                <li>Must be addressed to: <strong>The National Director, DA-BFAR</strong></li>
+                <li>Thru: <strong>The Chairperson, HRMPSB</strong></li>
+                <li>Must cite target position: <strong>{activeJob.positionTitle}</strong></li>
+                <li>Must cite Plantilla Item No: <strong>{activeJob.itemNo}</strong></li>
+              </ul>
             </div>
 
             {/* Letter Action Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleGenerateCoverLetter}
-                  disabled={isGeneratingLetter}
-                  className="bg-[#024794] hover:bg-[#033b7a] text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-xs transition-all disabled:opacity-50"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                  <span>
-                    {isGeneratingLetter ? 'Drafting Official Letter...' : 'Generate with Gemini AI'}
-                  </span>
-                </button>
-
                 <input
                   ref={letterFileInputRef}
                   type="file"
@@ -1592,11 +1668,25 @@ Email: ${personalInfo.email || 'employee@bfar.da.gov.ph'}`;
                 <button
                   type="button"
                   onClick={() => letterFileInputRef.current?.click()}
-                  className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-colors"
+                  className="bg-[#024794] hover:bg-[#033b7a] text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-xs transition-colors"
                 >
-                  <Upload className="w-3.5 h-3.5 text-slate-500" />
-                  <span>Upload Existing PDF Letter</span>
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>Upload Signed PDF Application Letter</span>
                 </button>
+
+                {applicationLetterText && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Clear your typed application letter?')) {
+                        setApplicationLetterText('');
+                      }
+                    }}
+                    className="bg-white hover:bg-slate-100 text-slate-600 border border-slate-300 text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
+                  >
+                    Clear Text
+                  </button>
+                )}
               </div>
 
               {letterUploadedFileName && (
@@ -1710,6 +1800,73 @@ Email: ${personalInfo.email || 'employee@bfar.da.gov.ph'}`;
                 </p>
               </div>
 
+            </div>
+
+            {/* AI Fast-Fill PDS Tool (No Mock Demo Data - Authentic Resume/Credentials Parsing) */}
+            <div className="bg-gradient-to-r from-blue-50/70 via-indigo-50/60 to-slate-50 border border-blue-200 rounded-xl p-4 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-[#024794] text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Sparkles className="w-4 h-4 text-amber-300" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>AI Fast-Fill PDS (CS Form 212)</span>
+                      <span className="bg-blue-100 text-[#024794] text-[9px] font-extrabold px-1.5 py-0.2 rounded uppercase">
+                        Productivity Tool
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      Paste your actual resume, CV, or service record text below to auto-populate PDS tables in one click.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <textarea
+                  rows={3}
+                  value={rawResumeText}
+                  onChange={(e) => setRawResumeText(e.target.value)}
+                  placeholder="Paste your resume or credentials text here (e.g. Full Name, College Degree, School, PRC/CSC Eligibility, Work Experience history, and Training hours)..."
+                  className="w-full bg-white border border-slate-300 rounded-lg p-3 text-xs font-mono text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-[#024794] focus:border-[#024794]"
+                />
+
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-[10px] text-slate-500">
+                    Input is processed securely against CSC Form 212 standard schema. No demo or sample profiles are inserted.
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {rawResumeText && (
+                      <button
+                        type="button"
+                        onClick={() => setRawResumeText('')}
+                        className="text-xs text-slate-500 hover:text-slate-700 px-2.5 py-1 rounded border border-slate-200 bg-white"
+                      >
+                        Clear
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleParsePdsWithAI}
+                      disabled={isParsingAi || !rawResumeText.trim()}
+                      className="bg-[#024794] hover:bg-[#033b7a] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
+                    >
+                      {isParsingAi ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-300" />
+                          <span>Extracting Credentials...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="w-3.5 h-3.5 text-amber-300" />
+                          <span>AI Extract &amp; Auto-Fill PDS</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {aiParseStatus && (
