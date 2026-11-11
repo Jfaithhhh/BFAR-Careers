@@ -5,6 +5,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   onSnapshot,
   query,
   orderBy,
@@ -227,6 +228,10 @@ export function subscribeToJobVacancies(
             officialSourceUrl: data.officialSourceUrl || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
           });
         });
+
+        // Track and inspect real-time Firestore vacancies payload
+        console.log("🔥 Firestore Job Vacancies Snapshot:", vacancies);
+
         // Sort active first, then by deadline
         vacancies.sort((a, b) => {
           if (a.status === 'Open' && b.status !== 'Open') return -1;
@@ -300,6 +305,18 @@ export async function saveJobVacancyToFirestore(job: PlantillaJob): Promise<void
   }
 }
 
+// Delete an official job vacancy from Firestore
+export async function deleteJobVacancyFromFirestore(jobId: string): Promise<void> {
+  try {
+    const docRef = doc(db, JOB_VACANCIES_COLLECTION, jobId);
+    await deleteDoc(docRef);
+  } catch (err) {
+    const msg = handleFirestoreError(err, 'deleteJobVacancyFromFirestore', `${JOB_VACANCIES_COLLECTION}/${jobId}`);
+    console.error(msg);
+    throw new Error(msg);
+  }
+}
+
 // Bulk sync vacancies to Firestore
 export async function syncVacanciesToFirestore(vacancies: PlantillaJob[]): Promise<void> {
   try {
@@ -310,4 +327,3 @@ export async function syncVacanciesToFirestore(vacancies: PlantillaJob[]): Promi
     console.warn('Failed bulk sync to Firestore job_vacancies:', err);
   }
 }
-

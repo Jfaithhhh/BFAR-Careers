@@ -10,7 +10,6 @@ import { PlantillaJob, ApplicationRecord, InternalEmployeeProfile } from './type
 import {
   subscribeToApplications,
   subscribeToJobVacancies,
-  syncVacanciesToFirestore,
 } from './lib/firestoreService';
 
 export default function App() {
@@ -22,10 +21,9 @@ export default function App() {
   const [activeTrackingCode, setActiveTrackingCode] = useState<string>('');
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
 
-  // Load jobs and initialize real-time Firestore listeners
+  // Load jobs and applications via real-time Firestore listeners
   useEffect(() => {
-    fetchJobs();
-    fetchApplications();
+    setIsLoadingJobs(true);
 
     // Subscribe to Firestore job_vacancies in real-time
     const unsubVacancies = subscribeToJobVacancies((firestoreJobs) => {
@@ -35,7 +33,6 @@ export default function App() {
 
     // Subscribe to Firestore applications collection in real-time
     const unsubApplications = subscribeToApplications((firestoreApps) => {
-      // Authoritative Firestore state (empty state when no applications are submitted)
       setApplications(firestoreApps || []);
     });
 
@@ -44,33 +41,6 @@ export default function App() {
       unsubApplications();
     };
   }, []);
-
-  const fetchJobs = async () => {
-    try {
-      setIsLoadingJobs(true);
-      const res = await fetch('/api/jobs');
-      const json = await res.json();
-      if (json.success && Array.isArray(json.data)) {
-        setJobs(json.data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch jobs:', err);
-    } finally {
-      setIsLoadingJobs(false);
-    }
-  };
-
-  const fetchApplications = async () => {
-    try {
-      const res = await fetch('/api/applications');
-      const json = await res.json();
-      if (json.success && Array.isArray(json.data)) {
-        setApplications(json.data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch applications:', err);
-    }
-  };
 
   // When applicant clicks "Apply" on a job (External or Standard)
   const handleSelectJobForApply = (job: PlantillaJob) => {

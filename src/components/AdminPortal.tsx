@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PlantillaJob, ApplicationRecord, VacancySyncStatus } from '../types';
 import { updateApplicationInFirestore } from '../lib/firestoreService';
 import { auth, signInWithGoogle } from '../lib/firebase';
+import { deleteJobVacancyFromFirestore } from '../lib/firestoreService';
 import {
   Users,
   Briefcase,
@@ -39,6 +40,7 @@ import {
   Scale,
   Globe,
   History,
+  Trash2, 
   Check,
 } from 'lucide-react';
 
@@ -299,8 +301,26 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       console.error('Failed to toggle vacancy status:', err);
     }
   };
+// 2. Gamitin ang in-update na function na ito:
+const handleDeleteVacancy = async (jobId: string, positionTitle: string) => {
+  if (!window.confirm(`Sigurado ka bang nais mong burahin ang posisyong "${positionTitle}" sa Firestore database?`)) {
+    return;
+  }
 
-  // Official Vacancy Import & Verification Handler (Duplicate Protected)
+  try {
+    // Direktang buburahin sa Firestore database
+    await deleteJobVacancyFromFirestore(jobId);
+
+    alert(`Maitagumpay na nabura ang "${positionTitle}" sa database!`);
+
+    // Kung walang real-time snapshot listener sa component, i-reload para mag-reflect agad sa UI
+    window.location.reload();
+  } catch (err) {
+    console.error('Failed to delete job vacancy:', err);
+    alert('Nabigong burahin ang job vacancy sa database.');
+  }
+};
+
   const handleCreateJobSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateJobError(null);
