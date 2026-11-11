@@ -321,6 +321,8 @@ const handleDeleteVacancy = async (jobId: string, positionTitle: string) => {
   }
 };
 
+
+
   const handleCreateJobSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateJobError(null);
@@ -936,7 +938,7 @@ const handleDeleteVacancy = async (jobId: string, positionTitle: string) => {
                   </span>
                   <span className="text-slate-300 text-xs font-mono">DA-BFAR PORTAL REPOSITORY</span>
                 </div>
-                <h3 className="text-base font-bold text-white">
+                <h3 className="text-base font-bold text-white"> 
                   Official Plantilla Vacancy Synchronization Engine
                 </h3>
                 <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
