@@ -24,6 +24,7 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
+<<<<<<< HEAD
   "include": [
     "**/*"
   ],
@@ -32,3 +33,7 @@
     "dist"
   ]
 }
+=======
+  "exclude": ["dist"]
+}
+>>>>>>> 4f77d638f40086800e2d793cd83af69492abef34
