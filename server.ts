@@ -65,13 +65,6 @@ async function callGeminiFast(prompt: string, json = false): Promise<string> {
   return res2.text?.trim() || '';
 }
 
-<<<<<<< HEAD
-=======
-// ==========================================
-// SEED DATA: Authentic DA-BFAR Plantilla Vacancies
-// (Reflecting Bureau of Fisheries and Aquatic Resources & CSC Standards)
-// ==========================================
->>>>>>> 4f77d638f40086800e2d793cd83af69492abef34
 interface AttachedDocument {
   name: string;
   url: string;
