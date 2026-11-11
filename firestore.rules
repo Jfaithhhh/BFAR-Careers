@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default-Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Hardened Global Helpers
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-\\.]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email == 'jaiciervo7@gmail.com' ||
+        (request.auth.token.email != null && request.auth.token.email.matches('^[a-zA-Z0-9._%+-]+@bfar\\.da\\.gov\\.ph$'))
+      );
+    }
+
+    // Application validation helper - Enforces strict internal-only applicant type and field constraints
+    function isValidApplication(data) {
+      return data.applicantType == 'internal'
+        && data.bfarEmployeeId is string
+        && data.bfarEmployeeId.size() > 0
+        && data.bfarEmployeeId.size() <= 64
+        && (data.applicantName is string || (data.personalInfo != null && data.personalInfo.fullName is string))
+        && (data.jobTitle is string || data.positionTitle is string)
+        && (data.status is string);
+    }
+
+    // Internal Employee record validation helper
+    function isValidInternalEmployee(data) {
+      return data.employeeId is string
+        && data.employeeId.size() > 0
+        && data.employeeId.size() <= 64
+        && data.fullName is string
+        && data.fullName.size() > 0
+        && data.fullName.size() <= 128
+        && data.division is string
+        && data.division.size() <= 128;
+    }
+
+    // Job Vacancy validation helper
+    function isValidJobVacancy(data) {
+      return data.positionTitle is string
+        && data.positionTitle.size() > 0
+        && data.positionTitle.size() <= 200
+        && (data.plantillaItemNumber is string || data.itemNo is string)
+        && data.salaryGrade is number
+        && data.officialSourceUrl is string
+        && data.officialSourceUrl.size() > 0
+        && data.status is string;
+    }
+
+    // Job Vacancies collection:
+    // Read: Authoritative BFAR vacancies visible to all personnel
+    // Write: Synchronized or verified by authorized HR Administrator
+    match /job_vacancies/{vacancyId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(vacancyId)
+                            && (isAdmin() || isValidJobVacancy(incoming()));
+      allow delete: if isAdmin();
+    }
+
+    // Applications collection:
+    // Read: Internal application tracking & HRMPSB comparative evaluation
+    // Create: Strictly restricted to verified internal DA-BFAR applications
+    // Update: State progression & HRMPSB evaluation remarks
+    match /applications/{applicationId} {
+      allow get, list: if true;
+      allow create: if isValidId(applicationId)
+                    && isValidApplication(incoming());
+      allow update: if isValidId(applicationId)
+                    && (
+                      isAdmin()
+                      || (
+                        isValidApplication(incoming())
+                        && incoming().diff(existing()).affectedKeys().hasOnly([
+                          'status',
+                          'currentMilestone',
+                          'finalDecision',
+                          'hrRemarks',
+                          'aiAssessment',
+                          'updatedAt'
+                        ])
+                      )
+                    );
+      allow delete: if isAdmin();
+    }
+
+    // Internal Employees directory:
+    // Read: Internal directory verification and profile synchronization
+    // Write: Directory maintenance and verification records
+    match /internal_employees/{employeeId} {
+      allow get, list: if true;
+      allow create, update: if isValidId(employeeId)
+                            && isValidInternalEmployee(incoming());
+      allow delete: if isAdmin();
+    }
+  }
+}
