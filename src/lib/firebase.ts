@@ -15,8 +15,8 @@ const firebaseConfig = {
 // Initialize Firebase App singleton
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firestore with the provisioned named database ID
-export const db = getFirestore(app, firebaseConfigData.firestoreDatabaseId || '(default)');
+// Initialize Firestore using the default database instance
+export const db = getFirestore(app);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
@@ -24,6 +24,7 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 export async function signInWithGoogle(): Promise<User> {
   const result = await signInWithPopup(auth, googleProvider);
   return result.user;
+
 }
 
 export async function signOutUser(): Promise<void> {
