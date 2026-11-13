@@ -1138,99 +1138,109 @@ const handleCreateJobSubmit = async (e: React.FormEvent) => {
                 const posted = job.datePosted || job.postingDate;
 
                 return (
-                  <div
-                    key={job.id}
-                    className={`rounded-xl border p-4 space-y-3 flex flex-col justify-between transition-all ${
-                      isOpen
-                        ? 'bg-white border-slate-200 shadow-xs hover:border-blue-300'
-                        : 'bg-slate-50 border-slate-200 opacity-80'
-                    }`}
-                  >
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-1 flex-wrap">
-                        <span className="font-mono text-[10px] font-bold text-[#024794] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                          {job.plantillaItemNumber || job.itemNo}
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-[10px] font-black text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
-                            SG {job.salaryGrade}
-                          </span>
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                              isOpen
-                                ? 'text-emerald-800 bg-emerald-50 border-emerald-200'
-                                : 'text-slate-600 bg-slate-100 border-slate-300'
-                            }`}
-                          >
-                            {isOpen ? 'Active / Open' : 'Closed / Expired'}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div>
-                        <h5 className="font-bold text-slate-900 text-sm">{job.positionTitle}</h5>
-                        <p className="text-xs text-slate-600 font-medium mt-0.5">{job.division}</p>
-                        <p className="text-[11px] text-slate-400">{job.office || 'BFAR Central Office'}</p>
-                      </div>
-
-                      <div className="bg-slate-50 rounded-lg p-2.5 text-[11px] space-y-1 border border-slate-100">
-                        <div className="flex items-center justify-between text-slate-500">
-                          <span>Date Posted:</span>
-                          <span className="font-medium text-slate-800">{posted}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-slate-500">
-                          <span>Deadline:</span>
-                          <span className={`font-semibold ${isOpen ? 'text-blue-900' : 'text-slate-500'}`}>
-                            {deadline}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Qualification Standards Summary */}
-                      <div className="text-[11px] text-slate-600 space-y-0.5 pt-1">
-                        <div>
-                          <strong className="text-slate-700">Education:</strong>{' '}
-                          <span className="line-clamp-1">{job.qualificationStandards?.education}</span>
-                        </div>
-                        <div>
-                          <strong className="text-slate-700">Eligibility:</strong>{' '}
-                          <span className="line-clamp-1">{job.qualificationStandards?.eligibility}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Card Actions */}
-                    <div className="pt-2 border-t border-slate-100 space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <a
-                          href={job.officialSourceUrl || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/'}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[#024794] hover:underline text-[11px] font-semibold flex items-center gap-1"
-                        >
-                          <span>Official Notice</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-
-                        <button
-                          type="button"
-                          onClick={() => handleToggleVacancyStatus(job.id, job.status)}
-                          className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${
-                            isOpen
-                              ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                              : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'
-                          }`}
-                        >
-                          {isOpen ? 'Mark Expired' : 'Reactivate'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
+  <div
+    key={job.id}
+    className={`rounded-xl border p-4 space-y-3 flex flex-col justify-between transition-all ${
+      isOpen
+        ? 'bg-white border-slate-200 shadow-xs hover:border-blue-300'
+        : 'bg-slate-50 border-slate-200 opacity-80'
+    }`}
+  >
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-1 flex-wrap">
+        <span className="font-mono text-[10px] font-bold text-[#024794] bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+          {job.plantillaItemNumber || job.itemNo}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="font-mono text-[10px] font-black text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-300">
+            SG {job.salaryGrade}
+          </span>
+          <span
+            className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
+              isOpen
+                ? 'text-emerald-800 bg-emerald-50 border-emerald-200'
+                : 'text-slate-600 bg-slate-100 border-slate-300'
+            }`}
+          >
+            {isOpen ? 'Active / Open' : 'Closed / Expired'}
+          </span>
         </div>
-      )}
+      </div>
+
+      <div>
+        <h5 className="font-bold text-slate-900 text-sm">{job.positionTitle}</h5>
+        <p className="text-xs text-slate-600 font-medium mt-0.5">{job.division}</p>
+        <p className="text-[11px] text-slate-400">{job.office || 'BFAR Central Office'}</p>
+      </div>
+
+      <div className="bg-slate-50 rounded-lg p-2.5 text-[11px] space-y-1 border border-slate-100">
+        <div className="flex items-center justify-between text-slate-500">
+          <span>Date Posted:</span>
+          <span className="font-medium text-slate-800">{posted}</span>
+        </div>
+        <div className="flex items-center justify-between text-slate-500">
+          <span>Deadline:</span>
+          <span className={`font-semibold ${isOpen ? 'text-blue-900' : 'text-slate-500'}`}>
+            {deadline}
+          </span>
+        </div>
+      </div>
+
+      {/* Qualification Standards Summary */}
+      <div className="text-[11px] text-slate-600 space-y-0.5 pt-1">
+        <div>
+          <strong className="text-slate-700">Education:</strong>{' '}
+          <span className="line-clamp-1">{job.qualificationStandards?.education}</span>
+        </div>
+        <div>
+          <strong className="text-slate-700">Eligibility:</strong>{' '}
+          <span className="line-clamp-1">{job.qualificationStandards?.eligibility}</span>
+        </div>
+      </div>
+    </div>
+
+    {/* Card Actions */}
+    <div className="pt-2 border-t border-slate-100 space-y-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <a
+          href={job.officialSourceUrl || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/'}
+          target="_blank"
+          rel="noreferrer"
+          className="text-[#024794] hover:underline text-[11px] font-semibold flex items-center gap-1"
+        >
+          <span>Official Notice</span>
+          <ExternalLink className="w-3 h-3" />
+        </a>
+
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => handleToggleVacancyStatus(job.id, job.status)}
+            className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${
+              isOpen
+                ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'
+            }`}
+          >
+            {isOpen ? 'Mark Expired' : 'Reactivate'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleDeleteVacancy(job.id, job.positionTitle)}
+            className="px-2.5 py-1 rounded text-[11px] font-bold bg-red-50 hover:bg-red-100 text-red-600 transition-colors"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+})}
+</div>
+</div>
+)}
 
       {/* TAB 3: COMPARATIVE ASSESSMENT MATRIX */}
       {adminTab === 'matrix' && (
