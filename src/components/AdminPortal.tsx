@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { PlantillaJob, ApplicationRecord, VacancySyncStatus } from '../types';
 import { updateApplicationInFirestore } from '../lib/firestoreService';
 import { auth, signInWithGoogle } from '../lib/firebase';
-import { deleteJobVacancyFromFirestore } from '../lib/firestoreService';
+import { deleteJobVacancyFromFirestore, saveJobVacancyToFirestore } from '../lib/firestoreService';
 import {
   Users,
   Briefcase,
@@ -319,78 +319,73 @@ const handleDeleteVacancy = async (jobId: string, positionTitle: string) => {
   }
 };
 
+const handleCreateJobSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setCreateJobError(null);
+  setCreateJobSuccess(null);
 
+  const itemNo = (newJobForm.plantillaItemNumber || newJobForm.itemNo || '').trim().toUpperCase();
+  if (!newJobForm.positionTitle.trim() || !itemNo) {
+    setCreateJobError('Position Title and Plantilla Item Number are required.');
+    return;
+  }
 
-  const handleCreateJobSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreateJobError(null);
-    setCreateJobSuccess(null);
-
-    const itemNo = (newJobForm.plantillaItemNumber || newJobForm.itemNo || '').trim().toUpperCase();
-    if (!newJobForm.positionTitle.trim() || !itemNo) {
-      setCreateJobError('Position Title and Plantilla Item Number are required.');
-      return;
-    }
-
-    const payload = {
-      positionTitle: newJobForm.positionTitle.trim(),
-      plantillaItemNumber: itemNo,
-      itemNo: itemNo,
-      office: newJobForm.office.trim(),
-      division: newJobForm.division.trim(),
-      region: newJobForm.region.trim(),
-      placeOfAssignment: newJobForm.placeOfAssignment.trim(),
-      salaryGrade: Number(newJobForm.salaryGrade) || 15,
-      plantillaType: newJobForm.plantillaType,
-      datePosted: newJobForm.datePosted,
-      postingDate: newJobForm.datePosted,
-      applicationDeadline: newJobForm.applicationDeadline,
-      closingDate: newJobForm.applicationDeadline,
-      officialSourceUrl: newJobForm.officialSourceUrl.trim() || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
-      qualificationStandards: {
-        education: newJobForm.education.trim(),
-        experience: newJobForm.experience.trim(),
-        training: newJobForm.training.trim(),
-        eligibility: newJobForm.eligibility.trim(),
+  const docId = `vacancy-${Date.now()}`;
+  const payload: PlantillaJob = {
+    id: docId,
+    positionTitle: newJobForm.positionTitle.trim(),
+    agency: 'DA-BFAR', // Idagdag ito para malutas ang type error
+    plantillaItemNumber: itemNo,
+    itemNo: itemNo,
+    office: newJobForm.office.trim(),
+    division: newJobForm.division.trim(),
+    region: newJobForm.region.trim(),
+    placeOfAssignment: newJobForm.placeOfAssignment.trim(),
+    salaryGrade: Number(newJobForm.salaryGrade) || 15,
+    plantillaType: newJobForm.plantillaType,
+    status: 'Open',
+    datePosted: newJobForm.datePosted || new Date().toISOString().split('T')[0],
+    postingDate: newJobForm.datePosted || new Date().toISOString().split('T')[0],
+    applicationDeadline: newJobForm.applicationDeadline,
+    closingDate: newJobForm.applicationDeadline,
+    officialSourceUrl: newJobForm.officialSourceUrl.trim() || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
+    qualificationStandards: {
+      education: newJobForm.education.trim(),
+      experience: newJobForm.experience.trim(),
+      training: newJobForm.training.trim(),
+      eligibility: newJobForm.eligibility.trim(),
+    },
+    dutiesAndResponsibilities: newJobForm.dutiesText
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    competencies: newJobForm.competenciesText
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    attachedDocuments: [
+      {
+        name: newJobForm.documentTitle.trim() || 'Official Notice of Vacancy (CS Form 9)',
+        url: newJobForm.documentUrl.trim() || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
+        type: 'PDF',
       },
-      dutiesAndResponsibilities: newJobForm.dutiesText
-        .split('\n')
-        .map((s) => s.trim())
-        .filter(Boolean),
-      competencies: newJobForm.competenciesText
-        .split('\n')
-        .map((s) => s.trim())
-        .filter(Boolean),
-      attachedDocuments: [
-        {
-          name: newJobForm.documentTitle.trim() || 'Official Notice of Vacancy (CS Form 9)',
-          url: newJobForm.documentUrl.trim() || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
-          type: 'PDF',
-        },
-      ],
-    };
-
-    try {
-      const res = await fetch('/api/vacancies/import', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        onAddJob(json.data);
-        setIsCreatingJob(false);
-        fetchSyncStatus();
-      } else {
-        setCreateJobError(json.error || 'Failed to import and verify official vacancy.');
-      }
-    } catch (err) {
-      setCreateJobError('Failed to communicate with official vacancy import service.');
-    }
+    ],
   };
 
-  // RESTRICTED ACCESS SCREEN (When unauthenticated)
-  // Strictly removes public-facing login prompts or placeholder access elements for unauthorized users
+  try {
+    // Direktang i-save sa Firestore database sa halip na gumamit ng /api/vacancies/import
+    await saveJobVacancyToFirestore(payload);
+    
+    onAddJob(payload);
+    setIsCreatingJob(false);
+    setCreateJobSuccess('Matagumpay na naidaragdag ang bagong plantilla item!');
+    window.location.reload(); // I-reload para mag-reflect nang maayos kung kinakailangan
+  } catch (err) {
+    console.error('Failed to save job vacancy:', err);
+    setCreateJobError('Nabigong i-save ang job vacancy sa database.');
+  }
+};
+
   if (!isAuthenticated) {
     const handleDoLogin = (e?: React.FormEvent) => {
       if (e) e.preventDefault();
