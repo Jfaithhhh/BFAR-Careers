@@ -99,4 +99,3 @@ export function handleFirestoreError(error: unknown, operation: string, path: st
 }
 
 export default app;
-
