@@ -1,9 +1,9 @@
 {
   "projectId": "bfar-63ccf",
-  "appId": "1:414371409568:web:YOUR_WEB_APP_ID",
-  "apiKey": "YOUR_ACTUAL_API_KEY_FOR_BFAR_63CCF",
+  "appId": "1:47278951573:web:a19c10270d69c53d1c5f9c",
+  "apiKey": "AIzaSyBNLhonvbYWmH6EzAzuY8VlTFLlFUD8Tvo",
   "authDomain": "bfar-63ccf.firebaseapp.com",
   "storageBucket": "bfar-63ccf.firebasestorage.app",
-  "messagingSenderId": "414371409568",
-  "measurementId": ""
+  "messagingSenderId": "47278951573",
+  "measurementId": "G-LP3X3D6GLK"
 }

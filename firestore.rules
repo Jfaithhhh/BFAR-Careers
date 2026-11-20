@@ -35,6 +35,20 @@ service cloud.firestore {
       );
     }
 
+    // Authorized Staff validation helper
+    function isValidAuthorizedStaff(data) {
+      return data.employeeId is string
+        && data.employeeId.size() > 0
+        && data.employeeId.size() <= 64
+        && data.fullName is string
+        && data.fullName.size() > 0
+        && data.fullName.size() <= 128
+        && data.role in ['HR_Specialist', 'HRMPSB_Member', 'Director']
+        && data.passkey is string
+        && data.passkey.size() >= 6
+        && data.active is bool;
+    }
+
     // Application validation helper - Enforces strict internal-only applicant type and field constraints
     function isValidApplication(data) {
       return data.applicantType == 'internal'
@@ -68,6 +82,17 @@ service cloud.firestore {
         && data.officialSourceUrl is string
         && data.officialSourceUrl.size() > 0
         && data.status is string;
+    }
+
+    // Authorized Staff credentials lookup:
+    // Exact ID get allowed for login verification; list & mutations restricted to Admin
+    match /authorized_staff/{employeeId} {
+      allow get: if isValidId(employeeId);
+      allow list: if isAdmin();
+      allow create, update: if isAdmin()
+                            && isValidId(employeeId)
+                            && isValidAuthorizedStaff(incoming());
+      allow delete: if isAdmin();
     }
 
     // Job Vacancies collection:

@@ -1,11 +1,15 @@
 {
+  "firestore": {
+    "rules": "firestore.rules"
+  },
   "hosting": {
     "public": "dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
     "rewrites": [
-      {
-        "source": "/api/**",
-        "function": "yourApiFunctionName"
-      },
       {
         "source": "**",
         "destination": "/index.html"
