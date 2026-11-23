@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Fish, Award, ExternalLink, UserCheck, Briefcase, FileSearch, Lock, LogIn, LogOut, User as UserIcon } from 'lucide-react';
+import { Award, ExternalLink, UserCheck, Briefcase, FileSearch, Lock, LogIn, LogOut, User as UserIcon } from 'lucide-react';
 import { auth, signInWithGoogle, signOutUser } from '../lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
@@ -69,6 +69,12 @@ export const Header: React.FC<HeaderProps> = ({
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  const isRestrictedActive = activeTab === 'admin';
+
+  const handleToggleRestrictedPortal = () => {
+    setActiveTab(isRestrictedActive ? 'jobs' : 'admin');
+  };
 
   return (
     <header className="w-full bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
@@ -148,23 +154,40 @@ export const Header: React.FC<HeaderProps> = ({
             )}
 
             <span className="text-blue-500">·</span>
-            {/* Restricted HR / HRMPSB Staff Access Gate */}
+
+            {/* Top-Right Staff Sign-In Toggle Bar: Restricted HR / HRMPSB Portal */}
             <button
-              onClick={() => setActiveTab('admin')}
-              className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-semibold transition-all ${
-                activeTab === 'admin'
-                  ? 'bg-amber-400 text-slate-950 font-bold shadow-xs'
-                  : 'bg-blue-900/60 hover:bg-blue-800 text-sky-200 border border-blue-700/60'
+              type="button"
+              role="switch"
+              aria-checked={isRestrictedActive}
+              aria-label="Toggle HR and HRMPSB Restricted Portal"
+              onClick={handleToggleRestrictedPortal}
+              className={`flex items-center gap-2 pl-2 pr-1.5 py-0.5 rounded-full text-[11px] font-semibold transition-all cursor-pointer border ${
+                isRestrictedActive
+                  ? 'bg-amber-400 text-slate-950 border-amber-300 font-bold shadow-xs'
+                  : 'bg-blue-900/70 hover:bg-blue-800 text-sky-100 border-blue-700/70'
               }`}
-              title="Restricted: Authorized DA-BFAR HR & HRMPSB Personnel Only"
+              title="Toggle Restricted HR & HRMPSB Staff Portal"
             >
-              <Lock className="w-3 h-3 text-amber-300" />
+              <Lock className={`w-3 h-3 ${isRestrictedActive ? 'text-slate-950' : 'text-amber-300'}`} />
               <span>HR &amp; HRMPSB Portal (Restricted)</span>
               {pendingCount > 0 && (
                 <span className="bg-red-500 text-white text-[9px] font-extrabold px-1.5 rounded-full">
                   {pendingCount}
                 </span>
               )}
+              <span
+                aria-hidden="true"
+                className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+                  isRestrictedActive ? 'bg-slate-950' : 'bg-slate-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3 w-3 transform rounded-full transition-transform ${
+                    isRestrictedActive ? 'translate-x-3.5 bg-amber-300' : 'translate-x-0.5 bg-white'
+                  }`}
+                />
+              </span>
             </button>
           </div>
         </div>
