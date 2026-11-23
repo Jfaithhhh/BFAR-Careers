@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { ShieldCheck, Lock, ArrowUpRight } from 'lucide-react';
 import { Header } from './components/Header';
 import { JobsTable } from './components/JobsTable';
 import { ApplicationForm } from './components/ApplicationForm';
@@ -96,6 +97,11 @@ export default function App() {
 
   const internalCount = applications.filter((a) => a.applicantType === 'internal').length;
 
+  const handleToggleStaffPortal = () => {
+    setActiveTab((prev) => (prev === 'admin' ? 'jobs' : 'admin'));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-100 font-['Plus_Jakarta_Sans',sans-serif]">
       {/* Official Government & BFAR Header */}
@@ -110,8 +116,35 @@ export default function App() {
         internalCount={internalCount}
       />
 
+      {/* Top-Right Staff Sign-In Toggle Bar (HR & HRMPSB Restricted) */}
+      <div className="max-w-7xl w-full mx-auto px-4 lg:px-8 pt-3 flex items-center justify-end">
+        <div className="inline-flex items-center gap-2 bg-white border border-slate-200 rounded-full pl-3 pr-1.5 py-1 shadow-2xs text-xs">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#024794]" />
+            <span>HR &amp; HRMPSB Staff</span>
+          </span>
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={activeTab === 'admin'}
+            aria-label="Toggle HR and HRMPSB Restricted Staff Sign In"
+            onClick={handleToggleStaffPortal}
+            className={`px-3 py-1 rounded-full text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'admin'
+                ? 'bg-slate-900 text-amber-300 shadow-xs'
+                : 'bg-[#024794] hover:bg-[#033b7a] text-white'
+            }`}
+          >
+            <Lock className="w-3 h-3" />
+            <span>{activeTab === 'admin' ? 'Restricted Portal Active' : 'Staff Sign In'}</span>
+            <ArrowUpRight className="w-3 h-3 opacity-80" />
+          </button>
+        </div>
+      </div>
+
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-4">
         {activeTab === 'jobs' && (
           <JobsTable
             jobs={jobs}
