@@ -84,8 +84,19 @@ export const Header: React.FC<HeaderProps> = ({
 
   const isRestrictedActive = activeTab === 'admin';
 
-  const handleToggleRestrictedPortal = () => {
-    setActiveTab(isRestrictedActive ? 'jobs' : 'admin');
+  const handleToggleRestrictedPortal = async () => {
+    if (isRestrictedActive) {
+      if (auth.currentUser) {
+        try {
+          await signOutUser();
+        } catch (err) {
+          console.error('Failed to sign out staff when turning off HR portal:', err);
+        }
+      }
+      setActiveTab('jobs');
+    } else {
+      setActiveTab('admin');
+    }
   };
 
   return (
@@ -121,7 +132,7 @@ export const Header: React.FC<HeaderProps> = ({
             </a>
             <span className="text-blue-500">·</span>
 
-            {/* Firebase Auth Staff Status / Login Gate (Auto-disabled when admin signs out) */}
+            {/* Firebase Auth Staff Status / Login Gate (Auto-disabled when admin signs out or portal is toggled off) */}
             {currentUser && isAdminAuthenticated ? (
               <div className="flex items-center gap-1.5 bg-blue-950/80 border border-blue-700/60 rounded px-2 py-0.5">
                 {currentUser.photoURL ? (
