@@ -22,6 +22,13 @@ export default function App() {
   const [activeTrackingCode, setActiveTrackingCode] = useState<string>('');
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
 
+  // Reset admin authentication state whenever leaving the restricted HR portal tab
+  useEffect(() => {
+    if (activeTab !== 'admin') {
+      setIsAdminAuthenticated(false);
+    }
+  }, [activeTab]);
+
   // Load jobs and applications via real-time Firestore listeners
   useEffect(() => {
     setIsLoadingJobs(true);
@@ -103,6 +110,9 @@ export default function App() {
       <Header
         activeTab={activeTab}
         setActiveTab={(tab) => {
+          if (tab !== 'admin') {
+            setIsAdminAuthenticated(false);
+          }
           setActiveTab(tab);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
@@ -110,6 +120,7 @@ export default function App() {
         openCount={jobs.filter((j) => j.status === 'Open').length}
         internalCount={internalCount}
         isAdminAuthenticated={isAdminAuthenticated}
+        onAdminAuthChange={setIsAdminAuthenticated}
       />
 
       {/* Main Content Area */}

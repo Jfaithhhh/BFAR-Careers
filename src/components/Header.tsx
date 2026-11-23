@@ -10,6 +10,7 @@ interface HeaderProps {
   openCount?: number;
   internalCount?: number;
   isAdminAuthenticated?: boolean;
+  onAdminAuthChange?: (authenticated: boolean) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,10 +19,14 @@ export const Header: React.FC<HeaderProps> = ({
   pendingCount = 2,
   openCount = 6,
   isAdminAuthenticated = false,
+  onAdminAuthChange,
 }) => {
   const [pstTime, setPstTime] = useState<string>('');
   const [currentUser, setCurrentUser] = useState<User | null>(auth.currentUser);
   const [isSigningIn, setIsSigningIn] = useState(false);
+
+  const isRestrictedActive = activeTab === 'admin';
+  const canStaffSignIn = Boolean(isAdminAuthenticated && isRestrictedActive);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -30,17 +35,16 @@ export const Header: React.FC<HeaderProps> = ({
     return () => unsubscribe();
   }, []);
 
-  // Automatically sign out staff session and lock Staff Sign In when admin signs out or leaves HR portal
   useEffect(() => {
-    if (!isAdminAuthenticated && auth.currentUser) {
+    if (!canStaffSignIn && auth.currentUser) {
       signOutUser().catch((err) => {
         console.error('Auto staff sign-out failed:', err);
       });
     }
-  }, [isAdminAuthenticated]);
+  }, [canStaffSignIn]);
 
   const handleSignIn = async () => {
-    if (!isAdminAuthenticated) return;
+    if (!canStaffSignIn) return;
     try {
       setIsSigningIn(true);
       await signInWithGoogle();
@@ -62,7 +66,6 @@ export const Header: React.FC<HeaderProps> = ({
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
-      // Format as Philippine Standard Time (UTC+8)
       const options: Intl.DateTimeFormatOptions = {
         timeZone: 'Asia/Manila',
         weekday: 'short',
@@ -82,7 +85,19 @@ export const Header: React.FC<HeaderProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  const isRestrictedActive = activeTab === 'admin';
+  const handleTabSelect = async (tab: 'jobs' | 'apply' | 'internal' | 'track' | 'admin') => {
+    if (tab !== 'admin') {
+      if (auth.currentUser) {
+        try {
+          await signOutUser();
+        } catch (err) {
+          console.error('Failed to sign out staff on tab switch:', err);
+        }
+      }
+      onAdminAuthChange?.(false);
+    }
+    setActiveTab(tab);
+  };
 
   const handleToggleRestrictedPortal = async () => {
     if (isRestrictedActive) {
@@ -93,6 +108,7 @@ export const Header: React.FC<HeaderProps> = ({
           console.error('Failed to sign out staff when toggling off HR portal:', err);
         }
       }
+      onAdminAuthChange?.(false);
       setActiveTab('jobs');
     } else {
       setActiveTab('admin');
@@ -101,7 +117,6 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="w-full bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
-      {/* Top GOVPH Bar */}
       <div className="bg-[#0b2447] text-white text-xs px-4 py-1.5 flex flex-wrap items-center justify-between gap-2 border-b border-blue-950">
         <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-1.5 font-bold tracking-wider text-sky-200">
@@ -132,8 +147,7 @@ export const Header: React.FC<HeaderProps> = ({
             </a>
             <span className="text-blue-500">·</span>
 
-            {/* Firebase Auth Staff Status / Login Gate (Disabled when HR portal is off or admin signs out) */}
-            {currentUser && isAdminAuthenticated ? (
+            {currentUser && canStaffSignIn ? (
               <div className="flex items-center gap-1.5 bg-blue-950/80 border border-blue-700/60 rounded px-2 py-0.5">
                 {currentUser.photoURL ? (
                   <img
@@ -157,6 +171,7 @@ export const Header: React.FC<HeaderProps> = ({
                   </span>
                 )}
                 <button
+                  type="button"
                   onClick={handleSignOut}
                   title="Sign out from DA-BFAR Portal"
                   className="text-slate-400 hover:text-red-300 ml-1 p-0.5 transition-colors"
@@ -168,27 +183,26 @@ export const Header: React.FC<HeaderProps> = ({
               <button
                 type="button"
                 onClick={handleSignIn}
-                disabled={!isAdminAuthenticated || isSigningIn}
-                aria-disabled={!isAdminAuthenticated || isSigningIn}
+                disabled={!canStaffSignIn || isSigningIn}
+                aria-disabled={!canStaffSignIn || isSigningIn}
                 className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-all shadow-xs ${
-                  isAdminAuthenticated
+                  canStaffSignIn
                     ? 'bg-sky-600 hover:bg-sky-500 text-white cursor-pointer'
                     : 'bg-slate-800/80 text-slate-400 border border-slate-700 cursor-not-allowed opacity-60'
                 }`}
                 title={
-                  isAdminAuthenticated
+                  canStaffSignIn
                     ? 'Sign in with your verified DA-BFAR Google Account'
-                    : 'Locked: Mag-log in muna sa HR & HRMPSB Portal (Restricted) para ma-enable ito'
+                    : 'Locked: Naka-off ang HR & HRMPSB Portal o hindi pa naka-verify ang Admin'
                 }
               >
-                {isAdminAuthenticated ? <LogIn className="w-3 h-3" /> : <Lock className="w-3 h-3 text-slate-400" />}
+                {canStaffSignIn ? <LogIn className="w-3 h-3" /> : <Lock className="w-3 h-3 text-slate-400" />}
                 <span>{isSigningIn ? 'Signing In...' : 'Staff Sign In'}</span>
               </button>
             )}
 
             <span className="text-blue-500">·</span>
 
-            {/* Top-Right Toggle Bar: Restricted HR / HRMPSB Portal */}
             <button
               type="button"
               role="switch"
@@ -226,10 +240,8 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Main Agency Banner - Official BFAR Identity */}
       <div className="relative bg-white border-b border-slate-200 shadow-xs overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 relative z-10">
-          {/* Official Agency Brand: Dual Transparent Logos + Hierarchical Typography */}
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <div className="h-14 sm:h-16 w-auto flex items-center justify-center">
@@ -276,12 +288,12 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Public Applicant Navigation Tabs */}
       <nav className="bg-white border-t border-slate-100 px-4 lg:px-8">
         <div className="max-w-7xl mx-auto flex items-center justify-between overflow-x-auto no-scrollbar">
           <div className="flex items-center space-x-1 sm:space-x-2 py-2">
             <button
-              onClick={() => setActiveTab('jobs')}
+              type="button"
+              onClick={() => handleTabSelect('jobs')}
               className={`px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
                 activeTab === 'jobs'
                   ? 'bg-blue-50 text-[#024794] border-b-2 border-[#024794]'
@@ -296,7 +308,8 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('apply')}
+              type="button"
+              onClick={() => handleTabSelect('apply')}
               className={`px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
                 activeTab === 'apply'
                   ? 'bg-blue-50 text-[#024794] border-b-2 border-[#024794]'
@@ -313,9 +326,9 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </button>
 
-            {/* Dedicated Internal Recruitment Portal for BFAR Employees */}
             <button
-              onClick={() => setActiveTab('internal')}
+              type="button"
+              onClick={() => handleTabSelect('internal')}
               className={`px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
                 activeTab === 'internal'
                   ? 'bg-blue-50 text-[#024794] border-b-2 border-[#024794]'
@@ -330,7 +343,8 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveTab('track')}
+              type="button"
+              onClick={() => handleTabSelect('track')}
               className={`px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
                 activeTab === 'track'
                   ? 'bg-blue-50 text-[#024794] border-b-2 border-[#024794]'
