@@ -30,6 +30,15 @@ export const Header: React.FC<HeaderProps> = ({
     return () => unsubscribe();
   }, []);
 
+  // Automatically sign out staff session and lock Staff Sign In when admin signs out
+  useEffect(() => {
+    if (!isAdminAuthenticated && auth.currentUser) {
+      signOutUser().catch((err) => {
+        console.error('Auto staff sign-out failed on admin sign-out:', err);
+      });
+    }
+  }, [isAdminAuthenticated]);
+
   const handleSignIn = async () => {
     if (!isAdminAuthenticated) return;
     try {
@@ -112,7 +121,7 @@ export const Header: React.FC<HeaderProps> = ({
             </a>
             <span className="text-blue-500">·</span>
 
-            {/* Firebase Auth Staff Status / Login Gate (Enabled only after HR Portal Admin Login) */}
+            {/* Firebase Auth Staff Status / Login Gate (Auto-disabled when admin signs out) */}
             {currentUser && isAdminAuthenticated ? (
               <div className="flex items-center gap-1.5 bg-blue-950/80 border border-blue-700/60 rounded px-2 py-0.5">
                 {currentUser.photoURL ? (
@@ -149,6 +158,7 @@ export const Header: React.FC<HeaderProps> = ({
                 type="button"
                 onClick={handleSignIn}
                 disabled={!isAdminAuthenticated || isSigningIn}
+                aria-disabled={!isAdminAuthenticated || isSigningIn}
                 className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-all shadow-xs ${
                   isAdminAuthenticated
                     ? 'bg-sky-600 hover:bg-sky-500 text-white cursor-pointer'
