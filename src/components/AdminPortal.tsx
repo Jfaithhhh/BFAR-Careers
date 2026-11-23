@@ -52,6 +52,7 @@ interface AdminPortalProps {
   onUpdateApplication: (appId: string, updates: Partial<ApplicationRecord>) => void;
   onAddJob: (job: Partial<PlantillaJob>) => void;
   onUpdateJob: (jobId: string, updates: Partial<PlantillaJob>) => void;
+  onAuthChange?: (authenticated: boolean) => void;
 }
 
 export const AdminPortal: React.FC<AdminPortalProps> = ({
@@ -60,6 +61,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   onUpdateApplication,
   onAddJob,
   onUpdateJob,
+  onAuthChange,
 }) => {
   // Authentication gate for BFAR HRMIS (Strict Role-Based Access Controls)
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -70,6 +72,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [securityBadgeId, setSecurityBadgeId] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
+
+  useEffect(() => {
+    onAuthChange?.(isAuthenticated);
+  }, [isAuthenticated, onAuthChange]);
 
   // Sub-tabs
   const [adminTab, setAdminTab] = useState<'applicants' | 'plantilla' | 'matrix'>('applicants');

@@ -14,6 +14,7 @@ import {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'jobs' | 'apply' | 'internal' | 'track' | 'admin'>('jobs');
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [jobs, setJobs] = useState<PlantillaJob[]>([]);
   const [applications, setApplications] = useState<ApplicationRecord[]>([]);
   const [selectedJobIdForApply, setSelectedJobIdForApply] = useState<string>('');
@@ -108,6 +109,7 @@ export default function App() {
         pendingCount={pendingCount}
         openCount={jobs.filter((j) => j.status === 'Open').length}
         internalCount={internalCount}
+        isAdminAuthenticated={isAdminAuthenticated}
       />
 
       {/* Main Content Area */}
@@ -154,6 +156,7 @@ export default function App() {
             onUpdateApplication={handleUpdateApplication}
             onAddJob={handleAddJob}
             onUpdateJob={handleUpdateJob}
+            onAuthChange={setIsAdminAuthenticated}
           />
         )}
       </main>

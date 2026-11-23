@@ -9,6 +9,7 @@ interface HeaderProps {
   pendingCount?: number;
   openCount?: number;
   internalCount?: number;
+  isAdminAuthenticated?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   pendingCount = 2,
   openCount = 6,
+  isAdminAuthenticated = false,
 }) => {
   const [pstTime, setPstTime] = useState<string>('');
   const [currentUser, setCurrentUser] = useState<User | null>(auth.currentUser);
@@ -29,6 +31,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   const handleSignIn = async () => {
+    if (!isAdminAuthenticated) return;
     try {
       setIsSigningIn(true);
       await signInWithGoogle();
@@ -109,8 +112,8 @@ export const Header: React.FC<HeaderProps> = ({
             </a>
             <span className="text-blue-500">·</span>
 
-            {/* Firebase Auth Staff Status / Login Gate */}
-            {currentUser ? (
+            {/* Firebase Auth Staff Status / Login Gate (Enabled only after HR Portal Admin Login) */}
+            {currentUser && isAdminAuthenticated ? (
               <div className="flex items-center gap-1.5 bg-blue-950/80 border border-blue-700/60 rounded px-2 py-0.5">
                 {currentUser.photoURL ? (
                   <img
@@ -143,19 +146,28 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             ) : (
               <button
+                type="button"
                 onClick={handleSignIn}
-                disabled={isSigningIn}
-                className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold bg-sky-600 hover:bg-sky-500 text-white transition-all shadow-xs"
-                title="Sign in with your verified DA-BFAR Google Account"
+                disabled={!isAdminAuthenticated || isSigningIn}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-all shadow-xs ${
+                  isAdminAuthenticated
+                    ? 'bg-sky-600 hover:bg-sky-500 text-white cursor-pointer'
+                    : 'bg-slate-800/80 text-slate-400 border border-slate-700 cursor-not-allowed opacity-60'
+                }`}
+                title={
+                  isAdminAuthenticated
+                    ? 'Sign in with your verified DA-BFAR Google Account'
+                    : 'Locked: Mag-log in muna sa HR & HRMPSB Portal (Restricted) para ma-enable ito'
+                }
               >
-                <LogIn className="w-3 h-3" />
+                {isAdminAuthenticated ? <LogIn className="w-3 h-3" /> : <Lock className="w-3 h-3 text-slate-400" />}
                 <span>{isSigningIn ? 'Signing In...' : 'Staff Sign In'}</span>
               </button>
             )}
 
             <span className="text-blue-500">·</span>
 
-            {/* Top-Right Staff Sign-In Toggle Bar: Restricted HR / HRMPSB Portal */}
+            {/* Top-Right Toggle Bar: Restricted HR / HRMPSB Portal */}
             <button
               type="button"
               role="switch"
