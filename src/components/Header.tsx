@@ -30,11 +30,11 @@ export const Header: React.FC<HeaderProps> = ({
     return () => unsubscribe();
   }, []);
 
-  // Automatically sign out staff session and lock Staff Sign In when admin signs out
+  // Automatically sign out staff session and lock Staff Sign In when admin signs out or leaves HR portal
   useEffect(() => {
     if (!isAdminAuthenticated && auth.currentUser) {
       signOutUser().catch((err) => {
-        console.error('Auto staff sign-out failed on admin sign-out:', err);
+        console.error('Auto staff sign-out failed:', err);
       });
     }
   }, [isAdminAuthenticated]);
@@ -90,7 +90,7 @@ export const Header: React.FC<HeaderProps> = ({
         try {
           await signOutUser();
         } catch (err) {
-          console.error('Failed to sign out staff when turning off HR portal:', err);
+          console.error('Failed to sign out staff when toggling off HR portal:', err);
         }
       }
       setActiveTab('jobs');
@@ -132,7 +132,7 @@ export const Header: React.FC<HeaderProps> = ({
             </a>
             <span className="text-blue-500">·</span>
 
-            {/* Firebase Auth Staff Status / Login Gate (Auto-disabled when admin signs out or portal is toggled off) */}
+            {/* Firebase Auth Staff Status / Login Gate (Disabled when HR portal is off or admin signs out) */}
             {currentUser && isAdminAuthenticated ? (
               <div className="flex items-center gap-1.5 bg-blue-950/80 border border-blue-700/60 rounded px-2 py-0.5">
                 {currentUser.photoURL ? (
