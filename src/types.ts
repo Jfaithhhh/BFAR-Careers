@@ -57,7 +57,6 @@ export interface VacancySyncStatus {
   auditLogs: VacancySyncLog[];
 }
 
-
 export type DocumentCategory =
   | 'PL'
   | 'ELIGIBILITY'
@@ -340,8 +339,8 @@ export interface ApplicationRecord {
     | 'Shortlisted / Lineup'
     | 'Deferred'
     | 'Not Selected';
-  // Internal Employee Specific Fields (Restricted to Internal DA-BFAR Personnel Only)
-  applicantType?: 'internal';
+  // Applicant Type & Internal Employee Specific Fields
+  applicantType?: 'internal' | 'external';
   bfarEmployeeId?: string;
   currentDivision?: string;
   currentPlantillaItem?: string;
@@ -375,3 +374,23 @@ export interface InternalEmployeeProfile {
   sex?: 'Male' | 'Female' | '';
 }
 
+// -------------------------------------------------------------
+// UNIFIED 3-OPTION PORTAL AUTHENTICATION TYPES
+// -------------------------------------------------------------
+
+export type PortalRole = 'bfar_employee' | 'external_applicant';
+
+export interface PortalUserProfile {
+  uid: string;
+  role: PortalRole;
+  email: string;
+  fullName: string;
+  // BFAR Employee fields
+  division?: string;
+  currentPosition?: string;
+  employmentStatus?: 'Permanent' | 'Casual' | 'Contractual' | 'Job Order / COS';
+  // External Applicant fields
+  username?: string;
+  emailVerified: boolean;
+  createdAt: string;
+}

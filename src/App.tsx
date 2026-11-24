@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
 import { Header } from './components/Header';
+import { PortalAccessGateway } from './components/PortalAccessGateway';
 import { JobsTable } from './components/JobsTable';
 import { ApplicationForm } from './components/ApplicationForm';
 import { InternalRecruitmentPortal } from './components/InternalRecruitmentPortal';
 import { ApplicationTracker } from './components/ApplicationTracker';
 import { AdminPortal } from './components/AdminPortal';
 import { Footer } from './components/Footer';
-import { PlantillaJob, ApplicationRecord, InternalEmployeeProfile } from './types';
+import { PlantillaJob, ApplicationRecord, InternalEmployeeProfile, PortalUserProfile } from './types';
+import { auth, signOutUser } from './lib/firebase';
+import { getPortalUserProfile } from './lib/portalAuthService';
 import {
   subscribeToApplications,
   subscribeToJobVacancies,
@@ -15,6 +19,7 @@ import {
 export default function App() {
   const [activeTab, setActiveTab] = useState<'jobs' | 'apply' | 'internal' | 'track' | 'admin'>('jobs');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [portalUser, setPortalUser] = useState<PortalUserProfile | null>(null);
   const [jobs, setJobs] = useState<PlantillaJob[]>([]);
   const [applications, setApplications] = useState<ApplicationRecord[]>([]);
   const [selectedJobIdForApply, setSelectedJobIdForApply] = useState<string>('');
@@ -29,17 +34,36 @@ export default function App() {
     }
   }, [activeTab]);
 
+  // Hydrate BFAR Employee / External Applicant session independently from Admin auth
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        setPortalUser(null);
+        return;
+      }
+      try {
+        const profile = await getPortalUserProfile(firebaseUser.uid);
+        if (profile && profile.emailVerified) {
+          setPortalUser(profile);
+        } else {
+          setPortalUser(null);
+        }
+      } catch {
+        setPortalUser(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
   // Load jobs and applications via real-time Firestore listeners
   useEffect(() => {
     setIsLoadingJobs(true);
 
-    // Subscribe to Firestore job_vacancies in real-time
     const unsubVacancies = subscribeToJobVacancies((firestoreJobs) => {
       setJobs(firestoreJobs || []);
       setIsLoadingJobs(false);
     });
 
-    // Subscribe to Firestore applications collection in real-time
     const unsubApplications = subscribeToApplications((firestoreApps) => {
       setApplications(firestoreApps || []);
     });
@@ -49,6 +73,12 @@ export default function App() {
       unsubApplications();
     };
   }, []);
+
+  const handlePortalSignOut = async () => {
+    await signOutUser();
+    setPortalUser(null);
+    setActiveTab('jobs');
+  };
 
   // When applicant clicks "Apply" on a job (External or Standard)
   const handleSelectJobForApply = (job: PlantillaJob) => {
@@ -106,7 +136,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-100 font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* Official Government & BFAR Header */}
+      {/* Official Government & BFAR Header (100% Preserved HR & HRMPSB Lock/Sync Logic) */}
       <Header
         activeTab={activeTab}
         setActiveTab={(tab) => {
@@ -126,11 +156,27 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6">
         {activeTab === 'jobs' && (
-          <JobsTable
-            jobs={jobs}
-            onSelectJobForApply={handleSelectJobForApply}
-            isLoading={isLoadingJobs}
-          />
+          <>
+            <PortalAccessGateway
+              portalUser={portalUser}
+              onPortalUserChange={setPortalUser}
+              onPortalSignOut={handlePortalSignOut}
+              onOpenAdminPortal={() => {
+                setActiveTab('admin');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+              onNavigateTab={(tab: 'jobs' | 'apply' | 'internal' | 'track') => {
+                setActiveTab(tab);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+
+            <JobsTable
+              jobs={jobs}
+              onSelectJobForApply={handleSelectJobForApply}
+              isLoading={isLoadingJobs}
+            />
+          </>
         )}
 
         {activeTab === 'internal' && (
@@ -147,7 +193,9 @@ export default function App() {
             jobs={jobs}
             selectedJobId={selectedJobIdForApply}
             initialInternalProfile={selectedInternalProfile}
-            initialApplicantType="internal"
+            initialApplicantType={
+              (portalUser?.role === 'external_applicant' ? 'external' : 'internal') as 'internal'
+            }
             onApplicationSubmitted={handleApplicationSubmitted}
             onNavigateToTrack={handleNavigateToTrack}
           />
