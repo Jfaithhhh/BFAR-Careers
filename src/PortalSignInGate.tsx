@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  ArrowLeft,
   Building2,
   CheckCircle2,
   KeyRound,
@@ -25,7 +24,6 @@ interface PortalSignInGateProps {
   onSelectOption: (option: ActivePortalPov) => void;
   onAuthenticatedUser: (profile: PortalUserProfile) => void;
   onProceedToHrPortal: () => void;
-  onBackToFrontPage?: () => void;
 }
 
 export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
@@ -33,7 +31,6 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
   onSelectOption,
   onAuthenticatedUser,
   onProceedToHrPortal,
-  onBackToFrontPage,
 }) => {
   // BFAR Employee state
   const [empMode, setEmpMode] = useState<'login' | 'register'>('login');
@@ -69,16 +66,6 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
       return (authResult as { profile: PortalUserProfile }).profile;
     }
     return authResult as PortalUserProfile;
-  };
-
-  const handleBackToFront = () => {
-    resetMessages();
-    onSelectOption('bfar_employee');
-    if (onBackToFrontPage) {
-      onBackToFrontPage();
-    } else {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
   };
 
   const handleEmployeeSubmit = async (e: React.FormEvent) => {
@@ -268,6 +255,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
             onClick={() => {
               resetMessages();
               onSelectOption('hr_admin');
+              onProceedToHrPortal();
             }}
             className={`text-left p-4 rounded-xl border transition-all cursor-pointer ${
               selectedOption === 'hr_admin'
@@ -418,16 +406,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                 </div>
               )}
 
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={handleBackToFront}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  Back
-                </button>
-
+              <div className="flex justify-end pt-1">
                 <button
                   type="submit"
                   disabled={isSubmitting}
@@ -598,16 +577,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                 </div>
               )}
 
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={handleBackToFront}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  Back
-                </button>
-
+              <div className="flex justify-end pt-1">
                 <button
                   type="submit"
                   disabled={isSubmitting}
@@ -622,37 +592,6 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                 </button>
               </div>
             </form>
-          </div>
-        )}
-
-        {/* OPTION 3: HR ADMIN / HRMPSB PORTAL */}
-        {selectedOption === 'hr_admin' && (
-          <div className="border border-amber-200 rounded-xl p-5 bg-amber-50/40">
-            <h3 className="text-sm font-bold text-slate-900 mb-1">
-              HR &amp; HRMPSB Administrative Portal
-            </h3>
-            <p className="text-xs text-slate-600 mb-4">
-              Restricted to authorized Human Resource Management and HRMPSB personnel.
-            </p>
-            <div className="flex flex-wrap items-center justify-between gap-2.5">
-              <button
-                type="button"
-                onClick={handleBackToFront}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-xs font-bold text-slate-700 cursor-pointer"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                Back
-              </button>
-
-              <button
-                type="button"
-                onClick={onProceedToHrPortal}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#002c60] hover:bg-[#01397a] text-white text-xs font-bold cursor-pointer"
-              >
-                <ShieldCheck className="w-4 h-4" />
-                Open Restricted HR &amp; HRMPSB Sign-In
-              </button>
-            </div>
           </div>
         )}
       </div>

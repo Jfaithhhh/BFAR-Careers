@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { PlantillaJob, ApplicationRecord, VacancySyncStatus } from '../types';
-import { updateApplicationInFirestore } from '../lib/firestoreService';
-import { auth, signInWithGoogle } from '../lib/firebase';
+import {
+  updateApplicationInFirestore,
+  deleteJobVacancyFromFirestore,
+  saveJobVacancyToFirestore,
+} from '../lib/firestoreService';
+import { auth, db, signInWithGoogle } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import { deleteJobVacancyFromFirestore, saveJobVacancyToFirestore } from '../lib/firestoreService';
 import {
   Users,
   Briefcase,
@@ -37,7 +39,10 @@ import {
   History,
   Check,
   Calendar,
+  ArrowLeft,
 } from 'lucide-react';
+
+type AdminRole = 'HR_Specialist' | 'HRMPSB_Member' | 'Director';
 
 interface AdminPortalProps {
   jobs: PlantillaJob[];
@@ -46,9 +51,31 @@ interface AdminPortalProps {
   onAddJob: (job: Partial<PlantillaJob>) => void;
   onUpdateJob: (jobId: string, updates: Partial<PlantillaJob>) => void;
   onAuthChange?: (authenticated: boolean) => void;
+  onBackToFrontPage?: () => void;
 }
 
-const emptyJobForm = {
+const emptyJobForm: {
+  itemNo: string;
+  plantillaItemNumber: string;
+  positionTitle: string;
+  office: string;
+  division: string;
+  region: string;
+  placeOfAssignment: string;
+  salaryGrade: number;
+  plantillaType: 'Permanent' | 'Contract of Service (COS)' | 'Project-Based';
+  datePosted: string;
+  applicationDeadline: string;
+  officialSourceUrl: string;
+  education: string;
+  experience: string;
+  training: string;
+  eligibility: string;
+  dutiesText: string;
+  competenciesText: string;
+  documentTitle: string;
+  documentUrl: string;
+} = {
   itemNo: '',
   plantillaItemNumber: '',
   positionTitle: '',
@@ -57,7 +84,7 @@ const emptyJobForm = {
   region: 'Central Office (NCR) - Quezon City',
   placeOfAssignment: 'BFAR Central Office, PCA Building, Elliptical Road, Diliman, Quezon City',
   salaryGrade: 15,
-  plantillaType: 'Permanent' as 'Permanent' | 'Contract of Service (COS)' | 'Project-Based',
+  plantillaType: 'Permanent',
   datePosted: '2026-10-21',
   applicationDeadline: '2026-12-15',
   officialSourceUrl: 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
@@ -89,11 +116,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   onAddJob,
   onUpdateJob,
   onAuthChange,
+  onBackToFrontPage,
 }) => {
   // Authentication gate for BFAR HRMIS (Strict Role-Based Access Controls)
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [signInMethod, setSignInMethod] = useState<'credentials' | 'google'>('credentials');
-  const [verifiedRole, setVerifiedRole] = useState<'HR_Specialist' | 'HRMPSB_Member' | 'Director'>('HR_Specialist');
+  const [verifiedRole, setVerifiedRole] = useState<AdminRole>('HR_Specialist');
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -130,6 +158,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [showAuditLogs, setShowAuditLogs] = useState(false);
   const [vacancyFilter, setVacancyFilter] = useState<'All' | 'Open' | 'Expired'>('All');
   const [updatingJobId, setUpdatingJobId] = useState<string | null>(null);
+  const [deletedJobIds, setDeletedJobIds] = useState<string[]>([]);
 
   // Official Vacancy Create / Edit Modal State
   const [isCreatingJob, setIsCreatingJob] = useState(false);
@@ -138,22 +167,18 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [isSavingJob, setIsSavingJob] = useState(false);
   const [newJobForm, setNewJobForm] = useState(emptyJobForm);
 
-  // Load official vacancy synchronization status
-  const fetchSyncStatus = async () => {
-    try {
-      setSyncStatus((prev) => (prev ? { ...prev, status: 'idle' } : null));
-    } catch (e) {
-      console.warn('Could not fetch vacancy sync status:', e);
-    }
-  };
+  const visibleJobs = jobs.filter((j) => !deletedJobIds.includes(j.id));
 
+  // Load official vacancy synchronization status
   useEffect(() => {
-    fetchSyncStatus();
+    setSyncStatus((prev) => (prev ? { ...prev, status: 'idle' } : null));
   }, [adminTab]);
 
   // KPI Calculations dynamically computed from actual Firestore records
   const totalApps = applications.length;
-  const uniqueApplicants = new Set(applications.map((a) => a.bfarEmployeeId || a.personalInfo?.email || a.id)).size;
+  const uniqueApplicants = new Set(
+    applications.map((a) => a.bfarEmployeeId || a.personalInfo?.email || a.id)
+  ).size;
   const underReviewCount = applications.filter(
     (a) => a.status === 'Submitted' || a.status === 'Document Under Review'
   ).length;
@@ -175,8 +200,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       a.status.includes('Appointment') ||
       a.status.includes('Result')
   ).length;
-  const activeVacanciesCount = jobs.filter((j) => j.status === 'Open').length;
-  const expiredVacanciesCount = jobs.filter((j) => j.status !== 'Open').length;
+  const activeVacanciesCount = visibleJobs.filter((j) => j.status === 'Open').length;
+  const expiredVacanciesCount = visibleJobs.filter((j) => j.status !== 'Open').length;
   const internalPromotionCount = applications.filter((a) => a.applicantType === 'internal').length;
 
   // Filtered applicants
@@ -230,6 +255,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         }
         onUpdateApplication(selectedApp.id, json.data);
         setSelectedApp(json.data);
+      } else {
+        await updateApplicationInFirestore(selectedApp.id, updates);
+        onUpdateApplication(selectedApp.id, updates);
+        setSelectedApp({ ...selectedApp, ...updates });
       }
     } catch (err) {
       console.error(err);
@@ -351,6 +380,17 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     setCreateJobError(null);
     setEditingJob(job);
     const itemNo = job.plantillaItemNumber || job.itemNo || '';
+    const allowedTypes: Array<'Permanent' | 'Contract of Service (COS)' | 'Project-Based'> = [
+      'Permanent',
+      'Contract of Service (COS)',
+      'Project-Based',
+    ];
+    const resolvedPlantillaType = allowedTypes.includes(
+      job.plantillaType as 'Permanent' | 'Contract of Service (COS)' | 'Project-Based'
+    )
+      ? (job.plantillaType as 'Permanent' | 'Contract of Service (COS)' | 'Project-Based')
+      : 'Permanent';
+
     setNewJobForm({
       itemNo,
       plantillaItemNumber: itemNo,
@@ -362,7 +402,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         job.placeOfAssignment ||
         'BFAR Central Office, PCA Building, Elliptical Road, Diliman, Quezon City',
       salaryGrade: Number(job.salaryGrade) || 15,
-      plantillaType: (job.plantillaType as any) || 'Permanent',
+      plantillaType: resolvedPlantillaType,
       datePosted: job.datePosted || job.postingDate || new Date().toISOString().split('T')[0],
       applicationDeadline: job.applicationDeadline || job.closingDate || getTodayDateString(),
       officialSourceUrl:
@@ -402,6 +442,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
     try {
       await deleteJobVacancyFromFirestore(jobId);
+      setDeletedJobIds((prev) => (prev.includes(jobId) ? prev : [...prev, jobId]));
       setSyncFeedback({
         type: 'success',
         message: `Matagumpay na nabura ang "${positionTitle}" sa database.`,
@@ -493,6 +534,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
     try {
       await saveJobVacancyToFirestore(payload);
+      setDeletedJobIds((prev) => prev.filter((id) => id !== docId));
       if (isEditing && editingJob) {
         onUpdateJob(editingJob.id, payload);
       } else {
@@ -547,7 +589,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         const staffData = staffSnap.data() as {
           employeeId?: string;
           fullName?: string;
-          role?: 'HR_Specialist' | 'HRMPSB_Member' | 'Director';
+          role?: AdminRole;
           passkey?: string;
           active?: boolean;
         };
@@ -587,7 +629,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <ShieldAlert className="w-7 h-7 text-red-500" />
             </div>
             <div className="space-y-1 flex-1">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
                   Restricted Access System
                 </span>
@@ -647,7 +689,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   setSignInMethod('credentials');
                   setLoginError(null);
                 }}
-                className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   signInMethod === 'credentials'
                     ? 'bg-[#024794] text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -664,7 +706,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   setSignInMethod('google');
                   setLoginError(null);
                 }}
-                className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 ${
+                className={`px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
                   signInMethod === 'google'
                     ? 'bg-[#024794] text-white shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -675,6 +717,22 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </button>
             </div>
           </div>
+
+          {onBackToFrontPage && (
+            <div className="flex justify-start">
+              <button
+                type="button"
+                onClick={() => {
+                  onAuthChange?.(false);
+                  onBackToFrontPage();
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 transition-colors cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to Front Page</span>
+              </button>
+            </div>
+          )}
 
           {loginError && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-lg flex items-center gap-2">
@@ -717,7 +775,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     setLoginError('Google sign-in was cancelled or encountered an error.');
                   }
                 }}
-                className="w-full bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 py-3 rounded-lg font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 hover:border-slate-400"
+                className="w-full bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 py-3 rounded-lg font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-2 hover:border-slate-400 cursor-pointer"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path
@@ -750,7 +808,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       setVerifiedRole('HR_Specialist');
                       setIsAuthenticated(true);
                     }}
-                    className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 py-2.5 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5"
+                    className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 py-2.5 rounded-lg font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <UserCheck className="w-4 h-4 text-emerald-600" />
                     <span>Enter as {auth.currentUser.email}</span>
@@ -763,7 +821,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 <label className="font-semibold text-slate-700 block mb-1">Verified System Role:</label>
                 <select
                   value={verifiedRole}
-                  onChange={(e: any) => setVerifiedRole(e.target.value)}
+                  onChange={(e) => setVerifiedRole(e.target.value as AdminRole)}
                   className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-semibold text-slate-900 focus:ring-2 focus:ring-[#024794]"
                 >
                   <option value="HR_Specialist">HR Administrative Specialist / Secretariat</option>
@@ -798,7 +856,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
+                    className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
@@ -807,7 +865,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
               <button
                 type="submit"
-                className="w-full bg-[#024794] hover:bg-[#033b7a] text-white py-3 rounded-lg font-bold text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-2"
+                className="w-full bg-[#024794] hover:bg-[#033b7a] text-white py-3 rounded-lg font-bold text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Lock className="w-3.5 h-3.5 text-amber-300" />
                 <span>Verify Role &amp; Enter Dashboard</span>
@@ -842,7 +900,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="bg-emerald-500 text-slate-950 font-black text-[10px] px-2 py-0.2 rounded uppercase">
+              <span className="bg-emerald-500 text-slate-950 font-black text-[10px] px-2 py-0.5 rounded uppercase">
                 Verified Session
               </span>
               <span className="text-slate-400 text-xs">Station: BFAR Central Office (NCR)</span>
@@ -863,11 +921,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             Logged in as: <strong className="text-white">{loginUsername || 'Authorized Officer'}</strong>
           </span>
           <button
+            type="button"
             onClick={() => {
               setIsAuthenticated(false);
               setLoginPassword('');
             }}
-            className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors"
+            className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5 text-red-400" />
             <span>Sign Out</span>
@@ -927,8 +986,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       {/* Admin Nav Tabs */}
       <div className="bg-white rounded-t-xl border border-b-0 border-slate-200 px-4 pt-3 flex space-x-2 text-xs font-bold">
         <button
+          type="button"
           onClick={() => setAdminTab('applicants')}
-          className={`py-2 px-4 rounded-t-lg transition-colors flex items-center gap-1.5 ${
+          className={`py-2 px-4 rounded-t-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
             adminTab === 'applicants'
               ? 'bg-[#024794] text-white'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
@@ -936,14 +996,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         >
           <Users className="w-3.5 h-3.5" />
           <span>Applicants &amp; Dossiers</span>
-          <span className="bg-white/20 text-white text-[10px] px-1.5 py-0.2 rounded-full">
+          <span className="bg-white/20 text-white text-[10px] px-1.5 py-0.5 rounded-full">
             {applications.length}
           </span>
         </button>
 
         <button
+          type="button"
           onClick={() => setAdminTab('plantilla')}
-          className={`py-2 px-4 rounded-t-lg transition-colors flex items-center gap-1.5 ${
+          className={`py-2 px-4 rounded-t-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
             adminTab === 'plantilla'
               ? 'bg-[#024794] text-white'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
@@ -951,14 +1012,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         >
           <Briefcase className="w-3.5 h-3.5" />
           <span>Plantilla Vacancies</span>
-          <span className="bg-slate-100 text-slate-800 text-[10px] px-1.5 py-0.2 rounded-full">
-            {jobs.length}
+          <span className="bg-slate-100 text-slate-800 text-[10px] px-1.5 py-0.5 rounded-full">
+            {visibleJobs.length}
           </span>
         </button>
 
         <button
+          type="button"
           onClick={() => setAdminTab('matrix')}
-          className={`py-2 px-4 rounded-t-lg transition-colors flex items-center gap-1.5 ${
+          className={`py-2 px-4 rounded-t-lg transition-colors flex items-center gap-1.5 cursor-pointer ${
             adminTab === 'matrix'
               ? 'bg-[#024794] text-white'
               : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
@@ -989,7 +1051,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 <span className="text-slate-500 font-medium">Track:</span>
                 <select
                   value={applicantTypeFilter}
-                  onChange={(e: any) => setApplicantTypeFilter(e.target.value)}
+                  onChange={(e) => setApplicantTypeFilter(e.target.value as 'All' | 'internal')}
                   className="bg-white border border-slate-300 rounded-md px-2 py-1.5 text-xs font-semibold text-purple-900"
                 >
                   <option value="All">All Internal Staff ({totalApps})</option>
@@ -1058,7 +1120,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         <div className="font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
                           <span>{app.personalInfo.fullName}</span>
                           {app.applicantType === 'internal' && (
-                            <span className="bg-purple-100 text-purple-900 text-[9px] font-extrabold px-1.5 py-0.2 rounded inline-flex items-center gap-1 border border-purple-200">
+                            <span className="bg-purple-100 text-purple-900 text-[9px] font-extrabold px-1.5 py-0.5 rounded inline-flex items-center gap-1 border border-purple-200">
                               <UserCheck className="w-2.5 h-2.5" />
                               <span>BFAR Staff (SG {app.currentSalaryGrade || 11})</span>
                             </span>
@@ -1114,8 +1176,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       </td>
                       <td className="py-3 px-3 text-center">
                         <button
+                          type="button"
                           onClick={() => handleOpenDossier(app)}
-                          className="bg-[#024794] hover:bg-[#033b7a] text-white px-3 py-1.5 rounded text-xs font-semibold shadow-xs flex items-center justify-center gap-1 mx-auto transition-all active:scale-95"
+                          className="bg-[#024794] hover:bg-[#033b7a] text-white px-3 py-1.5 rounded text-xs font-semibold shadow-xs flex items-center justify-center gap-1 mx-auto transition-all active:scale-95 cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           <span>Review Dossier</span>
@@ -1168,7 +1231,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   type="button"
                   onClick={handleRunSync}
                   disabled={isSyncing}
-                  className="bg-[#024794] hover:bg-[#033b7a] disabled:opacity-50 text-white border border-blue-400/30 px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+                  className="bg-[#024794] hover:bg-[#033b7a] disabled:opacity-50 text-white border border-blue-400/30 px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
                 >
                   <RefreshCw
                     className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-amber-400' : 'text-emerald-400'}`}
@@ -1179,7 +1242,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 <button
                   type="button"
                   onClick={handleOpenCreateJob}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Import Official Notice</span>
@@ -1206,7 +1269,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 <button
                   type="button"
                   onClick={() => setSyncFeedback(null)}
-                  className="text-slate-400 hover:text-white text-xs p-1"
+                  className="text-slate-400 hover:text-white text-xs p-1 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -1239,16 +1302,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 <div className="flex items-center gap-1.5">
                   <Briefcase className="w-3.5 h-3.5 text-slate-400" />
                   <span className="text-slate-400">Registry Count:</span>
-                  <span className="font-bold text-white">{jobs.length} items</span>
-                  <span className="text-emerald-400">({jobs.filter((j) => j.status === 'Open').length} Open)</span>
-                  <span className="text-slate-400">({jobs.filter((j) => j.status !== 'Open').length} Closed)</span>
+                  <span className="font-bold text-white">{visibleJobs.length} items</span>
+                  <span className="text-emerald-400">({visibleJobs.filter((j) => j.status === 'Open').length} Open)</span>
+                  <span className="text-slate-400">({visibleJobs.filter((j) => j.status !== 'Open').length} Closed)</span>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => setShowAuditLogs(!showAuditLogs)}
-                className="text-sky-300 hover:text-sky-200 text-xs font-semibold flex items-center gap-1 underline underline-offset-2"
+                className="text-sky-300 hover:text-sky-200 text-xs font-semibold flex items-center gap-1 underline underline-offset-2 cursor-pointer"
               >
                 <History className="w-3.5 h-3.5" />
                 <span>{showAuditLogs ? 'Hide Audit Log' : 'View Sync Audit Log'}</span>
@@ -1272,7 +1335,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         <div className="flex items-center gap-1.5 font-mono text-slate-400">
                           <span>{new Date(log.timestamp).toLocaleTimeString('en-PH')}</span>
                           <span
-                            className={`px-1.5 py-0.2 rounded text-[9px] font-bold ${
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
                               log.status === 'success'
                                 ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
                                 : log.status === 'warning'
@@ -1296,7 +1359,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200">
             <div>
-              <h4 className="text-sm font-bold text-slate-900">Official Plantilla Items Ledger ({jobs.length})</h4>
+              <h4 className="text-sm font-bold text-slate-900">Official Plantilla Items Ledger ({visibleJobs.length})</h4>
               <p className="text-xs text-slate-500">
                 Central Office positions synchronized from official DA-BFAR announcements. Click <strong>Edit</strong> to
                 modify details or extend the deadline.
@@ -1308,42 +1371,42 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <button
                 type="button"
                 onClick={() => setVacancyFilter('All')}
-                className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
                   vacancyFilter === 'All'
                     ? 'bg-[#024794] text-white shadow-xs'
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
-                All ({jobs.length})
+                All ({visibleJobs.length})
               </button>
               <button
                 type="button"
                 onClick={() => setVacancyFilter('Open')}
-                className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
                   vacancyFilter === 'Open'
                     ? 'bg-emerald-700 text-white shadow-xs'
                     : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
                 }`}
               >
-                Active / Open ({jobs.filter((j) => j.status === 'Open').length})
+                Active / Open ({visibleJobs.filter((j) => j.status === 'Open').length})
               </button>
               <button
                 type="button"
                 onClick={() => setVacancyFilter('Expired')}
-                className={`px-2.5 py-1 rounded-md font-semibold transition-colors ${
+                className={`px-2.5 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
                   vacancyFilter === 'Expired'
                     ? 'bg-slate-700 text-white shadow-xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >
-                Closed / Expired ({jobs.filter((j) => j.status !== 'Open').length})
+                Closed / Expired ({visibleJobs.filter((j) => j.status !== 'Open').length})
               </button>
             </div>
           </div>
 
           {/* Vacancies Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {jobs
+            {visibleJobs
               .filter((j) => {
                 if (vacancyFilter === 'Open') return j.status === 'Open';
                 if (vacancyFilter === 'Expired') return j.status !== 'Open';
@@ -1554,7 +1617,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
       {/* APPLICANT REVIEW & AI SCREENING DOSSIER MODAL */}
       {selectedApp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
             <div className="bg-[#024794] text-white p-5 flex items-start justify-between">
               <div>
@@ -1571,8 +1634,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </div>
 
               <button
+                type="button"
                 onClick={() => setSelectedApp(null)}
-                className="text-white/80 hover:text-white p-1 rounded-full hover:bg-white/10"
+                className="text-white/80 hover:text-white p-1 rounded-full hover:bg-white/10 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1786,9 +1850,10 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       AI-Generated HRMPSB Behavioral Interview Questions:
                     </span>
                     <button
+                      type="button"
                       onClick={handleGenerateQuestions}
                       disabled={isGeneratingAiQuestions}
-                      className="text-[#024794] hover:underline font-semibold text-[11px] flex items-center gap-1"
+                      className="text-[#024794] hover:underline font-semibold text-[11px] flex items-center gap-1 cursor-pointer"
                     >
                       <RefreshCw className={`w-3 h-3 ${isGeneratingAiQuestions ? 'animate-spin' : ''}`} />
                       <span>Regenerate</span>
@@ -1814,7 +1879,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     <label className="text-slate-300 block mb-1 font-semibold">Recruitment Milestone Stage:</label>
                     <select
                       value={newStatus}
-                      onChange={(e: any) => setNewStatus(e.target.value)}
+                      onChange={(e) => setNewStatus(e.target.value as ApplicationRecord['status'])}
                       className="w-full bg-slate-800 border border-slate-700 rounded-md p-2 text-xs font-semibold text-white focus:ring-1 focus:ring-amber-400"
                     >
                       <option value="Submitted">1. Application Submitted</option>
@@ -1846,7 +1911,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     <label className="text-slate-300 block mb-1 font-semibold">Final Board Decision:</label>
                     <select
                       value={finalBoardDecision || ''}
-                      onChange={(e: any) => setFinalBoardDecision(e.target.value || undefined)}
+                      onChange={(e) =>
+                        setFinalBoardDecision(
+                          (e.target.value || undefined) as ApplicationRecord['finalBoardDecision']
+                        )
+                      }
                       className="w-full bg-slate-800 border border-slate-700 rounded-md p-2 text-xs font-semibold text-white focus:ring-1 focus:ring-amber-400"
                     >
                       <option value="">Under Deliberation</option>
@@ -1877,15 +1946,17 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               <span className="text-[11px] text-slate-500">Logged at: {selectedApp.submissionDate}</span>
               <div className="flex items-center space-x-2">
                 <button
+                  type="button"
                   onClick={() => setSelectedApp(null)}
-                  className="px-4 py-2 rounded-md border border-slate-300 text-slate-700 font-semibold text-xs hover:bg-slate-100"
+                  className="px-4 py-2 rounded-md border border-slate-300 text-slate-700 font-semibold text-xs hover:bg-slate-100 cursor-pointer"
                 >
                   Close
                 </button>
                 <button
+                  type="button"
                   onClick={handleSaveStatus}
                   disabled={isUpdating}
-                  className="px-5 py-2 rounded-md bg-[#024794] hover:bg-[#033b7a] text-white font-bold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+                  className="px-5 py-2 rounded-md bg-[#024794] hover:bg-[#033b7a] text-white font-bold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
                 >
                   <span>{isUpdating ? 'Saving Decision...' : 'Save HRMPSB Evaluation'}</span>
                 </button>
@@ -1897,7 +1968,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
       {/* OFFICIAL BFAR VACANCY CREATE & EDIT MODAL */}
       {isCreatingJob && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
             <div className="bg-[#024794] text-white p-4 flex items-start justify-between">
               <div>
@@ -1922,7 +1993,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   setIsCreatingJob(false);
                   setEditingJob(null);
                 }}
-                className="text-white/80 hover:text-white p-1 rounded-full hover:bg-white/10"
+                className="text-white/80 hover:text-white p-1 rounded-full hover:bg-white/10 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -2159,7 +2230,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     setIsCreatingJob(false);
                     setEditingJob(null);
                   }}
-                  className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-semibold text-xs hover:bg-slate-100"
+                  className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-semibold text-xs hover:bg-slate-100 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -2167,7 +2238,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   type="submit"
                   form="importVacancyForm"
                   disabled={isSavingJob}
-                  className="px-5 py-2 rounded-lg bg-[#024794] hover:bg-[#033b7a] disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+                  className="px-5 py-2 rounded-lg bg-[#024794] hover:bg-[#033b7a] disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
                 >
                   <Check className="w-3.5 h-3.5 text-emerald-400" />
                   <span>

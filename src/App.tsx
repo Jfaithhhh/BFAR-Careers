@@ -34,7 +34,7 @@ export default function App() {
   const [portalRole, setPortalRole] = useState<PortalRole | null>(null);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [portalUser, setPortalUser] = useState<PortalUserProfile | null>(null);
-  const [isCheckingPortalAuth, setIsCheckingPortalAuth] = useState(true);
+  const [isCheckingPortalAuth, setIsCheckingPortalAuth] = useState<boolean>(() => Boolean(auth.currentUser));
   const [jobs, setJobs] = useState<PlantillaJob[]>([]);
   const [applications, setApplications] = useState<ApplicationRecord[]>([]);
   const [selectedJobIdForApply, setSelectedJobIdForApply] = useState<string>('');
@@ -109,6 +109,15 @@ export default function App() {
     };
   }, []);
 
+  const handleReturnToFrontPage = () => {
+    setIsAdminAuthenticated(false);
+    setPortalUser(null);
+    setPortalRole(null);
+    setSelectedInternalProfile(undefined);
+    setActiveTab('jobs');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleGateAuthenticatedUser = (profile: PortalUserProfile) => {
     setIsAdminAuthenticated(false);
     setPortalUser(profile);
@@ -178,7 +187,8 @@ export default function App() {
   };
 
   const handleAddJob = (newJob: Partial<PlantillaJob>) => {
-    setJobs((prev) => [newJob as PlantillaJob, ...prev]);
+    if (!newJob.id) return;
+    setJobs((prev) => [newJob as PlantillaJob, ...prev.filter((j) => j.id !== newJob.id)]);
   };
 
   const handleUpdateJob = (jobId: string, updates: Partial<PlantillaJob>) => {
@@ -264,6 +274,7 @@ export default function App() {
               }
               setIsAdminAuthenticated(authenticated);
             }}
+            onBackToFrontPage={handleReturnToFrontPage}
           />
         ) : showFrontPageGate ? (
           <PortalSignInGate
