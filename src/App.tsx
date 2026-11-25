@@ -20,6 +20,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'jobs' | 'apply' | 'internal' | 'track' | 'admin'>('jobs');
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [portalUser, setPortalUser] = useState<PortalUserProfile | null>(null);
+  const [isCheckingPortalAuth, setIsCheckingPortalAuth] = useState(true);
   const [jobs, setJobs] = useState<PlantillaJob[]>([]);
   const [applications, setApplications] = useState<ApplicationRecord[]>([]);
   const [selectedJobIdForApply, setSelectedJobIdForApply] = useState<string>('');
@@ -27,35 +28,46 @@ export default function App() {
   const [activeTrackingCode, setActiveTrackingCode] = useState<string>('');
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
 
-  // Reset admin authentication state whenever leaving the restricted HR portal tab
+  const isExternalApplicantSession = portalUser?.role === 'external_applicant';
+  const isAdminView = !isExternalApplicantSession && activeTab === 'admin';
+
+  // External applicants may only access Plantilla Vacancies ('jobs') and the Application Form ('apply')
+  useEffect(() => {
+    if (isExternalApplicantSession && activeTab !== 'jobs' && activeTab !== 'apply') {
+      setActiveTab('jobs');
+    }
+  }, [isExternalApplicantSession, activeTab]);
+
   useEffect(() => {
     if (activeTab !== 'admin') {
       setIsAdminAuthenticated(false);
     }
   }, [activeTab]);
 
-  // Hydrate BFAR Employee / External Applicant session independently from Admin auth
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
         setPortalUser(null);
+        setIsCheckingPortalAuth(false);
         return;
       }
       try {
         const profile = await getPortalUserProfile(firebaseUser.uid);
-        if (profile && profile.emailVerified) {
-          setPortalUser(profile);
+        const isVerified = Boolean(profile?.emailVerified || firebaseUser.emailVerified);
+        if (profile && isVerified) {
+          setPortalUser({ ...profile, emailVerified: true });
         } else {
           setPortalUser(null);
         }
       } catch {
         setPortalUser(null);
+      } finally {
+        setIsCheckingPortalAuth(false);
       }
     });
     return () => unsubscribe();
   }, []);
 
-  // Load jobs and applications via real-time Firestore listeners
   useEffect(() => {
     setIsLoadingJobs(true);
 
@@ -78,9 +90,9 @@ export default function App() {
     await signOutUser();
     setPortalUser(null);
     setActiveTab('jobs');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // When applicant clicks "Apply" on a job (External or Standard)
   const handleSelectJobForApply = (job: PlantillaJob) => {
     setSelectedJobIdForApply(job.id);
     setSelectedInternalProfile(undefined);
@@ -88,40 +100,39 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // When BFAR Employee clicks "Apply for Promotion" from Internal Portal
   const handleSelectJobForInternalApply = (job: PlantillaJob, profile: InternalEmployeeProfile) => {
+    if (isExternalApplicantSession) return;
     setSelectedJobIdForApply(job.id);
     setSelectedInternalProfile(profile);
     setActiveTab('apply');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // When a new application is submitted
   const handleApplicationSubmitted = (newApp: ApplicationRecord) => {
     setApplications((prev) => [newApp, ...prev.filter((a) => a.id !== newApp.id)]);
     setActiveTrackingCode(newApp.trackingCode);
   };
 
-  // When applicant wants to track
   const handleNavigateToTrack = (trackingCode: string) => {
+    if (isExternalApplicantSession) {
+      setActiveTab('jobs');
+      return;
+    }
     setActiveTrackingCode(trackingCode);
     setActiveTab('track');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // When Admin updates an application
   const handleUpdateApplication = (appId: string, updated: Partial<ApplicationRecord>) => {
     setApplications((prev) =>
       prev.map((a) => (a.id === appId ? { ...a, ...updated } : a))
     );
   };
 
-  // When Admin adds a job
   const handleAddJob = (newJob: Partial<PlantillaJob>) => {
     setJobs((prev) => [newJob as PlantillaJob, ...prev]);
   };
 
-  // When Admin updates a job
   const handleUpdateJob = (jobId: string, updates: Partial<PlantillaJob>) => {
     setJobs((prev) =>
       prev.map((j) => (j.id === jobId ? { ...j, ...updates } : j))
@@ -134,12 +145,24 @@ export default function App() {
 
   const internalCount = applications.filter((a) => a.applicantType === 'internal').length;
 
+  const showLoginFirstGate = !isAdminView && !portalUser;
+  const hideHeaderNav = showLoginFirstGate || isAdminView;
+
+  const headerActiveTab: 'jobs' | 'apply' | 'internal' | 'track' | 'admin' =
+    isExternalApplicantSession && activeTab !== 'jobs' && activeTab !== 'apply'
+      ? 'jobs'
+      : activeTab;
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-100 font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* Official Government & BFAR Header (100% Preserved HR & HRMPSB Lock/Sync Logic) */}
       <Header
-        activeTab={activeTab}
+        activeTab={headerActiveTab}
         setActiveTab={(tab) => {
+          if (isExternalApplicantSession) {
+            setActiveTab(tab === 'apply' ? 'apply' : 'jobs');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            return;
+          }
           if (tab !== 'admin') {
             setIsAdminAuthenticated(false);
           }
@@ -151,64 +174,16 @@ export default function App() {
         internalCount={internalCount}
         isAdminAuthenticated={isAdminAuthenticated}
         onAdminAuthChange={setIsAdminAuthenticated}
+        hideNavTabs={hideHeaderNav}
+        isExternalApplicantSession={isExternalApplicantSession}
       />
 
-      {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6">
-        {activeTab === 'jobs' && (
-          <>
-            <PortalAccessGateway
-              portalUser={portalUser}
-              onPortalUserChange={setPortalUser}
-              onPortalSignOut={handlePortalSignOut}
-              onOpenAdminPortal={() => {
-                setActiveTab('admin');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              onNavigateTab={(tab: 'jobs' | 'apply' | 'internal' | 'track') => {
-                setActiveTab(tab);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-            />
-
-            <JobsTable
-              jobs={jobs}
-              onSelectJobForApply={handleSelectJobForApply}
-              isLoading={isLoadingJobs}
-            />
-          </>
-        )}
-
-        {activeTab === 'internal' && (
-          <InternalRecruitmentPortal
-            jobs={jobs}
-            applications={applications}
-            onSelectJobForInternalApply={handleSelectJobForInternalApply}
-            onTrackApplication={handleNavigateToTrack}
-          />
-        )}
-
-        {activeTab === 'apply' && (
-          <ApplicationForm
-            jobs={jobs}
-            selectedJobId={selectedJobIdForApply}
-            initialInternalProfile={selectedInternalProfile}
-            initialApplicantType={
-              (portalUser?.role === 'external_applicant' ? 'external' : 'internal') as 'internal'
-            }
-            onApplicationSubmitted={handleApplicationSubmitted}
-            onNavigateToTrack={handleNavigateToTrack}
-          />
-        )}
-
-        {activeTab === 'track' && (
-          <ApplicationTracker
-            initialTrackingCode={activeTrackingCode}
-            recentApplications={applications}
-          />
-        )}
-
-        {activeTab === 'admin' && (
+        {isCheckingPortalAuth && !isAdminView ? (
+          <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-xs font-semibold text-slate-600 shadow-xs">
+            Checking portal session...
+          </div>
+        ) : isAdminView ? (
           <AdminPortal
             jobs={jobs}
             applications={applications}
@@ -217,10 +192,126 @@ export default function App() {
             onUpdateJob={handleUpdateJob}
             onAuthChange={setIsAdminAuthenticated}
           />
+        ) : showLoginFirstGate ? (
+          <PortalAccessGateway
+            portalUser={null}
+            onPortalUserChange={(user) => {
+              setPortalUser(user);
+              if (user) {
+                setActiveTab('jobs');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }
+            }}
+            onPortalSignOut={handlePortalSignOut}
+            onOpenAdminPortal={() => {
+              setActiveTab('admin');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onNavigateTab={(tab: 'jobs' | 'apply' | 'internal' | 'track') => {
+              setActiveTab(isExternalApplicantSession && tab !== 'apply' ? 'jobs' : tab);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        ) : isExternalApplicantSession ? (
+          <>
+            <PortalAccessGateway
+              portalUser={portalUser}
+              onPortalUserChange={setPortalUser}
+              onPortalSignOut={handlePortalSignOut}
+              onOpenAdminPortal={() => {}}
+              onNavigateTab={(tab) => {
+                setActiveTab(tab === 'apply' ? 'apply' : 'jobs');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              }}
+            />
+
+            {activeTab === 'apply' ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('jobs')}
+                    className="text-xs font-bold text-[#024794] hover:underline cursor-pointer"
+                  >
+                    &larr; Back to Plantilla Vacancies
+                  </button>
+                </div>
+
+                <ApplicationForm
+                  jobs={jobs}
+                  selectedJobId={selectedJobIdForApply}
+                  initialInternalProfile={undefined}
+                  isExternalApplicant={true}
+                  applicantEmail={portalUser?.email || ''}
+                  onApplicationSubmitted={handleApplicationSubmitted}
+                  onNavigateToTrack={() => setActiveTab('jobs')}
+                />
+              </div>
+            ) : (
+              <JobsTable
+                jobs={jobs}
+                onSelectJobForApply={handleSelectJobForApply}
+                isLoading={isLoadingJobs}
+              />
+            )}
+          </>
+        ) : (
+          <>
+            {activeTab === 'jobs' && (
+              <>
+                <PortalAccessGateway
+                  portalUser={portalUser}
+                  onPortalUserChange={setPortalUser}
+                  onPortalSignOut={handlePortalSignOut}
+                  onOpenAdminPortal={() => {
+                    setActiveTab('admin');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  onNavigateTab={(tab: 'jobs' | 'apply' | 'internal' | 'track') => {
+                    setActiveTab(tab);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                />
+
+                <JobsTable
+                  jobs={jobs}
+                  onSelectJobForApply={handleSelectJobForApply}
+                  isLoading={isLoadingJobs}
+                />
+              </>
+            )}
+
+            {activeTab === 'internal' && (
+              <InternalRecruitmentPortal
+                jobs={jobs}
+                applications={applications}
+                onSelectJobForInternalApply={handleSelectJobForInternalApply}
+                onTrackApplication={handleNavigateToTrack}
+              />
+            )}
+
+            {activeTab === 'apply' && (
+              <ApplicationForm
+                jobs={jobs}
+                selectedJobId={selectedJobIdForApply}
+                initialInternalProfile={selectedInternalProfile}
+                isExternalApplicant={false}
+                applicantEmail={portalUser?.email || ''}
+                onApplicationSubmitted={handleApplicationSubmitted}
+                onNavigateToTrack={handleNavigateToTrack}
+              />
+            )}
+
+            {activeTab === 'track' && (
+              <ApplicationTracker
+                initialTrackingCode={activeTrackingCode}
+                recentApplications={applications}
+              />
+            )}
+          </>
         )}
       </main>
 
-      {/* Official GovPH Footer */}
       <Footer />
     </div>
   );

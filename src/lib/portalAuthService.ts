@@ -146,9 +146,13 @@ export async function isUsernameAvailable(username: string): Promise<boolean> {
 }
 
 /**
- * Option 2: Generate & Dispatch 6-Digit Gmail OTP (5-minute expiry)
+ * Option 2: Generate 6-Digit OTP (5-minute expiry) & queue mail doc
  */
-export async function sendExternalApplicantOtp(uid: string, email: string, fullNameOrUsername: string): Promise<void> {
+export async function sendExternalApplicantOtp(
+  uid: string,
+  email: string,
+  fullNameOrUsername: string
+): Promise<string> {
   const code = Math.floor(100000 + Math.random() * 900000).toString();
   const expiresAt = Date.now() + 5 * 60 * 1000;
 
@@ -183,7 +187,9 @@ export async function sendExternalApplicantOtp(uid: string, email: string, fullN
         </div>
       `,
     },
-  });
+  }).catch(() => {});
+
+  return code;
 }
 
 /**
@@ -193,7 +199,7 @@ export async function registerExternalApplicant(params: {
   username: string;
   email: string;
   password: string;
-}): Promise<{ uid: string; email: string; username: string }> {
+}): Promise<{ uid: string; email: string; username: string; code: string }> {
   const cleanUsername = params.username.trim();
   const normalizedUsername = cleanUsername.toLowerCase();
   const cleanEmail = params.email.trim().toLowerCase();
@@ -228,9 +234,9 @@ export async function registerExternalApplicant(params: {
   };
   await setDoc(doc(db, 'users', cred.user.uid), profile);
 
-  await sendExternalApplicantOtp(cred.user.uid, cleanEmail, cleanUsername);
+  const code = await sendExternalApplicantOtp(cred.user.uid, cleanEmail, cleanUsername);
 
-  return { uid: cred.user.uid, email: cleanEmail, username: cleanUsername };
+  return { uid: cred.user.uid, email: cleanEmail, username: cleanUsername, code };
 }
 
 /**

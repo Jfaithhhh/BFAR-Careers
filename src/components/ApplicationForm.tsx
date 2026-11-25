@@ -10,14 +10,11 @@ import {
   WorkExperienceEntry,
   VoluntaryWorkEntry,
   TrainingEntry,
-  CharacterReference,
-  AiScreeningResult,
   InternalEmployeeProfile,
 } from '../types';
 import {
   saveApplicationToFirestore,
   lookupInternalEmployee,
-  getInternalEmployees,
 } from '../lib/firestoreService';
 import {
   Sparkles,
@@ -40,21 +37,16 @@ import {
   Building2,
   Check,
   Paperclip,
-  AlertTriangle,
   FileCheck,
   ArrowRight,
   ArrowLeft,
-  Info,
   X,
-  File as FileIcon,
-  Download,
   Eye,
   Users,
   HeartHandshake,
   BookOpen,
   BadgeCheck,
   UserCheck,
-  TrendingUp,
 } from 'lucide-react';
 
 interface ApplicationFormProps {
@@ -62,6 +54,8 @@ interface ApplicationFormProps {
   selectedJobId?: string;
   initialInternalProfile?: InternalEmployeeProfile;
   initialApplicantType?: 'internal';
+  isExternalApplicant?: boolean;
+  applicantEmail?: string;
   onApplicationSubmitted: (app: ApplicationRecord) => void;
   onNavigateToTrack: (trackingCode: string) => void;
 }
@@ -93,7 +87,7 @@ const PRIMARY_CATEGORIES: CategoryConfig[] = [
     required: true,
     sectionGroup: 'file_uploads',
     description:
-      'Formal Application Letter (AL) addressed to the National Director & Fully Accomplished CS Form 212 (Personal Data Sheet Revised 2017) with Work Experience Sheet.',
+      'Formal Application Letter (AL) addressed to the Chief, Human Resource Management Section (HRMS) & Fully Accomplished CS Form 212 (Personal Data Sheet Revised 2017) with Work Experience Sheet.',
     acceptedFormats: 'PDF (max 10MB)',
     sampleFileName: 'Application_Letter_and_PDS_CSForm212_Signed.pdf',
   },
@@ -216,7 +210,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
   jobs,
   selectedJobId,
   initialInternalProfile,
-  initialApplicantType,
+  isExternalApplicant = false,
+  applicantEmail = '',
   onApplicationSubmitted,
   onNavigateToTrack,
 }) => {
@@ -229,10 +224,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
   // ==========================================
   // SECTION 1: APPLICATION LETTER STATE
   // ==========================================
-  const [letterMode, setLetterMode] = useState<'generate' | 'upload' | 'manual'>('generate');
   const [applicationLetterText, setApplicationLetterText] = useState<string>('');
   const [letterUploadedFileName, setLetterUploadedFileName] = useState<string>('');
-  const [isGeneratingLetter, setIsGeneratingLetter] = useState(false);
   const [letterSuccessNotice, setLetterSuccessNotice] = useState<string | null>(null);
 
   // ==========================================
@@ -250,7 +243,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     | 'declaration'
   >('personal');
 
-  // 1. Personal Information (Blank state, auto-populated upon internal employee verification)
+  // 1. Personal Information
   const [personalInfo, setPersonalInfo] = useState({
     surname: '',
     firstName: '',
@@ -418,9 +411,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
   const [applicantType] = useState<'internal'>('internal');
   const [internalVerificationError, setInternalVerificationError] = useState<string | null>(null);
   const [isVerifyingStaff, setIsVerifyingStaff] = useState(false);
-  const [verifiedStaffProfile, setVerifiedStaffProfile] = useState<InternalEmployeeProfile | null>(
-    initialInternalProfile || null
-  );
 
   const [bfarEmployeeId, setBfarEmployeeId] = useState<string>(
     initialInternalProfile?.employeeId || ''
@@ -444,9 +434,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     initialInternalProfile?.ipcrPeriod || ''
   );
   const [promotionTrack, setPromotionTrack] = useState<'Promotion' | 'Lateral Transfer' | 'Reassignment'>('Promotion');
-  const [internalVerificationSuccess, setInternalVerificationSuccess] = useState<string | null>(
-    initialInternalProfile ? `Verified Official Record for ${initialInternalProfile.fullName} (${initialInternalProfile.employeeId})` : null
-  );
 
   // Input refs
   const universalInputRef = useRef<HTMLInputElement | null>(null);
@@ -455,14 +442,12 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
   const applyInternalProfileData = (profile: InternalEmployeeProfile) => {
     setBfarEmployeeId(profile.employeeId);
-    setVerifiedStaffProfile(profile);
     setCurrentDivision(profile.division || '');
     setCurrentPlantillaItem(profile.currentPlantillaItem || '');
     setCurrentSalaryGrade(profile.salaryGrade || '');
     setYearsInBfar(profile.yearsInBfar || '');
     setLatestIpcrRating(profile.latestIpcrRating || '');
     setIpcrPeriod(profile.ipcrPeriod || '');
-    setInternalVerificationSuccess(`Verified Official Record for ${profile.fullName} (${profile.employeeId})`);
     setInternalVerificationError(null);
 
     const parts = profile.fullName ? profile.fullName.trim().split(' ') : [''];
@@ -484,7 +469,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       sex: profile.sex || prev.sex,
     }));
 
-    // Injects verified BFAR Work Experience
     if (profile.currentPositionTitle) {
       setWorkExperience((prev) => {
         const bfarExp: WorkExperienceEntry = {
@@ -502,7 +486,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       });
     }
 
-    // Injects Eligibility
     if (profile.eligibility) {
       setEligibility((prev) => {
         const elig: EligibilityEntry = {
@@ -517,7 +500,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       });
     }
 
-    // Injects Documents (WE, PCR)
     setDocumentsUploaded((prev) => {
       const candidateName = profile.fullName.replace(/\s+/g, '_');
       const internalDocs: ApplicantDocument[] = [
@@ -549,9 +531,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       if (!hasWe) next.push(internalDocs[1]);
       return next;
     });
-
-    // Note: In compliance with CSC & DA-BFAR rules, the Formal Application Letter must be written/submitted
-    // directly by the applicant (no pre-drafted template or automated generation provided by the system).
   };
 
   const handleVerifyInForm = async () => {
@@ -570,19 +549,17 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
         setInternalVerificationError(
           'Employee record not found. Please contact the Human Resource Management Division for verification.'
         );
-        setInternalVerificationSuccess(null);
       }
-    } catch (e) {
+    } catch {
       setInternalVerificationError(
         'Employee record not found. Please contact the Human Resource Management Division for verification.'
       );
-      setInternalVerificationSuccess(null);
     } finally {
       setIsVerifyingStaff(false);
     }
   };
 
-  // AI Fast-Fill Parser (Processes actual user credentials/CV against CSC Form 212 schema - No mock demo)
+  // AI Fast-Fill Parser
   const handleParsePdsWithAI = async () => {
     if (!rawResumeText || rawResumeText.trim().length < 20) {
       setAiParseStatus('Please paste your resume, CV, or credentials text first (at least 20 characters).');
@@ -637,19 +614,24 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       } else {
         setAiParseStatus(json.error || 'Failed to parse resume text. Please check your text and try again.');
       }
-    } catch (err: any) {
+    } catch {
       setAiParseStatus('Network error during AI parsing. Please try again.');
     } finally {
       setIsParsingAi(false);
     }
   };
 
-  // Auto-populate if initial profile provided
   useEffect(() => {
-    if (initialInternalProfile) {
+    if (initialInternalProfile && !isExternalApplicant) {
       applyInternalProfileData(initialInternalProfile);
     }
-  }, [initialInternalProfile]);
+  }, [initialInternalProfile, isExternalApplicant]);
+
+  useEffect(() => {
+    if (applicantEmail) {
+      setPersonalInfo((prev) => (prev.email ? prev : { ...prev, email: applicantEmail }));
+    }
+  }, [applicantEmail]);
 
   useEffect(() => {
     if (selectedJobId) {
@@ -657,9 +639,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     }
   }, [selectedJobId]);
 
-  // Note: Formal Application Letter is drafted directly or uploaded as signed PDF by the applicant.
-
-  // LIVE CSC TRAINING AUDIT: Real-time calculation of qualifying vs non-qualifying training hours
+  // LIVE CSC TRAINING AUDIT
   const trainingAudit = useMemo(() => {
     let qualifying = 0;
     let excluded = 0;
@@ -710,7 +690,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     return { qualifying, excluded, flagged };
   }, [training]);
 
-  // Run AI Qualification Assessment comparing PDS against selected Job
+  // Run AI Qualification Assessment
   const handleRunAiFitAssessment = () => {
     setIsEvaluatingFit(true);
     setTimeout(() => {
@@ -722,7 +702,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
         e.degree.toLowerCase().includes('scien')
       );
 
-      const expYears = workExperience.length * 1.5; // estimated
+      const expYears = workExperience.length * 1.5;
       const qualifyingHrs = trainingAudit.qualifying;
       const hasElig = eligibility.some((el) =>
         el.type.toLowerCase().includes('1080') ||
@@ -771,8 +751,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     let detectedCategory: DocumentCategory | null = null;
     let reason = '';
 
-    // Classification Heuristics
-    // 1. Check Other Documents categories
     if (/\b(tor|transcript|scholastic|grades|academic record)\b/i.test(lower)) {
       detectedCategory = 'TOR';
       reason = 'Identified as official Transcript of Records / academic grades.';
@@ -814,9 +792,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     ) {
       detectedCategory = 'POTENTIAL';
       reason = 'Identified as Potential & Competency Evaluation assessment.';
-    }
-    // 2. Check Primary File Uploads categories
-    else if (
+    } else if (
       /\b(eligibility|csc-prof|csc prof|csc subprof|subprofessional|career service|board rating|ra 1080|ra 6506|bar exam)\b/i.test(
         lower
       )
@@ -919,10 +895,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
   // Upload handler specifically for Section 1 (Application Letter PDF)
   const handleUploadLetterPdf = (file: File) => {
     setLetterUploadedFileName(file.name);
-    setLetterMode('upload');
     setLetterSuccessNotice(`Attached PDF Application Letter: "${file.name}"`);
 
-    // Add directly to PL documents
     const doc: ApplicantDocument = {
       id: `letter-${Date.now()}`,
       name: file.name,
@@ -938,9 +912,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       doc,
     ]);
   };
-
-  // Note: Per Part 3, the Formal Application Letter must be written/submitted directly by the applicant (no AI generation).
-
 
   // Test Auto-Correction Simulation
   const handleTestAutoCorrection = (testType: 'ipcr-in-pl' | 'eligibility-in-trainings' | 'tor-in-we') => {
@@ -983,7 +954,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       return;
     }
 
-    // Check mandatory documents
     const hasPL = documentsUploaded.some((d) => d.category === 'PL');
     const hasElig = documentsUploaded.some((d) => d.category === 'ELIGIBILITY');
     if (!hasPL || !hasElig) {
@@ -1015,14 +985,14 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       const payload = {
         jobId: currentJobId,
         applicantType,
-        bfarEmployeeId: applicantType === 'internal' ? bfarEmployeeId : undefined,
-        currentDivision: applicantType === 'internal' ? currentDivision : undefined,
-        currentPlantillaItem: applicantType === 'internal' ? currentPlantillaItem : undefined,
-        currentSalaryGrade: applicantType === 'internal' ? Number(currentSalaryGrade) : undefined,
-        yearsInBfar: applicantType === 'internal' ? Number(yearsInBfar) : undefined,
-        latestIpcrRating: applicantType === 'internal' ? Number(latestIpcrRating) : undefined,
-        ipcrPeriod: applicantType === 'internal' ? ipcrPeriod : undefined,
-        promotionTrack: applicantType === 'internal' ? promotionTrack : undefined,
+        bfarEmployeeId: !isExternalApplicant && applicantType === 'internal' ? bfarEmployeeId : undefined,
+        currentDivision: !isExternalApplicant && applicantType === 'internal' ? currentDivision : undefined,
+        currentPlantillaItem: !isExternalApplicant && applicantType === 'internal' ? currentPlantillaItem : undefined,
+        currentSalaryGrade: !isExternalApplicant && applicantType === 'internal' ? Number(currentSalaryGrade) : undefined,
+        yearsInBfar: !isExternalApplicant && applicantType === 'internal' ? Number(yearsInBfar) : undefined,
+        latestIpcrRating: !isExternalApplicant && applicantType === 'internal' ? Number(latestIpcrRating) : undefined,
+        ipcrPeriod: !isExternalApplicant && applicantType === 'internal' ? ipcrPeriod : undefined,
+        promotionTrack: !isExternalApplicant && applicantType === 'internal' ? promotionTrack : undefined,
         personalInfo: {
           fullName: personalInfo.fullName || `${personalInfo.firstName} ${personalInfo.surname}`,
           email: personalInfo.email,
@@ -1060,7 +1030,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
       const json = await res.json();
       if (json.success && json.data) {
-        // Direct persistence to Firestore database
         try {
           await saveApplicationToFirestore(json.data);
         } catch (fErr) {
@@ -1071,7 +1040,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       } else {
         setFormError(json.error || 'Failed to submit application. Please review your details.');
       }
-    } catch (err: any) {
+    } catch {
       setFormError('Network communication error. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -1122,7 +1091,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
         </div>
 
         <div className="p-6 sm:p-8 space-y-6">
-          {/* Reference Card */}
           <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 text-center space-y-2">
             <span className="text-xs uppercase font-bold text-slate-500 tracking-wider">
               Official Application Reference Number
@@ -1144,7 +1112,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </p>
           </div>
 
-          {/* Rejection Advisory Alert if Status is Rejected */}
           {submissionSuccess.status === 'Rejected' && (
             <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 text-xs space-y-2 text-rose-900">
               <div className="flex items-center gap-2 font-bold text-rose-950">
@@ -1157,7 +1124,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           )}
 
-          {/* AI Pre-Screening Summary Badge */}
           {submissionSuccess.aiScreening && (
             <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3 text-xs">
               <div className="flex items-center justify-between">
@@ -1177,7 +1143,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           )}
 
-          {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <button
               onClick={() => onNavigateToTrack(submissionSuccess.trackingCode)}
@@ -1200,7 +1165,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     );
   }
 
-  // Official Empty State: Displayed when no official vacancies are currently active
+  // Official Empty State
   if (jobs.length === 0 || !activeJob) {
     return (
       <div className="max-w-3xl mx-auto my-8 bg-white rounded-2xl shadow-sm border border-slate-200 p-8 sm:p-12 text-center space-y-4">
@@ -1232,31 +1197,32 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* RESTRICTED ACCESS: Internal DA-BFAR Employees and Personnel Only */}
-      <div className="bg-white rounded-xl shadow-xs border border-purple-200 p-4 space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-purple-100 pb-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="bg-purple-700 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
-                Restricted System
-              </span>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-purple-900 block">
-                Internal DA-BFAR Employees &amp; Personnel Only
-              </span>
+      {/* RESTRICTED ACCESS: Internal DA-BFAR Employees and Personnel Only (Hidden for External Applicants) */}
+      {!isExternalApplicant && (
+        <div className="bg-white rounded-xl shadow-xs border border-purple-200 p-4 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-purple-100 pb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="bg-purple-700 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
+                  Restricted System
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-900 block">
+                  Internal DA-BFAR Employees &amp; Personnel Only
+                </span>
+              </div>
+              <h3 className="text-sm font-extrabold text-slate-900 mt-1">
+                Internal Personnel Service &amp; Promotion Docket
+              </h3>
             </div>
-            <h3 className="text-sm font-extrabold text-slate-900 mt-1">
-              Internal Personnel Service &amp; Promotion Docket
-            </h3>
+
+            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1.5 rounded-lg text-xs font-bold">
+              <UserCheck className="w-4 h-4 text-emerald-600" />
+              <span>Active Employee Verification Required</span>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1.5 rounded-lg text-xs font-bold">
-            <UserCheck className="w-4 h-4 text-emerald-600" />
-            <span>Active Employee Verification Required</span>
-          </div>
-        </div>
-
-        {/* Internal Employee Merit Verification & Fast-Fill Panel */}
-        <div className="bg-gradient-to-r from-purple-50 via-blue-50/50 to-indigo-50/60 rounded-xl p-4 border border-purple-200 space-y-3">
+          {/* Internal Employee Merit Verification & Fast-Fill Panel */}
+          <div className="bg-gradient-to-r from-purple-50 via-blue-50/50 to-indigo-50/60 rounded-xl p-4 border border-purple-200 space-y-3">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-lg bg-purple-700 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
@@ -1343,6 +1309,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           </div>
         </div>
+      )}
 
       {/* 6-SECTION TOP STEPPER NAVIGATION */}
       <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-2 sm:p-3">
@@ -1604,7 +1571,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       )}
 
       {/* ========================================================================= */}
-      {/* SECTION 1: APPLICATION LETTER */}
+      {/* SECTION 1: APPLICATION LETTER (ADDRESSED TO HRMS) */}
       {/* ========================================================================= */}
       {activeSection === 'letter' && (
         <div className="space-y-6">
@@ -1615,10 +1582,10 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   Section 1 of 6 • Official Application Letter
                 </span>
                 <h2 className="text-xl sm:text-2xl font-black text-slate-900">
-                  Application Letter addressed to the National Director
+                  Application Letter addressed to the Chief, Human Resource Management Section (HRMS)
                 </h2>
                 <p className="text-xs text-slate-600 mt-1 max-w-2xl">
-                  <strong>Mandatory Requirement:</strong> The Formal Application Letter (AL) must be written and submitted directly by the applicant (no pre-drafted template provided by the system). Must be addressed to the National Director / Appointing Authority through the Chairperson of the HRMPSB, citing the target position title and plantilla item number.
+                  <strong>Mandatory Requirement:</strong> The Formal Application Letter (AL) must be written and submitted directly by the applicant (no pre-drafted template provided by the system). Must be addressed to the <strong>Chief, Human Resource Management Section (HRMS)</strong> through the Chairperson of the HRMPSB, citing the target position title and plantilla item number.
                 </p>
               </div>
 
@@ -1643,7 +1610,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <span>Mandatory Civil Service Application Letter Guidelines</span>
               </div>
               <ul className="grid grid-cols-1 md:grid-cols-2 gap-1 text-[11px] pl-6 list-disc text-amber-800">
-                <li>Must be addressed to: <strong>The National Director, DA-BFAR</strong></li>
+                <li>Must be addressed to: <strong>Chief, Human Resource Management Section (HRMS), DA-BFAR</strong></li>
                 <li>Thru: <strong>The Chairperson, HRMPSB</strong></li>
                 <li>Must cite target position: <strong>{activeJob.positionTitle}</strong></li>
                 <li>Must cite Plantilla Item No: <strong>{activeJob.itemNo}</strong></li>
@@ -1706,7 +1673,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
             {/* Formal Government Letterhead Preview & Editor */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
-              {/* Left: Interactive Text Editor */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
@@ -1719,12 +1685,11 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   rows={18}
                   value={applicationLetterText}
                   onChange={(e) => setApplicationLetterText(e.target.value)}
-                  placeholder="Paste or draft your formal Philippine Civil Service Application Letter..."
+                  placeholder="Address your formal application letter to the Chief, Human Resource Management Section (HRMS), DA-BFAR..."
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl p-4 text-xs font-mono leading-relaxed focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                 />
               </div>
 
-              {/* Right: Formal Government Letterhead Paper Preview */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
@@ -1732,12 +1697,11 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     <span>Official Letterhead Document Preview:</span>
                   </span>
                   <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">
-                    DA-BFAR Standard
+                    DA-BFAR HRMS Standard
                   </span>
                 </div>
 
                 <div className="bg-amber-50/20 border border-slate-300 rounded-xl p-6 shadow-inner space-y-4 text-xs font-serif leading-relaxed text-slate-800 max-h-[440px] overflow-y-auto">
-                  {/* Government Header */}
                   <div className="text-center space-y-0.5 border-b border-slate-300 pb-3 font-sans">
                     <span className="text-[10px] uppercase tracking-wider block text-slate-500 font-bold">
                       Republic of the Philippines
@@ -1749,15 +1713,14 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       BUREAU OF FISHERIES AND AQUATIC RESOURCES
                     </span>
                     <span className="text-[9px] text-slate-500 block">
-                      PCA Building, Elliptical Road, Diliman, Quezon City
+                      PCA Building, Elliptical Road, Diliman, Quezon City • Human Resource Management Section (HRMS)
                     </span>
                   </div>
 
-                  {/* Letter Body Preview */}
                   <div className="whitespace-pre-line text-[11px] leading-relaxed font-sans text-slate-800 pt-1">
                     {applicationLetterText || (
                       <span className="text-slate-400 italic font-sans">
-                        Click "Generate with Gemini AI" or type in the editor to draft your official letter...
+                        Write or paste your formal application letter addressed to the Chief, Human Resource Management Section (HRMS), DA-BFAR...
                       </span>
                     )}
                   </div>
@@ -1766,7 +1729,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           </div>
 
-          {/* Section Navigation Footer */}
           <div className="flex justify-end pt-2">
             <button
               type="button"
@@ -1785,7 +1747,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       {/* ========================================================================= */}
       {activeSection === 'pds' && (
         <div className="space-y-6">
-          {/* Official CSC CS Form 212 Header */}
           <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-3 border-b border-slate-200">
               <div>
@@ -1799,10 +1760,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   Civil Service Commission prescribed format for government service appointments.
                 </p>
               </div>
-
             </div>
 
-            {/* AI Fast-Fill PDS Tool (No Mock Demo Data - Authentic Resume/Credentials Parsing) */}
+            {/* AI Fast-Fill PDS Tool */}
             <div className="bg-gradient-to-r from-blue-50/70 via-indigo-50/60 to-slate-50 border border-blue-200 rounded-xl p-4 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
@@ -1876,14 +1836,12 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </div>
             )}
 
-            {/* Official Warning Notice */}
             <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg text-[11px] text-amber-900 leading-relaxed">
               <strong>WARNING:</strong> Any misrepresentation made in the Personal Data Sheet and the Work
               Experience Sheet shall cause the filing of administrative/criminal case/s against the person
               concerned pursuant to CSC and Ombudsman rules.
             </div>
 
-            {/* PDS Subsection Navigation Tabs */}
             <div className="flex flex-wrap gap-1.5 border-b border-slate-200 pb-2 text-xs font-semibold">
               {[
                 { id: 'personal', label: 'I. Personal Info' },
@@ -2000,6 +1958,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     onChange={(e: any) => setPersonalInfo({ ...personalInfo, sex: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
                   >
+                    <option value="">Select</option>
                     <option value="Female">Female</option>
                     <option value="Male">Male</option>
                   </select>
@@ -2061,7 +2020,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   />
                 </div>
 
-                {/* Government IDs */}
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">GSIS ID No.</label>
                   <input
@@ -2118,7 +2076,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   />
                 </div>
 
-                {/* Addresses & Contact */}
                 <div className="sm:col-span-3">
                   <label className="font-semibold text-slate-700 block mb-1">Residential Address</label>
                   <input
@@ -2198,7 +2155,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </h3>
 
               <div className="space-y-4 text-xs">
-                {/* Spouse Info */}
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
                   <span className="font-bold text-slate-800 block text-xs">Spouse's Information (if applicable)</span>
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
@@ -2241,7 +2197,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   </div>
                 </div>
 
-                {/* Parents Info */}
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
                   <span className="font-bold text-slate-800 block text-xs">Parents' Information</span>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -2303,7 +2258,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   </div>
                 </div>
 
-                {/* Children Table */}
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-slate-800 text-xs">Children Information (if applicable)</span>
@@ -2372,7 +2326,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           )}
 
-          {/* 3. EDUCATIONAL BACKGROUND DYNAMIC TABLE */}
+          {/* 3. EDUCATIONAL BACKGROUND */}
           {pdsActiveTab === 'education' && (
             <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-200">
@@ -3017,7 +2971,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 </button>
               </div>
 
-              {/* CSC Training Live Validation Alert */}
               <div className="bg-sky-50 border border-sky-200 p-3 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                 <div>
                   <span className="font-bold text-[#024794] block">Civil Service Commission (CSC) Audit</span>
@@ -3232,7 +3185,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <span>IX. Applicant Declaration &amp; Legal Questions (CSC Q34-Q40)</span>
               </h3>
 
-              {/* Legal Questions */}
               <div className="space-y-4">
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
                   <div className="flex items-start justify-between gap-4">
@@ -3348,7 +3300,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 </div>
               </div>
 
-              {/* Character References (3 persons) */}
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
                 <span className="font-bold text-slate-800 block text-xs">
                   References (Persons not related by consanguinity or affinity to applicant)
@@ -3395,7 +3346,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 </div>
               </div>
 
-              {/* Government ID Presented & Confirmation */}
               <div className="bg-sky-50 border border-sky-200 p-4 rounded-xl space-y-3">
                 <span className="font-bold text-[#024794] block text-xs">
                   Government Issued ID Presented (Passport, GSIS, SSS, PRC, Driver's License)
@@ -3458,7 +3408,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           )}
 
-          {/* Section Navigation Footer */}
           <div className="flex items-center justify-between pt-2">
             <button
               type="button"
@@ -3485,7 +3434,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       {/* ========================================================================= */}
       {activeSection === 'position_qs' && (
         <div className="space-y-6">
-          {/* Position Details Card */}
           <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-6 space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200">
               <div>
@@ -3517,7 +3465,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </div>
             </div>
 
-            {/* Official Qualification Standards Grid */}
             <div className="space-y-2">
               <span className="text-xs font-bold text-slate-800 uppercase tracking-wider block">
                 Civil Service Commission (CSC) Qualification Standards:
@@ -3553,7 +3500,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </div>
             </div>
 
-            {/* Duties and Competencies */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
                 <span className="font-bold text-slate-800 block text-xs">Duties &amp; Responsibilities:</span>
@@ -3624,7 +3570,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </button>
             </div>
 
-            {/* Assessment Result Panel */}
             {aiFitAssessment ? (
               <div className="bg-white/10 backdrop-blur-xs border border-white/20 rounded-xl p-4 space-y-3 text-xs">
                 <div className="flex items-center justify-between">
@@ -3676,7 +3621,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             )}
           </div>
 
-          {/* Section Navigation Footer */}
           <div className="flex items-center justify-between pt-2">
             <button
               type="button"
@@ -3703,7 +3647,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       {/* ========================================================================= */}
       {activeSection === 'file_uploads' && (
         <div className="space-y-6">
-          {/* Universal Intelligent Dropzone */}
           <div className="bg-gradient-to-r from-blue-900 to-[#024794] rounded-2xl p-6 text-white shadow-md space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div>
@@ -3718,10 +3661,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   <strong>automatically organized and corrected</strong> into their proper category.
                 </p>
               </div>
-
             </div>
 
-            {/* Universal Multi-File Auto-Classifier Dropzone Box */}
             <div
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
@@ -3755,7 +3696,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </div>
             </div>
 
-            {/* Test Auto-Correction Trigger Buttons */}
             <div className="bg-black/20 rounded-lg p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="text-[11px] text-amber-300 font-semibold flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />
@@ -3787,7 +3727,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           </div>
 
-          {/* 4 PRIMARY CATEGORY CARDS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {PRIMARY_CATEGORIES.map((cat) => {
               const catDocs = documentsUploaded.filter((d) => d.category === cat.code);
@@ -3896,7 +3835,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             })}
           </div>
 
-          {/* Section Navigation Footer */}
           <div className="flex items-center justify-between pt-2">
             <button
               type="button"
@@ -3937,7 +3875,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   Sworn Statements (SWORNS), Performance Commitment and Review (PCR), and Potential documents.
                 </p>
               </div>
-
             </div>
 
             <div className="flex items-center justify-between text-xs bg-slate-50 p-3 rounded-lg border border-slate-200">
@@ -3948,7 +3885,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           </div>
 
-          {/* 7 CATEGORIES GRID */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {OTHER_CATEGORIES.map((cat) => {
               const catDocs = documentsUploaded.filter((d) => d.category === cat.code);
@@ -4051,7 +3987,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             })}
           </div>
 
-          {/* Section Navigation Footer */}
           <div className="flex items-center justify-between pt-2">
             <button
               type="button"
@@ -4092,9 +4027,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </p>
             </div>
 
-            {/* Checklist Overview Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              {/* Card 1: Application Letter Status */}
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-800 flex items-center gap-1.5">
@@ -4125,7 +4058,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 </button>
               </div>
 
-              {/* Card 2: PDS CS Form 212 Status */}
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-800 flex items-center gap-1.5">
@@ -4151,7 +4083,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 </button>
               </div>
 
-              {/* Card 3: Position & QS Fit */}
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-800 flex items-center gap-1.5">
@@ -4170,7 +4101,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 </div>
               </div>
 
-              {/* Card 4: Documents Uploaded Status */}
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-slate-800 flex items-center gap-1.5">
@@ -4205,7 +4135,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </div>
             </div>
 
-            {/* Final Legal Oath & Signature Box */}
             <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 space-y-3 text-xs">
               <span className="font-bold text-amber-900 block text-xs flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-amber-700" />
@@ -4227,7 +4156,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </div>
             </div>
 
-            {/* SUBMIT BUTTON BAR */}
             <div className="bg-slate-900 text-white rounded-xl p-6 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h4 className="font-extrabold text-sm flex items-center gap-2">
@@ -4260,7 +4188,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           </div>
 
-          {/* Section Navigation Footer */}
           <div className="flex items-center justify-between pt-2">
             <button
               type="button"

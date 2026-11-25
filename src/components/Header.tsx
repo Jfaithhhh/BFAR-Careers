@@ -11,6 +11,8 @@ interface HeaderProps {
   internalCount?: number;
   isAdminAuthenticated?: boolean;
   onAdminAuthChange?: (authenticated: boolean) => void;
+  hideNavTabs?: boolean;
+  isExternalApplicantSession?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -20,12 +22,14 @@ export const Header: React.FC<HeaderProps> = ({
   openCount = 6,
   isAdminAuthenticated = false,
   onAdminAuthChange,
+  hideNavTabs = false,
+  isExternalApplicantSession = false,
 }) => {
   const [pstTime, setPstTime] = useState<string>('');
   const [currentUser, setCurrentUser] = useState<User | null>(auth.currentUser);
   const [isSigningIn, setIsSigningIn] = useState(false);
 
-  const isRestrictedActive = activeTab === 'admin';
+  const isRestrictedActive = activeTab === 'admin' && !isExternalApplicantSession;
   const canStaffSignIn = Boolean(isAdminAuthenticated && isRestrictedActive);
 
   useEffect(() => {
@@ -34,14 +38,6 @@ export const Header: React.FC<HeaderProps> = ({
     });
     return () => unsubscribe();
   }, []);
-
-  useEffect(() => {
-    if (!canStaffSignIn && auth.currentUser) {
-      signOutUser().catch((err) => {
-        console.error('Auto staff sign-out failed:', err);
-      });
-    }
-  }, [canStaffSignIn]);
 
   const handleSignIn = async () => {
     if (!canStaffSignIn) return;
@@ -58,6 +54,7 @@ export const Header: React.FC<HeaderProps> = ({
   const handleSignOut = async () => {
     try {
       await signOutUser();
+      onAdminAuthChange?.(false);
     } catch (err) {
       console.error('Sign-out failed:', err);
     }
@@ -85,29 +82,23 @@ export const Header: React.FC<HeaderProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  const handleTabSelect = async (tab: 'jobs' | 'apply' | 'internal' | 'track' | 'admin') => {
+  const handleTabSelect = (tab: 'jobs' | 'apply' | 'internal' | 'track' | 'admin') => {
+    if (isExternalApplicantSession) {
+      setActiveTab(tab === 'apply' ? 'apply' : 'jobs');
+      return;
+    }
     if (tab !== 'admin') {
-      if (auth.currentUser) {
-        try {
-          await signOutUser();
-        } catch (err) {
-          console.error('Failed to sign out staff on tab switch:', err);
-        }
-      }
       onAdminAuthChange?.(false);
     }
     setActiveTab(tab);
   };
 
-  const handleToggleRestrictedPortal = async () => {
+  const handleToggleRestrictedPortal = () => {
+    if (isExternalApplicantSession) {
+      setActiveTab('jobs');
+      return;
+    }
     if (isRestrictedActive) {
-      if (auth.currentUser) {
-        try {
-          await signOutUser();
-        } catch (err) {
-          console.error('Failed to sign out staff when toggling off HR portal:', err);
-        }
-      }
       onAdminAuthChange?.(false);
       setActiveTab('jobs');
     } else {
@@ -125,7 +116,9 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <span className="hidden md:inline text-blue-400">|</span>
           <span className="hidden md:inline text-amber-200 font-semibold text-[11px]">
-            Internal Recruitment &amp; Personnel Promotion Portal
+            {isExternalApplicantSession
+              ? 'Public Plantilla Recruitment Portal'
+              : 'Internal Recruitment & Personnel Promotion Portal'}
           </span>
         </div>
 
@@ -145,97 +138,102 @@ export const Header: React.FC<HeaderProps> = ({
               <span>bfar.da.gov.ph/careers</span>
               <ExternalLink className="w-3 h-3 text-amber-300" />
             </a>
-            <span className="text-blue-500">·</span>
 
-            {currentUser && canStaffSignIn ? (
-              <div className="flex items-center gap-1.5 bg-blue-950/80 border border-blue-700/60 rounded px-2 py-0.5">
-                {currentUser.photoURL ? (
-                  <img
-                    src={currentUser.photoURL}
-                    alt={currentUser.displayName || 'Staff'}
-                    className="w-4 h-4 rounded-full border border-sky-300"
-                  />
+            {!isExternalApplicantSession && (
+              <>
+                <span className="text-blue-500">·</span>
+
+                {currentUser && canStaffSignIn ? (
+                  <div className="flex items-center gap-1.5 bg-blue-950/80 border border-blue-700/60 rounded px-2 py-0.5">
+                    {currentUser.photoURL ? (
+                      <img
+                        src={currentUser.photoURL}
+                        alt={currentUser.displayName || 'Staff'}
+                        className="w-4 h-4 rounded-full border border-sky-300"
+                      />
+                    ) : (
+                      <UserIcon className="w-3.5 h-3.5 text-sky-300" />
+                    )}
+                    <span className="text-[10px] text-sky-100 max-w-[120px] truncate" title={currentUser.email || ''}>
+                      {currentUser.displayName || currentUser.email?.split('@')[0]}
+                    </span>
+                    {currentUser.email === 'jaiciervo7@gmail.com' || currentUser.email?.endsWith('@bfar.da.gov.ph') ? (
+                      <span className="bg-amber-400 text-slate-950 text-[9px] font-black px-1 rounded uppercase">
+                        Admin
+                      </span>
+                    ) : (
+                      <span className="bg-sky-500/30 text-sky-200 text-[9px] font-bold px-1 rounded">
+                        Staff
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleSignOut}
+                      title="Sign out from DA-BFAR Portal"
+                      className="text-slate-400 hover:text-red-300 ml-1 p-0.5 transition-colors"
+                    >
+                      <LogOut className="w-3 h-3" />
+                    </button>
+                  </div>
                 ) : (
-                  <UserIcon className="w-3.5 h-3.5 text-sky-300" />
+                  <button
+                    type="button"
+                    onClick={handleSignIn}
+                    disabled={!canStaffSignIn || isSigningIn}
+                    aria-disabled={!canStaffSignIn || isSigningIn}
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-all shadow-xs ${
+                      canStaffSignIn
+                        ? 'bg-sky-600 hover:bg-sky-500 text-white cursor-pointer'
+                        : 'bg-slate-800/80 text-slate-400 border border-slate-700 cursor-not-allowed opacity-60'
+                    }`}
+                    title={
+                      canStaffSignIn
+                        ? 'Sign in with your verified DA-BFAR Google Account'
+                        : 'Locked: Naka-off ang HR & HRMPSB Portal o hindi pa naka-verify ang Admin'
+                    }
+                  >
+                    {canStaffSignIn ? <LogIn className="w-3 h-3" /> : <Lock className="w-3 h-3 text-slate-400" />}
+                    <span>{isSigningIn ? 'Signing In...' : 'Staff Sign In'}</span>
+                  </button>
                 )}
-                <span className="text-[10px] text-sky-100 max-w-[120px] truncate" title={currentUser.email || ''}>
-                  {currentUser.displayName || currentUser.email?.split('@')[0]}
-                </span>
-                {currentUser.email === 'jaiciervo7@gmail.com' || currentUser.email?.endsWith('@bfar.da.gov.ph') ? (
-                  <span className="bg-amber-400 text-slate-950 text-[9px] font-black px-1 rounded uppercase">
-                    Admin
-                  </span>
-                ) : (
-                  <span className="bg-sky-500/30 text-sky-200 text-[9px] font-bold px-1 rounded">
-                    Staff
-                  </span>
-                )}
+
+                <span className="text-blue-500">·</span>
+
                 <button
                   type="button"
-                  onClick={handleSignOut}
-                  title="Sign out from DA-BFAR Portal"
-                  className="text-slate-400 hover:text-red-300 ml-1 p-0.5 transition-colors"
-                >
-                  <LogOut className="w-3 h-3" />
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={handleSignIn}
-                disabled={!canStaffSignIn || isSigningIn}
-                aria-disabled={!canStaffSignIn || isSigningIn}
-                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-all shadow-xs ${
-                  canStaffSignIn
-                    ? 'bg-sky-600 hover:bg-sky-500 text-white cursor-pointer'
-                    : 'bg-slate-800/80 text-slate-400 border border-slate-700 cursor-not-allowed opacity-60'
-                }`}
-                title={
-                  canStaffSignIn
-                    ? 'Sign in with your verified DA-BFAR Google Account'
-                    : 'Locked: Naka-off ang HR & HRMPSB Portal o hindi pa naka-verify ang Admin'
-                }
-              >
-                {canStaffSignIn ? <LogIn className="w-3 h-3" /> : <Lock className="w-3 h-3 text-slate-400" />}
-                <span>{isSigningIn ? 'Signing In...' : 'Staff Sign In'}</span>
-              </button>
-            )}
-
-            <span className="text-blue-500">·</span>
-
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isRestrictedActive}
-              aria-label="Toggle HR and HRMPSB Restricted Portal"
-              onClick={handleToggleRestrictedPortal}
-              className={`flex items-center gap-2 pl-2 pr-1.5 py-0.5 rounded-full text-[11px] font-semibold transition-all cursor-pointer border ${
-                isRestrictedActive
-                  ? 'bg-amber-400 text-slate-950 border-amber-300 font-bold shadow-xs'
-                  : 'bg-blue-900/70 hover:bg-blue-800 text-sky-100 border-blue-700/70'
-              }`}
-              title="Toggle Restricted HR & HRMPSB Staff Portal"
-            >
-              <Lock className={`w-3 h-3 ${isRestrictedActive ? 'text-slate-950' : 'text-amber-300'}`} />
-              <span>HR &amp; HRMPSB Portal (Restricted)</span>
-              {pendingCount > 0 && (
-                <span className="bg-red-500 text-white text-[9px] font-extrabold px-1.5 rounded-full">
-                  {pendingCount}
-                </span>
-              )}
-              <span
-                aria-hidden="true"
-                className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
-                  isRestrictedActive ? 'bg-slate-950' : 'bg-slate-600'
-                }`}
-              >
-                <span
-                  className={`inline-block h-3 w-3 transform rounded-full transition-transform ${
-                    isRestrictedActive ? 'translate-x-3.5 bg-amber-300' : 'translate-x-0.5 bg-white'
+                  role="switch"
+                  aria-checked={isRestrictedActive}
+                  aria-label="Toggle HR and HRMPSB Restricted Portal"
+                  onClick={handleToggleRestrictedPortal}
+                  className={`flex items-center gap-2 pl-2 pr-1.5 py-0.5 rounded-full text-[11px] font-semibold transition-all cursor-pointer border ${
+                    isRestrictedActive
+                      ? 'bg-amber-400 text-slate-950 border-amber-300 font-bold shadow-xs'
+                      : 'bg-blue-900/70 hover:bg-blue-800 text-sky-100 border-blue-700/70'
                   }`}
-                />
-              </span>
-            </button>
+                  title="Toggle Restricted HR & HRMPSB Staff Portal"
+                >
+                  <Lock className={`w-3 h-3 ${isRestrictedActive ? 'text-slate-950' : 'text-amber-300'}`} />
+                  <span>HR &amp; HRMPSB Portal (Restricted)</span>
+                  {pendingCount > 0 && (
+                    <span className="bg-red-500 text-white text-[9px] font-extrabold px-1.5 rounded-full">
+                      {pendingCount}
+                    </span>
+                  )}
+                  <span
+                    aria-hidden="true"
+                    className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+                      isRestrictedActive ? 'bg-slate-950' : 'bg-slate-600'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-3 w-3 transform rounded-full transition-transform ${
+                        isRestrictedActive ? 'translate-x-3.5 bg-amber-300' : 'translate-x-0.5 bg-white'
+                      }`}
+                    />
+                  </span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -276,7 +274,7 @@ export const Header: React.FC<HeaderProps> = ({
                   Central Office (NCR) • Quezon City
                 </span>
                 <span className="text-[11px] text-slate-500 hidden sm:inline">
-                  PCA Bldg., Elliptical Road, Diliman
+                  Fisheries Building Complex, BPI Compound, Brgy. Vasra, Visayas Avenue, Diliman
                 </span>
                 <span className="text-slate-300 hidden sm:inline">|</span>
                 <span className="text-[11px] font-semibold text-[#024794] hidden lg:inline">
@@ -288,80 +286,88 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      <nav className="bg-white border-t border-slate-100 px-4 lg:px-8">
-        <div className="max-w-7xl mx-auto flex items-center justify-between overflow-x-auto no-scrollbar">
-          <div className="flex items-center space-x-1 sm:space-x-2 py-2">
-            <button
-              type="button"
-              onClick={() => handleTabSelect('jobs')}
-              className={`px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
-                activeTab === 'jobs'
-                  ? 'bg-blue-50 text-[#024794] border-b-2 border-[#024794]'
-                  : 'text-slate-600 hover:text-[#024794] hover:bg-slate-50'
-              }`}
-            >
-              <Briefcase className="w-4 h-4 text-[#024794]" />
-              <span>Plantilla Vacancies</span>
-              <span className="bg-blue-100 text-[#024794] text-[11px] font-bold px-1.5 py-0.2 rounded-full">
-                {openCount}
-              </span>
-            </button>
+      {!hideNavTabs && (
+        <nav className="bg-white border-t border-slate-100 px-4 lg:px-8">
+          <div className="max-w-7xl mx-auto flex items-center justify-between overflow-x-auto no-scrollbar">
+            <div className="flex items-center space-x-1 sm:space-x-2 py-2">
+              <button
+                type="button"
+                onClick={() => handleTabSelect('jobs')}
+                className={`px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
+                  activeTab === 'jobs'
+                    ? 'bg-blue-50 text-[#024794] border-b-2 border-[#024794]'
+                    : 'text-slate-600 hover:text-[#024794] hover:bg-slate-50'
+                }`}
+              >
+                <Briefcase className="w-4 h-4 text-[#024794]" />
+                <span>Plantilla Vacancies</span>
+                <span className="bg-blue-100 text-[#024794] text-[11px] font-bold px-1.5 py-0.2 rounded-full">
+                  {openCount}
+                </span>
+              </button>
 
-            <button
-              type="button"
-              onClick={() => handleTabSelect('apply')}
-              className={`px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
-                activeTab === 'apply'
-                  ? 'bg-blue-50 text-[#024794] border-b-2 border-[#024794]'
-                  : 'text-slate-600 hover:text-[#024794] hover:bg-slate-50'
-              }`}
-            >
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-              </span>
-              <span>Internal Application (Fast-Fill)</span>
-              <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide">
-                Staff Only
-              </span>
-            </button>
+              {!isExternalApplicantSession && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleTabSelect('apply')}
+                    className={`px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
+                      activeTab === 'apply'
+                        ? 'bg-blue-50 text-[#024794] border-b-2 border-[#024794]'
+                        : 'text-slate-600 hover:text-[#024794] hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                    </span>
+                    <span>Internal Application (Fast-Fill)</span>
+                    <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide">
+                      Staff Only
+                    </span>
+                  </button>
 
-            <button
-              type="button"
-              onClick={() => handleTabSelect('internal')}
-              className={`px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
-                activeTab === 'internal'
-                  ? 'bg-blue-50 text-[#024794] border-b-2 border-[#024794]'
-                  : 'text-slate-600 hover:text-[#024794] hover:bg-slate-50'
-              }`}
-            >
-              <UserCheck className="w-4 h-4 text-emerald-600" />
-              <span>Internal Recruitment (BFAR Personnel)</span>
-              <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide">
-                Promotion Hub
-              </span>
-            </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTabSelect('internal')}
+                    className={`px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
+                      activeTab === 'internal'
+                        ? 'bg-blue-50 text-[#024794] border-b-2 border-[#024794]'
+                        : 'text-slate-600 hover:text-[#024794] hover:bg-slate-50'
+                    }`}
+                  >
+                    <UserCheck className="w-4 h-4 text-emerald-600" />
+                    <span>Internal Recruitment (BFAR Personnel)</span>
+                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide">
+                      Promotion Hub
+                    </span>
+                  </button>
 
-            <button
-              type="button"
-              onClick={() => handleTabSelect('track')}
-              className={`px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
-                activeTab === 'track'
-                  ? 'bg-blue-50 text-[#024794] border-b-2 border-[#024794]'
-                  : 'text-slate-600 hover:text-[#024794] hover:bg-slate-50'
-              }`}
-            >
-              <FileSearch className="w-4 h-4 text-[#024794]" />
-              <span>Track Application Status</span>
-            </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTabSelect('track')}
+                    className={`px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
+                      activeTab === 'track'
+                        ? 'bg-blue-50 text-[#024794] border-b-2 border-[#024794]'
+                        : 'text-slate-600 hover:text-[#024794] hover:bg-slate-50'
+                    }`}
+                  >
+                    <FileSearch className="w-4 h-4 text-[#024794]" />
+                    <span>Track Application Status</span>
+                  </button>
+                </>
+              )}
+            </div>
+
+            {!isExternalApplicantSession && (
+              <div className="hidden lg:flex items-center text-xs text-slate-500 gap-1.5">
+                <Award className="w-3.5 h-3.5 text-amber-500" />
+                <span>PRC RA 1080 &amp; Civil Service Commission Integrated</span>
+              </div>
+            )}
           </div>
-
-          <div className="hidden lg:flex items-center text-xs text-slate-500 gap-1.5">
-            <Award className="w-3.5 h-3.5 text-amber-500" />
-            <span>PRC RA 1080 &amp; Civil Service Commission Integrated</span>
-          </div>
-        </div>
-      </nav>
+        </nav>
+      )}
     </header>
   );
 };

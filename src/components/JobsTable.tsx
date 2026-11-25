@@ -132,7 +132,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
             </span>
           </div>
           <p className="text-xs text-slate-600 mt-1">
-            Official publication of authorized Plantilla positions at <strong>BFAR Central Office, PCA Building, Diliman, Quezon City</strong>.
+            Official publication of authorized Plantilla positions at <strong>BFAR Central Office, Fisheries Building Complex, BPI Compound, Brgy. Vasra, Visayas Avenue, Diliman, Quezon City</strong>.
             Synchronized with{' '}
             <a
               href="https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/"

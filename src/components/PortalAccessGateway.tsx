@@ -7,9 +7,7 @@ import {
   Lock,
   User,
   Building2,
-  CheckCircle2,
   AlertCircle,
-  ArrowRight,
   KeyRound,
   RefreshCw,
   LogOut,
@@ -48,8 +46,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
   const [selectedOption, setSelectedOption] = useState<SelectedOption>('bfar_employee');
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [loading, setLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string>('');
-  const [successMsg, setSuccessMsg] = useState<string>('');
+  const [errorMsg, setErrorMsg] = useState('');
 
   // BFAR Employee Form States
   const [empEmail, setEmpEmail] = useState('');
@@ -67,11 +64,12 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
   const [extPassword, setExtPassword] = useState('');
   const [extConfirmPassword, setExtConfirmPassword] = useState('');
 
-  // OTP Verification Modal State
+  // 6-Digit Gmail OTP Modal State
   const [otpModalData, setOtpModalData] = useState<{
     uid: string;
     email: string;
     username: string;
+    generatedCode?: string;
   } | null>(null);
   const [otpCode, setOtpCode] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -86,13 +84,8 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
-  const clearFeedback = () => {
-    setErrorMsg('');
-    setSuccessMsg('');
-  };
-
   const handleSelectOption = (option: SelectedOption) => {
-    clearFeedback();
+    setErrorMsg('');
     setSelectedOption(option);
     if (option === 'admin') {
       onOpenAdminPortal();
@@ -101,7 +94,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
 
   const handleEmployeeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    clearFeedback();
+    setErrorMsg('');
 
     if (!isValidBfarEmail(empEmail)) {
       setErrorMsg(BFAR_DOMAIN_ERROR);
@@ -110,7 +103,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
 
     if (authMode === 'register') {
       if (!empFullName.trim() || !empDivision.trim() || !empPosition.trim()) {
-        setErrorMsg('Please fill out your Full Name, Division/Office, and Current Position.');
+        setErrorMsg('Please fill out Full Name, Division/Office, and Current Position.');
         return;
       }
       if (empPassword.length < 6) {
@@ -135,22 +128,21 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
           employmentStatus: empStatus,
         });
         onPortalUserChange(profile);
-        setSuccessMsg('BFAR Employee account registered. Redirecting to Promotion Hub...');
-        onNavigateTab('internal');
+        onNavigateTab('jobs');
       } else {
         const profile = await loginBfarEmployee(empEmail, empPassword);
         onPortalUserChange(profile);
-        onNavigateTab('internal');
+        onNavigateTab('jobs');
       }
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Authentication failed. Please check your credentials.');
+      setErrorMsg(err?.message || 'Sign in failed. Please check your credentials.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleEmployeeGoogleSignIn = async () => {
-    clearFeedback();
+    setErrorMsg('');
     try {
       setLoading(true);
       const profile = await signInBfarEmployeeWithGoogle({
@@ -159,7 +151,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
         employmentStatus: empStatus,
       });
       onPortalUserChange(profile);
-      onNavigateTab('internal');
+      onNavigateTab('jobs');
     } catch (err: any) {
       setErrorMsg(err?.message || BFAR_DOMAIN_ERROR);
     } finally {
@@ -169,7 +161,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
 
   const handleExternalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    clearFeedback();
+    setErrorMsg('');
 
     try {
       setLoading(true);
@@ -200,11 +192,20 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
         setOtpCode('');
         setOtpError('');
         setResendCooldown(60);
-        setOtpModalData(pending);
+        setOtpModalData({
+          uid: pending.uid,
+          email: pending.email,
+          username: pending.username,
+          generatedCode: (pending as any)?.code,
+        });
       } else {
         const { profile, requiresOtp } = await loginExternalApplicant(extIdentifier, extPassword);
         if (requiresOtp) {
-          await sendExternalApplicantOtp(profile.uid, profile.email, profile.username || profile.email);
+          const nextCode = await sendExternalApplicantOtp(
+            profile.uid,
+            profile.email,
+            profile.username || profile.email
+          );
           setOtpCode('');
           setOtpError('');
           setResendCooldown(60);
@@ -212,6 +213,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
             uid: profile.uid,
             email: profile.email,
             username: profile.username || profile.email,
+            generatedCode: typeof nextCode === 'string' ? nextCode : undefined,
           });
         } else {
           onPortalUserChange(profile);
@@ -231,7 +233,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
     setOtpError('');
 
     if (otpCode.trim().length !== 6) {
-      setOtpError('Please enter the 6-digit verification code sent to your email.');
+      setOtpError('Enter the 6-digit verification code.');
       return;
     }
 
@@ -253,8 +255,17 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
     setOtpError('');
     try {
       setOtpLoading(true);
-      await sendExternalApplicantOtp(otpModalData.uid, otpModalData.email, otpModalData.username);
+      const nextCode = await sendExternalApplicantOtp(
+        otpModalData.uid,
+        otpModalData.email,
+        otpModalData.username
+      );
       setResendCooldown(60);
+      setOtpModalData((prev) =>
+        prev
+          ? { ...prev, generatedCode: typeof nextCode === 'string' ? nextCode : prev.generatedCode }
+          : prev
+      );
     } catch (err: any) {
       setOtpError(err?.message || 'Failed to resend OTP.');
     } finally {
@@ -262,521 +273,392 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
     }
   };
 
+  // Compact top bar once inside Plantilla Vacancies after login/signup
   if (portalUser) {
     const isEmployee = portalUser.role === 'bfar_employee';
     return (
-      <section className="mb-6 bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
-        <div className="bg-[#0b2447] px-5 py-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2.5">
-            {isEmployee ? (
-              <UserCheck className="w-5 h-5 text-emerald-400" />
-            ) : (
-              <Briefcase className="w-5 h-5 text-sky-400" />
-            )}
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-white font-bold text-sm">{portalUser.fullName}</span>
-                <span
-                  className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
-                    isEmployee
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/40'
-                      : 'bg-sky-500/20 text-sky-200 border border-sky-400/40'
-                  }`}
-                >
-                  {isEmployee ? 'Verified BFAR Employee' : 'Verified External Applicant'}
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-300">
-                {portalUser.email}
-                {isEmployee && portalUser.division ? ` • ${portalUser.division}` : ''}
-                {isEmployee && portalUser.currentPosition ? ` (${portalUser.currentPosition})` : ''}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {isEmployee ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab('internal')}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-                >
-                  Open Promotion Hub
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab('apply')}
-                  className="bg-blue-800 hover:bg-blue-700 text-sky-100 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-                >
-                  Internal Fast-Fill
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab('jobs')}
-                  className="bg-[#024794] hover:bg-blue-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-                >
-                  Browse Plantilla Vacancies
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onNavigateTab('track')}
-                  className="bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-                >
-                  Track Application
-                </button>
-              </>
-            )}
-            <button
-              type="button"
-              onClick={onPortalSignOut}
-              className="flex items-center gap-1 bg-red-950/70 hover:bg-red-900 text-red-200 border border-red-800/70 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Sign Out</span>
-            </button>
-          </div>
+      <div className="mb-4 bg-white border border-slate-200 rounded-lg px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
+        <div className="flex items-center gap-2 text-xs">
+          <span
+            className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${
+              isEmployee
+                ? 'bg-emerald-100 text-emerald-800'
+                : 'bg-blue-100 text-[#024794]'
+            }`}
+          >
+            {isEmployee ? 'BFAR Employee' : 'External Applicant'}
+          </span>
+          <span className="font-bold text-slate-800">{portalUser.fullName}</span>
+          <span className="text-slate-500 hidden sm:inline">({portalUser.email})</span>
         </div>
-      </section>
+
+        <button
+          type="button"
+          onClick={onPortalSignOut}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-red-700 px-2.5 py-1 rounded-md hover:bg-red-50 transition-colors cursor-pointer"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span>Sign Out</span>
+        </button>
+      </div>
     );
   }
 
   return (
-    <section className="mb-6 bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
-      <div className="bg-gradient-to-r from-[#0b2447] via-[#024794] to-[#0b2447] px-5 py-4 text-white border-b border-blue-900">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <div>
-            <span className="text-[10px] font-extrabold tracking-widest uppercase text-amber-300">
-              DA-BFAR Unified Portal Access
-            </span>
-            <h2 className="text-base sm:text-lg font-black tracking-tight">
-              Select Your Portal Entry Point
-            </h2>
-          </div>
-          <span className="text-[11px] text-sky-200">
-            Role-Isolated Authentication • Civil Service Commission &amp; HRMPSB Compliant
-          </span>
+    <div className="py-6 sm:py-10 flex items-center justify-center">
+      <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        {/* Compact Header */}
+        <div className="bg-[#0b2447] px-6 py-4 text-white">
+          <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber-300">
+            DA-BFAR Careers Portal
+          </p>
+          <h1 className="text-base font-black mt-0.5">
+            {authMode === 'login' ? 'Portal Sign In' : 'Create Portal Account'}
+          </h1>
         </div>
-      </div>
 
-      <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50/70 border-b border-slate-200">
-        <button
-          type="button"
-          onClick={() => handleSelectOption('bfar_employee')}
-          className={`text-left p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
-            selectedOption === 'bfar_employee'
-              ? 'bg-white border-emerald-600 shadow-sm ring-2 ring-emerald-500/20'
-              : 'bg-white border-slate-200 hover:border-emerald-400'
-          }`}
-        >
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="p-2 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
-                <UserCheck className="w-5 h-5" />
-              </span>
-              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                @bfar.da.gov.ph
-              </span>
+        <div className="p-6">
+          {/* Compact 3-Option Segmented Selector */}
+          <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 mb-5">
+            <button
+              type="button"
+              onClick={() => handleSelectOption('bfar_employee')}
+              className={`py-2 px-2 rounded-lg text-[11px] font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                selectedOption === 'bfar_employee'
+                  ? 'bg-white text-emerald-800 shadow-2xs ring-1 ring-emerald-600/20'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <UserCheck className="w-4 h-4" />
+              <span>BFAR Employee</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSelectOption('external_applicant')}
+              className={`py-2 px-2 rounded-lg text-[11px] font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+                selectedOption === 'external_applicant'
+                  ? 'bg-white text-[#024794] shadow-2xs ring-1 ring-blue-600/20'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Briefcase className="w-4 h-4" />
+              <span>External Applicant</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleSelectOption('admin')}
+              className="py-2 px-2 rounded-lg text-[11px] font-bold flex flex-col items-center justify-center gap-1 text-amber-900 hover:bg-amber-50 transition-all cursor-pointer"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>HR Admin</span>
+            </button>
+          </div>
+
+          {/* Login / Sign Up Tabs */}
+          <div className="flex border-b border-slate-200 mb-4">
+            <button
+              type="button"
+              onClick={() => {
+                setErrorMsg('');
+                setAuthMode('login');
+              }}
+              className={`flex-1 pb-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
+                authMode === 'login'
+                  ? 'border-[#024794] text-[#024794]'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setErrorMsg('');
+                setAuthMode('register');
+              }}
+              className={`flex-1 pb-2.5 text-xs font-bold border-b-2 transition-colors cursor-pointer ${
+                authMode === 'register'
+                  ? 'border-[#024794] text-[#024794]'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              Sign Up
+            </button>
+          </div>
+
+          {errorMsg && (
+            <div className="mb-4 p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{errorMsg}</span>
             </div>
-            <h3 className="font-bold text-slate-900 text-sm">1. BFAR Employee</h3>
-            <p className="text-xs text-slate-600 mt-1">
-              For permanent, casual, and COS personnel accessing the Internal Recruitment &amp; Promotion Hub.
-            </p>
-          </div>
-          <div className="mt-3 text-xs font-bold text-emerald-700 flex items-center gap-1">
-            <span>Employee Sign In / Register</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </div>
-        </button>
+          )}
 
-        <button
-          type="button"
-          onClick={() => handleSelectOption('external_applicant')}
-          className={`text-left p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
-            selectedOption === 'external_applicant'
-              ? 'bg-white border-[#024794] shadow-sm ring-2 ring-blue-500/20'
-              : 'bg-white border-slate-200 hover:border-blue-400'
-          }`}
-        >
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="p-2 rounded-lg bg-blue-50 text-[#024794] border border-blue-200">
-                <Briefcase className="w-5 h-5" />
-              </span>
-              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-100 text-[#024794]">
-                Gmail OTP Verified
-              </span>
-            </div>
-            <h3 className="font-bold text-slate-900 text-sm">2. External Applicant</h3>
-            <p className="text-xs text-slate-600 mt-1">
-              For public job applicants applying to open Plantilla vacancies and tracking application status.
-            </p>
-          </div>
-          <div className="mt-3 text-xs font-bold text-[#024794] flex items-center gap-1">
-            <span>Applicant Sign In / Register</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handleSelectOption('admin')}
-          className={`text-left p-4 rounded-xl border-2 transition-all cursor-pointer flex flex-col justify-between ${
-            selectedOption === 'admin'
-              ? 'bg-amber-50/60 border-amber-500 shadow-sm ring-2 ring-amber-400/20'
-              : 'bg-white border-slate-200 hover:border-amber-400'
-          }`}
-        >
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="p-2 rounded-lg bg-amber-100 text-amber-900 border border-amber-300">
-                <ShieldCheck className="w-5 h-5" />
-              </span>
-              <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 flex items-center gap-1">
-                <Lock className="w-2.5 h-2.5" /> Restricted
-              </span>
-            </div>
-            <h3 className="font-bold text-slate-900 text-sm">3. Admin (HR &amp; HRMPSB Portal)</h3>
-            <p className="text-xs text-slate-600 mt-1">
-              Authorized HR Secretariat &amp; HRMPSB evaluators only. Requires Official Employee ID &amp; Security Passkey.
-            </p>
-          </div>
-          <div className="mt-3 text-xs font-bold text-amber-800 flex items-center gap-1">
-            <span>Proceed to Restricted HR Verification</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </div>
-        </button>
-      </div>
-
-      {selectedOption !== 'admin' && (
-        <div className="p-5 sm:p-6 bg-white">
-          <div className="max-w-2xl mx-auto">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-4">
-              <div>
-                <h4 className="font-bold text-slate-900 text-sm">
-                  {selectedOption === 'bfar_employee'
-                    ? 'BFAR Employee Portal Authentication'
-                    : 'External Applicant Portal Authentication'}
-                </h4>
-                <p className="text-xs text-slate-500">
-                  {selectedOption === 'bfar_employee'
-                    ? 'Strictly requires an official @bfar.da.gov.ph email address.'
-                    : 'Register with a unique username and verify your Gmail address via 6-digit OTP.'}
-                </p>
-              </div>
-              <div className="inline-flex rounded-lg bg-slate-100 p-1 border border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => {
-                    clearFeedback();
-                    setAuthMode('login');
-                  }}
-                  className={`px-3 py-1 rounded-md text-xs font-bold transition-colors cursor-pointer ${
-                    authMode === 'login' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Sign In
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    clearFeedback();
-                    setAuthMode('register');
-                  }}
-                  className={`px-3 py-1 rounded-md text-xs font-bold transition-colors cursor-pointer ${
-                    authMode === 'register' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Register
-                </button>
-              </div>
-            </div>
-
-            {errorMsg && (
-              <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs flex items-start gap-2">
-                <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
-
-            {successMsg && (
-              <div className="mb-4 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span>{successMsg}</span>
-              </div>
-            )}
-
-            {selectedOption === 'bfar_employee' && (
-              <form onSubmit={handleEmployeeSubmit} className="space-y-3.5">
-                {authMode === 'register' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Full Name *</label>
-                      <div className="relative">
-                        <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                        <input
-                          type="text"
-                          required
-                          value={empFullName}
-                          onChange={(e) => setEmpFullName(e.target.value)}
-                          placeholder="Juan Dela Cruz"
-                          className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
-                        />
-                      </div>
+          {/* OPTION 1: BFAR EMPLOYEE FORM */}
+          {selectedOption === 'bfar_employee' && (
+            <form onSubmit={handleEmployeeSubmit} className="space-y-3">
+              {authMode === 'register' && (
+                <>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Full Name</label>
+                    <div className="relative">
+                      <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                      <input
+                        type="text"
+                        required
+                        value={empFullName}
+                        onChange={(e) => setEmpFullName(e.target.value)}
+                        placeholder="Juan Dela Cruz"
+                        className="w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
+                      />
                     </div>
+                  </div>
 
+                  <div className="grid grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Division / Office *</label>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Division / Office</label>
                       <div className="relative">
-                        <Building2 className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                        <Building2 className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                         <input
                           type="text"
                           required
                           value={empDivision}
                           onChange={(e) => setEmpDivision(e.target.value)}
-                          placeholder="e.g., Aquaculture Division"
-                          className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
+                          placeholder="Aquaculture Div."
+                          className="w-full pl-8 pr-2.5 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Current Position *</label>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Current Position</label>
                       <input
                         type="text"
                         required
                         value={empPosition}
                         onChange={(e) => setEmpPosition(e.target.value)}
-                        placeholder="e.g., Aquaculturist I"
+                        placeholder="Aquaculturist I"
                         className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
                       />
                     </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Employment Status *</label>
-                      <select
-                        value={empStatus}
-                        onChange={(e) => setEmpStatus(e.target.value as any)}
-                        className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600 bg-white"
-                      >
-                        <option value="Permanent">Permanent</option>
-                        <option value="Casual">Casual</option>
-                        <option value="Contractual">Contractual</option>
-                        <option value="Job Order / COS">Job Order / Contract of Service (COS)</option>
-                      </select>
-                    </div>
                   </div>
-                )}
 
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Employment Status</label>
+                    <select
+                      value={empStatus}
+                      onChange={(e) => setEmpStatus(e.target.value as any)}
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600 bg-white"
+                    >
+                      <option value="Permanent">Permanent</option>
+                      <option value="Casual">Casual</option>
+                      <option value="Contractual">Contractual</option>
+                      <option value="Job Order / COS">Job Order / COS</option>
+                    </select>
+                  </div>
+                </>
+              )}
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Official Email (@bfar.da.gov.ph)
+                </label>
+                <div className="relative">
+                  <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="email"
+                    required
+                    value={empEmail}
+                    onChange={(e) => setEmpEmail(e.target.value)}
+                    placeholder="name@bfar.da.gov.ph"
+                    className="w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">Password</label>
+                <div className="relative">
+                  <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="password"
+                    required
+                    value={empPassword}
+                    onChange={(e) => setEmpPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
+                  />
+                </div>
+              </div>
+
+              {authMode === 'register' && (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Official BFAR Email Address (@bfar.da.gov.ph) *
-                  </label>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Confirm Password</label>
                   <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                    <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                     <input
-                      type="email"
+                      type="password"
                       required
-                      value={empEmail}
-                      onChange={(e) => setEmpEmail(e.target.value)}
-                      placeholder="username@bfar.da.gov.ph"
-                      className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
+                      value={empConfirmPassword}
+                      onChange={(e) => setEmpConfirmPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
                     />
                   </div>
                 </div>
+              )}
 
-                <div className={`grid grid-cols-1 ${authMode === 'register' ? 'sm:grid-cols-2' : ''} gap-3`}>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-emerald-700 hover:bg-emerald-600 disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-lg transition-colors cursor-pointer"
+              >
+                {loading
+                  ? 'Please wait...'
+                  : authMode === 'login'
+                  ? 'Sign In & View Vacancies'
+                  : 'Sign Up & View Vacancies'}
+              </button>
+
+              <button
+                type="button"
+                disabled={loading}
+                onClick={handleEmployeeGoogleSignIn}
+                className="w-full bg-white hover:bg-slate-50 disabled:opacity-60 text-slate-700 border border-slate-300 text-xs font-bold py-2 rounded-lg transition-colors cursor-pointer"
+              >
+                Continue with BFAR Google
+              </button>
+            </form>
+          )}
+
+          {/* OPTION 2: EXTERNAL APPLICANT FORM */}
+          {selectedOption === 'external_applicant' && (
+            <form onSubmit={handleExternalSubmit} className="space-y-3">
+              {authMode === 'login' ? (
+                <>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">Password *</label>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Gmail or Username
+                    </label>
                     <div className="relative">
-                      <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                      <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                       <input
-                        type="password"
+                        type="text"
                         required
-                        value={empPassword}
-                        onChange={(e) => setEmpPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
+                        value={extIdentifier}
+                        onChange={(e) => setExtIdentifier(e.target.value)}
+                        placeholder="you@gmail.com or username"
+                        className="w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
                       />
                     </div>
                   </div>
 
-                  {authMode === 'register' && (
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Confirm Password *</label>
-                      <div className="relative">
-                        <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                        <input
-                          type="password"
-                          required
-                          value={empConfirmPassword}
-                          onChange={(e) => setEmpConfirmPassword(e.target.value)}
-                          placeholder="••••••••"
-                          className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
-                        />
-                      </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Password</label>
+                    <div className="relative">
+                      <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                      <input
+                        type="password"
+                        required
+                        value={extPassword}
+                        onChange={(e) => setExtPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
+                      />
                     </div>
-                  )}
-                </div>
-
-                <div className="pt-1 flex flex-col sm:flex-row gap-2.5">
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="flex-1 bg-emerald-700 hover:bg-emerald-600 disabled:opacity-60 text-white text-xs font-bold py-2.5 px-4 rounded-lg transition-colors cursor-pointer"
-                  >
-                    {loading
-                      ? 'Please wait...'
-                      : authMode === 'login'
-                      ? 'Sign In to BFAR Employee Portal'
-                      : 'Register BFAR Employee Account'}
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={handleEmployeeGoogleSignIn}
-                    className="bg-white hover:bg-slate-50 disabled:opacity-60 text-slate-800 border border-slate-300 text-xs font-bold py-2.5 px-4 rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    <span>Continue with BFAR Google (@bfar.da.gov.ph)</span>
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {selectedOption === 'external_applicant' && (
-              <form onSubmit={handleExternalSubmit} className="space-y-3.5">
-                {authMode === 'login' ? (
-                  <>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">
-                        Email Address or Username *
-                      </label>
-                      <div className="relative">
-                        <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                        <input
-                          type="text"
-                          required
-                          value={extIdentifier}
-                          onChange={(e) => setExtIdentifier(e.target.value)}
-                          placeholder="Enter your Gmail or registered username"
-                          className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
-                        />
-                      </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Username</label>
+                    <div className="relative">
+                      <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                      <input
+                        type="text"
+                        required
+                        value={extUsername}
+                        onChange={(e) => setExtUsername(e.target.value)}
+                        placeholder="unique_username"
+                        className="w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
+                      />
                     </div>
+                  </div>
 
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Gmail Address</label>
+                    <div className="relative">
+                      <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                      <input
+                        type="email"
+                        required
+                        value={extEmail}
+                        onChange={(e) => setExtEmail(e.target.value)}
+                        placeholder="you@gmail.com"
+                        className="w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">Password *</label>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Password</label>
                       <div className="relative">
-                        <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                        <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                         <input
                           type="password"
                           required
                           value={extPassword}
                           onChange={(e) => setExtPassword(e.target.value)}
                           placeholder="••••••••"
-                          className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
+                          className="w-full pl-8 pr-2.5 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
                         />
                       </div>
                     </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Unique Username *</label>
-                        <div className="relative">
-                          <User className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                          <input
-                            type="text"
-                            required
-                            value={extUsername}
-                            onChange={(e) => setExtUsername(e.target.value)}
-                            placeholder="e.g., applicant_juan"
-                            className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
-                          />
-                        </div>
-                      </div>
 
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">
-                          Gmail / Personal Email *
-                        </label>
-                        <div className="relative">
-                          <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                          <input
-                            type="email"
-                            required
-                            value={extEmail}
-                            onChange={(e) => setExtEmail(e.target.value)}
-                            placeholder="yourname@gmail.com"
-                            className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
-                          />
-                        </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Confirm</label>
+                      <div className="relative">
+                        <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                        <input
+                          type="password"
+                          required
+                          value={extConfirmPassword}
+                          onChange={(e) => setExtConfirmPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full pl-8 pr-2.5 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
+                        />
                       </div>
                     </div>
+                  </div>
+                </>
+              )}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Password *</label>
-                        <div className="relative">
-                          <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                          <input
-                            type="password"
-                            required
-                            value={extPassword}
-                            onChange={(e) => setExtPassword(e.target.value)}
-                            placeholder="Min. 6 characters"
-                            className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">Confirm Password *</label>
-                        <div className="relative">
-                          <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
-                          <input
-                            type="password"
-                            required
-                            value={extConfirmPassword}
-                            onChange={(e) => setExtConfirmPassword(e.target.value)}
-                            placeholder="Re-enter password"
-                            className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-[#024794] hover:bg-blue-800 disabled:opacity-60 text-white text-xs font-bold py-2.5 px-4 rounded-lg transition-colors cursor-pointer"
-                >
-                  {loading
-                    ? 'Processing...'
-                    : authMode === 'login'
-                    ? 'Sign In as External Applicant'
-                    : 'Register & Send 6-Digit Gmail OTP'}
-                </button>
-              </form>
-            )}
-          </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-[#024794] hover:bg-blue-800 disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-lg transition-colors cursor-pointer"
+              >
+                {loading
+                  ? 'Processing...'
+                  : authMode === 'login'
+                  ? 'Sign In & View Vacancies'
+                  : 'Sign Up & Generate 6-Digit OTP'}
+              </button>
+            </form>
+          )}
         </div>
-      )}
+      </div>
 
+      {/* 6-DIGIT VERIFICATION MODAL */}
       {otpModalData && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-md w-full border border-slate-200 shadow-xl overflow-hidden">
-            <div className="bg-[#0b2447] text-white px-5 py-3.5 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-slate-950/60 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-sm w-full border border-slate-200 shadow-xl overflow-hidden">
+            <div className="bg-[#0b2447] text-white px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <KeyRound className="w-4 h-4 text-amber-300" />
-                <h3 className="font-bold text-sm">Verify Your Email Address</h3>
+                <h3 className="font-bold text-xs">6-Digit Account Verification</h3>
               </div>
               <button
                 type="button"
@@ -787,58 +669,61 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleVerifyOtp} className="p-5 space-y-4">
-              <p className="text-xs text-slate-600 leading-relaxed">
-                We sent a 6-digit One-Time Password (OTP) to{' '}
-                <strong className="text-slate-900">{otpModalData.email}</strong>. Enter the code below within{' '}
-                <strong>5 minutes</strong> to activate your External Applicant account.
+            <form onSubmit={handleVerifyOtp} className="p-4 space-y-3">
+              <p className="text-xs text-slate-600">
+                Verification code for <strong>{otpModalData.email}</strong> (expires in 5 mins). The portal does not access applicant Gmail accounts.
               </p>
 
-              {otpError && (
-                <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                  <span>{otpError}</span>
+              {otpModalData.generatedCode && (
+                <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-950 text-xs flex items-center justify-between">
+                  <span>Verification Code:</span>
+                  <strong className="font-mono text-sm tracking-widest">
+                    {otpModalData.generatedCode}
+                  </strong>
                 </div>
               )}
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">6-Digit Verification Code</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  required
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="000000"
-                  className="w-full text-center tracking-[0.5em] font-mono text-xl font-black py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
-                />
-              </div>
+              {otpError && (
+                <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs">
+                  {otpError}
+                </div>
+              )}
+
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                required
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="000000"
+                className="w-full text-center tracking-[0.45em] font-mono text-lg font-black py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
+              />
 
               <button
                 type="submit"
                 disabled={otpLoading || otpCode.length !== 6}
-                className="w-full bg-[#024794] hover:bg-blue-800 disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-lg transition-colors cursor-pointer"
+                className="w-full bg-[#024794] hover:bg-blue-800 disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-lg cursor-pointer"
               >
-                {otpLoading ? 'Verifying...' : 'Verify OTP & Activate Account'}
+                {otpLoading ? 'Verifying...' : 'Verify & Continue to Vacancies'}
               </button>
 
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-                <span className="text-slate-500">Didn&apos;t receive the code?</span>
+              <div className="flex items-center justify-between text-[11px] pt-1">
+                <span className="text-slate-500">Need a new code?</span>
                 <button
                   type="button"
                   disabled={resendCooldown > 0 || otpLoading}
                   onClick={handleResendOtp}
-                  className="font-bold text-[#024794] hover:underline disabled:text-slate-400 disabled:no-underline flex items-center gap-1 cursor-pointer"
+                  className="font-bold text-[#024794] hover:underline disabled:text-slate-400 flex items-center gap-1 cursor-pointer"
                 >
                   <RefreshCw className="w-3 h-3" />
-                  <span>{resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : 'Resend OTP'}</span>
+                  <span>{resendCooldown > 0 ? `Resend (${resendCooldown}s)` : 'Resend OTP'}</span>
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
-    </section>
+    </div>
   );
 };
