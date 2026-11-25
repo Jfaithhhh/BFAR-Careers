@@ -2,13 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Header } from './components/Header';
 import { PortalAccessGateway } from './components/PortalAccessGateway';
+import { PortalSignInGate } from './PortalSignInGate';
 import { JobsTable } from './components/JobsTable';
 import { ApplicationForm } from './components/ApplicationForm';
 import { InternalRecruitmentPortal } from './components/InternalRecruitmentPortal';
 import { ApplicationTracker } from './components/ApplicationTracker';
 import { AdminPortal } from './components/AdminPortal';
 import { Footer } from './components/Footer';
-import { PlantillaJob, ApplicationRecord, InternalEmployeeProfile, PortalUserProfile } from './types';
+import {
+  PlantillaJob,
+  ApplicationRecord,
+  InternalEmployeeProfile,
+  PortalRole,
+  PortalUserProfile,
+} from './types';
+import {
+  ActivePortalPov,
+  canViewApplicationRecord,
+  isVacancyVisibleForRole,
+} from './lib/portalSession';
 import { auth, signOutUser } from './lib/firebase';
 import { getPortalUserProfile } from './lib/portalAuthService';
 import {
@@ -18,6 +30,8 @@ import {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'jobs' | 'apply' | 'internal' | 'track' | 'admin'>('jobs');
+  const [selectedGateOption, setSelectedGateOption] = useState<ActivePortalPov>('bfar_employee');
+  const [portalRole, setPortalRole] = useState<PortalRole | null>(null);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [portalUser, setPortalUser] = useState<PortalUserProfile | null>(null);
   const [isCheckingPortalAuth, setIsCheckingPortalAuth] = useState(true);
@@ -28,7 +42,11 @@ export default function App() {
   const [activeTrackingCode, setActiveTrackingCode] = useState<string>('');
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
 
-  const isExternalApplicantSession = portalUser?.role === 'external_applicant';
+  const effectiveRole: ActivePortalPov | null = isAdminAuthenticated
+    ? 'hr_admin'
+    : portalUser?.role || portalRole;
+
+  const isExternalApplicantSession = !isAdminAuthenticated && effectiveRole === 'external_applicant';
   const isAdminView = !isExternalApplicantSession && activeTab === 'admin';
 
   // External applicants may only access Plantilla Vacancies ('jobs') and the Application Form ('apply')
@@ -48,6 +66,7 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
         setPortalUser(null);
+        setPortalRole(null);
         setIsCheckingPortalAuth(false);
         return;
       }
@@ -55,12 +74,16 @@ export default function App() {
         const profile = await getPortalUserProfile(firebaseUser.uid);
         const isVerified = Boolean(profile?.emailVerified || firebaseUser.emailVerified);
         if (profile && isVerified) {
-          setPortalUser({ ...profile, emailVerified: true });
+          const verifiedProfile: PortalUserProfile = { ...profile, emailVerified: true };
+          setPortalUser(verifiedProfile);
+          setPortalRole(verifiedProfile.role);
         } else {
           setPortalUser(null);
+          setPortalRole(null);
         }
       } catch {
         setPortalUser(null);
+        setPortalRole(null);
       } finally {
         setIsCheckingPortalAuth(false);
       }
@@ -86,10 +109,35 @@ export default function App() {
     };
   }, []);
 
-  const handlePortalSignOut = async () => {
-    await signOutUser();
-    setPortalUser(null);
+  const handleGateAuthenticatedUser = (profile: PortalUserProfile) => {
+    setIsAdminAuthenticated(false);
+    setPortalUser(profile);
+    setPortalRole(profile.role);
     setActiveTab('jobs');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handlePortalUserChange = (user: PortalUserProfile | null) => {
+    setPortalUser(user);
+    setPortalRole(user?.role || null);
+    if (user) {
+      setIsAdminAuthenticated(false);
+      setActiveTab('jobs');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handlePortalSignOut = async () => {
+    setIsAdminAuthenticated(false);
+    setPortalUser(null);
+    setPortalRole(null);
+    setSelectedInternalProfile(undefined);
+    setActiveTab('jobs');
+    try {
+      await signOutUser();
+    } catch {
+      // Ignore if already signed out
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -139,14 +187,27 @@ export default function App() {
     );
   };
 
-  const pendingCount = applications.filter(
+  const visibleJobs = jobs.filter((job) =>
+    isVacancyVisibleForRole(job, effectiveRole, isAdminAuthenticated)
+  );
+
+  const visibleApplications = applications.filter((app) =>
+    canViewApplicationRecord(
+      app,
+      effectiveRole,
+      portalUser?.email || auth.currentUser?.email,
+      isAdminAuthenticated
+    )
+  );
+
+  const pendingCount = visibleApplications.filter(
     (a) => a.status === 'Submitted' || a.status === 'Document Under Review'
   ).length;
 
-  const internalCount = applications.filter((a) => a.applicantType === 'internal').length;
+  const internalCount = visibleApplications.filter((a) => a.applicantType === 'internal').length;
 
-  const showLoginFirstGate = !isAdminView && !portalUser;
-  const hideHeaderNav = showLoginFirstGate || isAdminView;
+  const showFrontPageGate = !isAdminView && !portalUser && !portalRole;
+  const hideHeaderNav = showFrontPageGate || isAdminView;
 
   const headerActiveTab: 'jobs' | 'apply' | 'internal' | 'track' | 'admin' =
     isExternalApplicantSession && activeTab !== 'jobs' && activeTab !== 'apply'
@@ -170,10 +231,16 @@ export default function App() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         pendingCount={pendingCount}
-        openCount={jobs.filter((j) => j.status === 'Open').length}
+        openCount={visibleJobs.filter((j) => j.status === 'Open').length}
         internalCount={internalCount}
         isAdminAuthenticated={isAdminAuthenticated}
-        onAdminAuthChange={setIsAdminAuthenticated}
+        onAdminAuthChange={(authenticated) => {
+          if (authenticated) {
+            setPortalUser(null);
+            setPortalRole(null);
+          }
+          setIsAdminAuthenticated(authenticated);
+        }}
         hideNavTabs={hideHeaderNav}
         isExternalApplicantSession={isExternalApplicantSession}
       />
@@ -185,30 +252,28 @@ export default function App() {
           </div>
         ) : isAdminView ? (
           <AdminPortal
-            jobs={jobs}
-            applications={applications}
+            jobs={visibleJobs}
+            applications={visibleApplications}
             onUpdateApplication={handleUpdateApplication}
             onAddJob={handleAddJob}
             onUpdateJob={handleUpdateJob}
-            onAuthChange={setIsAdminAuthenticated}
-          />
-        ) : showLoginFirstGate ? (
-          <PortalAccessGateway
-            portalUser={null}
-            onPortalUserChange={(user) => {
-              setPortalUser(user);
-              if (user) {
-                setActiveTab('jobs');
-                window.scrollTo({ top: 0, behavior: 'smooth' });
+            onAuthChange={(authenticated) => {
+              if (authenticated) {
+                setPortalUser(null);
+                setPortalRole(null);
               }
+              setIsAdminAuthenticated(authenticated);
             }}
-            onPortalSignOut={handlePortalSignOut}
-            onOpenAdminPortal={() => {
+          />
+        ) : showFrontPageGate ? (
+          <PortalSignInGate
+            selectedOption={selectedGateOption}
+            onSelectOption={setSelectedGateOption}
+            onAuthenticatedUser={handleGateAuthenticatedUser}
+            onProceedToHrPortal={() => {
+              setPortalUser(null);
+              setPortalRole(null);
               setActiveTab('admin');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
-            onNavigateTab={(tab: 'jobs' | 'apply' | 'internal' | 'track') => {
-              setActiveTab(isExternalApplicantSession && tab !== 'apply' ? 'jobs' : tab);
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           />
@@ -216,7 +281,7 @@ export default function App() {
           <>
             <PortalAccessGateway
               portalUser={portalUser}
-              onPortalUserChange={setPortalUser}
+              onPortalUserChange={handlePortalUserChange}
               onPortalSignOut={handlePortalSignOut}
               onOpenAdminPortal={() => {}}
               onNavigateTab={(tab) => {
@@ -238,7 +303,7 @@ export default function App() {
                 </div>
 
                 <ApplicationForm
-                  jobs={jobs}
+                  jobs={visibleJobs}
                   selectedJobId={selectedJobIdForApply}
                   initialInternalProfile={undefined}
                   isExternalApplicant={true}
@@ -249,7 +314,7 @@ export default function App() {
               </div>
             ) : (
               <JobsTable
-                jobs={jobs}
+                jobs={visibleJobs}
                 onSelectJobForApply={handleSelectJobForApply}
                 isLoading={isLoadingJobs}
               />
@@ -261,9 +326,11 @@ export default function App() {
               <>
                 <PortalAccessGateway
                   portalUser={portalUser}
-                  onPortalUserChange={setPortalUser}
+                  onPortalUserChange={handlePortalUserChange}
                   onPortalSignOut={handlePortalSignOut}
                   onOpenAdminPortal={() => {
+                    setPortalUser(null);
+                    setPortalRole(null);
                     setActiveTab('admin');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
@@ -274,7 +341,7 @@ export default function App() {
                 />
 
                 <JobsTable
-                  jobs={jobs}
+                  jobs={visibleJobs}
                   onSelectJobForApply={handleSelectJobForApply}
                   isLoading={isLoadingJobs}
                 />
@@ -283,8 +350,8 @@ export default function App() {
 
             {activeTab === 'internal' && (
               <InternalRecruitmentPortal
-                jobs={jobs}
-                applications={applications}
+                jobs={visibleJobs}
+                applications={visibleApplications}
                 onSelectJobForInternalApply={handleSelectJobForInternalApply}
                 onTrackApplication={handleNavigateToTrack}
               />
@@ -292,7 +359,7 @@ export default function App() {
 
             {activeTab === 'apply' && (
               <ApplicationForm
-                jobs={jobs}
+                jobs={visibleJobs}
                 selectedJobId={selectedJobIdForApply}
                 initialInternalProfile={selectedInternalProfile}
                 isExternalApplicant={false}
@@ -305,7 +372,7 @@ export default function App() {
             {activeTab === 'track' && (
               <ApplicationTracker
                 initialTrackingCode={activeTrackingCode}
-                recentApplications={applications}
+                recentApplications={visibleApplications}
               />
             )}
           </>

@@ -1,112 +1,114 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isBfarDomain() {
-      return isSignedIn()
-        && request.auth.token.email != null
-        && request.auth.token.email.matches('.*@bfar\\.da\\.gov\\.ph$');
+    function authEmail() {
+      return isSignedIn() && request.auth.token.email != null
+        ? request.auth.token.email
+        : '';
     }
 
-    function isAuthorizedAdmin() {
+    function hasUserDoc() {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userRole() {
+      return hasUserDoc()
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : null;
+    }
+
+    function hasRole(roleName) {
+      return isSignedIn() && userRole() == roleName;
+    }
+
+    // Strictly HR Admin / HRMPSB: explicit hr_admin role on users/{uid} OR designated admin email
+    // (Does NOT grant admin to every @bfar.da.gov.ph employee)
+    function isHrAdmin() {
       return isSignedIn()
         && (
-          request.auth.token.email == 'jaiciervo7@gmail.com'
-          || isBfarDomain()
+          userRole() == 'hr_admin'
+          || authEmail() == 'jaiciervo7@gmail.com'
         );
     }
 
-    // 1. Portal User Profiles (Strictly isolated roles: bfar_employee | external_applicant)
-    match /users/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAuthorizedAdmin());
+    match /users/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isHrAdmin());
 
       allow create: if isSignedIn()
-        && request.auth.uid == userId
-        && request.resource.data.uid == userId
+        && request.auth.uid == uid
+        && request.resource.data.role in ['bfar_employee', 'external_applicant']
+        && request.resource.data.email is string
         && (
-          // Option 1: BFAR Employee strictly requires @bfar.da.gov.ph
           (
             request.resource.data.role == 'bfar_employee'
-            && isBfarDomain()
-            && request.resource.data.email == request.auth.token.email
-            && request.resource.data.emailVerified == true
+            && request.resource.data.email.matches('.*@bfar\\.da\\.gov\\.ph$')
           )
-          ||
-          // Option 2: External Applicant starts unverified until OTP confirmation
-          (
+          || (
             request.resource.data.role == 'external_applicant'
-            && !isBfarDomain()
-            && request.resource.data.email == request.auth.token.email
-            && request.resource.data.emailVerified == false
+            && request.resource.data.emailVerified == true
           )
         );
 
       allow update: if isSignedIn()
-        && request.auth.uid == userId
-        // Prevent role escalation
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.uid == resource.data.uid
-        && request.resource.data.email == resource.data.email
-        // Allow external applicant to set emailVerified: true only if OTP record exists & is unexpired
         && (
-          request.resource.data.emailVerified == resource.data.emailVerified
-          || (
-            resource.data.role == 'external_applicant'
-            && request.resource.data.emailVerified == true
-            && exists(/databases/$(database)/documents/otp_verifications/$(userId))
-            && get(/databases/$(database)/documents/otp_verifications/$(userId)).data.expiresAt > request.time.toMillis()
+          (
+            request.auth.uid == uid
+            && request.resource.data.role == resource.data.role
+            && (
+              resource.data.role != 'bfar_employee'
+              || request.resource.data.email.matches('.*@bfar\\.da\\.gov\\.ph$')
+            )
           )
+          || isHrAdmin()
         );
 
-      allow delete: if false;
+      allow delete: if isHrAdmin();
     }
 
-    // 2. External Applicant Username Lookup
-    match /usernames/{username} {
-      allow read: if true;
-      allow create: if isSignedIn()
-        && !exists(/databases/$(database)/documents/usernames/$(username))
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.email == request.auth.token.email;
-      allow update, delete: if false;
+    match /email_otps/{emailKey} {
+      allow read, create, update: if true;
+      allow delete: if isHrAdmin();
     }
 
-    // 3. 6-Digit Gmail OTP Verification Records
-    match /otp_verifications/{userId} {
-      allow read, create, update: if isSignedIn() && request.auth.uid == userId;
-      allow delete: if false;
-    }
-
-    // 4. Outbound Email Queue (Firebase Trigger Email Extension)
-    match /mail/{mailId} {
-      allow create: if isSignedIn()
-        && request.resource.data.to is list
-        && request.resource.data.to.size() == 1
-        && request.resource.data.to[0] == request.auth.token.email;
-      allow read, update, delete: if false;
-    }
-
-    // 5. Existing HR & HRMPSB Staff Verification Collection (Preserved)
-    match /authorized_staff/{staffId} {
-      allow read: if true;
-      allow write: if false;
-    }
-
-    // 6. Plantilla Job Vacancies (Preserved)
     match /job_vacancies/{jobId} {
-      allow read: if true;
-      allow create, update, delete: if isAuthorizedAdmin();
+      allow read: if isHrAdmin()
+        || hasRole('bfar_employee')
+        || (
+          hasRole('external_applicant')
+          && resource.data.get('isInternalOnly', false) != true
+          && resource.data.get('category', 'external') != 'internal'
+        );
+
+      allow create, update, delete: if isHrAdmin();
     }
 
-    // 7. Applications & Tracking (Preserved)
     match /applications/{appId} {
-      allow read: if true;
-      allow create: if true;
-      allow update, delete: if isAuthorizedAdmin();
+      allow read: if isHrAdmin()
+        || (
+          isSignedIn()
+          && authEmail() != ''
+          && resource.data.personalInfo.email == authEmail()
+        );
+
+      allow create: if isSignedIn()
+        && authEmail() != ''
+        && request.resource.data.personalInfo.email == authEmail()
+        && (
+          (hasRole('bfar_employee') && request.resource.data.applicantType == 'internal')
+          || (hasRole('external_applicant') && request.resource.data.applicantType != 'internal')
+        );
+
+      allow update, delete: if isHrAdmin();
+    }
+
+    match /authorized_staff/{staffId} {
+      allow read: if isSignedIn();
+      allow write: if isHrAdmin();
     }
   }
 }

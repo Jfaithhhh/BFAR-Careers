@@ -14,18 +14,12 @@ import {
   FileSpreadsheet,
   Plus,
   Search,
-  Filter,
   Eye,
   EyeOff,
   Edit,
   Shield,
-  Award,
   ChevronDown,
   X,
-  Send,
-  Building,
-  GraduationCap,
-  Calendar,
   AlertCircle,
   Lock,
   LogOut,
@@ -36,14 +30,13 @@ import {
   UserCheck,
   ShieldAlert,
   AlertTriangle,
-  FileCheck2,
   BadgeCheck,
   FileText,
   Scale,
   Globe,
   History,
-  Trash2,
   Check,
+  Calendar,
 } from 'lucide-react';
 
 interface AdminPortalProps {
@@ -54,6 +47,40 @@ interface AdminPortalProps {
   onUpdateJob: (jobId: string, updates: Partial<PlantillaJob>) => void;
   onAuthChange?: (authenticated: boolean) => void;
 }
+
+const emptyJobForm = {
+  itemNo: '',
+  plantillaItemNumber: '',
+  positionTitle: '',
+  office: 'BFAR Central Office',
+  division: 'Aquaculture Division',
+  region: 'Central Office (NCR) - Quezon City',
+  placeOfAssignment: 'BFAR Central Office, PCA Building, Elliptical Road, Diliman, Quezon City',
+  salaryGrade: 15,
+  plantillaType: 'Permanent' as 'Permanent' | 'Contract of Service (COS)' | 'Project-Based',
+  datePosted: '2026-10-21',
+  applicationDeadline: '2026-12-15',
+  officialSourceUrl: 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
+  education: "Bachelor's degree in Fisheries, Aquaculture, or related discipline",
+  experience: '1 year of relevant experience in fisheries development',
+  training: '4 hours of relevant technical training',
+  eligibility: 'Career Service (Professional) / RA 1080',
+  dutiesText:
+    'Coordinate technical program implementation and monitoring.\nEvaluate technical fisheries reports and compliance documents.\nPrepare administrative reports for Central Office review.',
+  competenciesText:
+    'Fisheries Regulatory Compliance\nTechnical Report Writing\nProgram Monitoring',
+  documentTitle: 'Official Notice of Vacancy (CS Form 9)',
+  documentUrl: 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
+};
+
+const getTodayDateString = () => {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Manila',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+};
 
 export const AdminPortal: React.FC<AdminPortalProps> = ({
   jobs,
@@ -69,7 +96,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [verifiedRole, setVerifiedRole] = useState<'HR_Specialist' | 'HRMPSB_Member' | 'Director'>('HR_Specialist');
   const [loginUsername, setLoginUsername] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  const [securityBadgeId, setSecurityBadgeId] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
@@ -83,7 +109,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   // Search & Filter
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [jobFilter, setJobFilter] = useState('All');
+  const [jobFilter] = useState('All');
   const [applicantTypeFilter, setApplicantTypeFilter] = useState<'All' | 'internal'>('All');
 
   // Selected candidate for deep evaluation dossier
@@ -103,33 +129,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [syncFeedback, setSyncFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showAuditLogs, setShowAuditLogs] = useState(false);
   const [vacancyFilter, setVacancyFilter] = useState<'All' | 'Open' | 'Expired'>('All');
+  const [updatingJobId, setUpdatingJobId] = useState<string | null>(null);
 
-  // Official Vacancy Import Modal State
+  // Official Vacancy Create / Edit Modal State
   const [isCreatingJob, setIsCreatingJob] = useState(false);
+  const [editingJob, setEditingJob] = useState<PlantillaJob | null>(null);
   const [createJobError, setCreateJobError] = useState<string | null>(null);
-  const [createJobSuccess, setCreateJobSuccess] = useState<string | null>(null);
-  const [newJobForm, setNewJobForm] = useState({
-    itemNo: '',
-    plantillaItemNumber: '',
-    positionTitle: '',
-    office: 'BFAR Central Office',
-    division: 'Aquaculture Division',
-    region: 'Central Office (NCR) - Quezon City',
-    placeOfAssignment: 'BFAR Central Office, PCA Building, Elliptical Road, Diliman, Quezon City',
-    salaryGrade: 15,
-    plantillaType: 'Permanent' as 'Permanent' | 'Contract of Service (COS)' | 'Project-Based',
-    datePosted: '2026-10-21',
-    applicationDeadline: '2026-11-25',
-    officialSourceUrl: 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
-    education: "Bachelor's degree in Fisheries, Aquaculture, or related discipline",
-    experience: '1 year of relevant experience in fisheries development',
-    training: '4 hours of relevant technical training',
-    eligibility: 'Career Service (Professional) / RA 1080',
-    dutiesText: 'Coordinate technical program implementation and monitoring.\nEvaluate technical fisheries reports and compliance documents.\nPrepare administrative reports for Central Office review.',
-    competenciesText: 'Fisheries Regulatory Compliance\nTechnical Report Writing\nProgram Monitoring',
-    documentTitle: 'Official Notice of Vacancy (CS Form 9)',
-    documentUrl: 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
-  });
+  const [isSavingJob, setIsSavingJob] = useState(false);
+  const [newJobForm, setNewJobForm] = useState(emptyJobForm);
 
   // Load official vacancy synchronization status
   const fetchSyncStatus = async () => {
@@ -286,7 +293,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           message: json.error || 'Failed to synchronize with BFAR portal.',
         });
       }
-    } catch (err: any) {
+    } catch {
       setSyncFeedback({
         type: 'error',
         message: 'Network error communicating with vacancy synchronization engine.',
@@ -296,23 +303,93 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     }
   };
 
-  // Toggle Vacancy Status (Open <-> Expired)
-  const handleToggleVacancyStatus = async (jobId: string, currentStatus: string) => {
-    const nextStatus = currentStatus === 'Open' ? 'Expired' : 'Open';
+  // Toggle Vacancy Status (Open <-> Expired) and persist to Firestore + parent state
+  const handleToggleVacancyStatus = async (job: PlantillaJob) => {
+    const isCurrentlyOpen = job.status === 'Open';
+    const nextStatus: PlantillaJob['status'] = isCurrentlyOpen ? 'Expired' : 'Open';
+    const updatedJob: PlantillaJob = {
+      ...job,
+      status: nextStatus,
+    };
+
+    setUpdatingJobId(job.id);
+    setSyncFeedback(null);
+
     try {
-      const res = await fetch(`/api/vacancies/${jobId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: nextStatus }),
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        onUpdateJob(jobId, json.data);
-        fetchSyncStatus();
+      await saveJobVacancyToFirestore(updatedJob);
+      onUpdateJob(job.id, updatedJob);
+
+      try {
+        await fetch(`/api/vacancies/${job.id}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: nextStatus }),
+        });
+      } catch {
+        // Optional API endpoint; Firestore is primary source of truth
       }
+
+      setSyncFeedback({
+        type: 'success',
+        message: `"${job.positionTitle}" (${job.plantillaItemNumber || job.itemNo}) marked as ${
+          nextStatus === 'Open' ? 'Active / Open' : 'Expired / Closed'
+        }.`,
+      });
     } catch (err) {
       console.error('Failed to toggle vacancy status:', err);
+      setSyncFeedback({
+        type: 'error',
+        message: 'Nabigong i-update ang status ng plantilla vacancy sa Firestore.',
+      });
+    } finally {
+      setUpdatingJobId(null);
     }
+  };
+
+  // Open Edit Modal pre-populated with selected job
+  const handleOpenEditJob = (job: PlantillaJob) => {
+    setCreateJobError(null);
+    setEditingJob(job);
+    const itemNo = job.plantillaItemNumber || job.itemNo || '';
+    setNewJobForm({
+      itemNo,
+      plantillaItemNumber: itemNo,
+      positionTitle: job.positionTitle || '',
+      office: job.office || 'BFAR Central Office',
+      division: job.division || '',
+      region: job.region || 'Central Office (NCR) - Quezon City',
+      placeOfAssignment:
+        job.placeOfAssignment ||
+        'BFAR Central Office, PCA Building, Elliptical Road, Diliman, Quezon City',
+      salaryGrade: Number(job.salaryGrade) || 15,
+      plantillaType: (job.plantillaType as any) || 'Permanent',
+      datePosted: job.datePosted || job.postingDate || new Date().toISOString().split('T')[0],
+      applicationDeadline: job.applicationDeadline || job.closingDate || getTodayDateString(),
+      officialSourceUrl:
+        job.officialSourceUrl || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
+      education: job.qualificationStandards?.education || '',
+      experience: job.qualificationStandards?.experience || '',
+      training: job.qualificationStandards?.training || '',
+      eligibility: job.qualificationStandards?.eligibility || '',
+      dutiesText: Array.isArray(job.dutiesAndResponsibilities)
+        ? job.dutiesAndResponsibilities.join('\n')
+        : '',
+      competenciesText: Array.isArray(job.competencies) ? job.competencies.join('\n') : '',
+      documentTitle:
+        job.attachedDocuments?.[0]?.name || 'Official Notice of Vacancy (CS Form 9)',
+      documentUrl:
+        job.attachedDocuments?.[0]?.url ||
+        job.officialSourceUrl ||
+        'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
+    });
+    setIsCreatingJob(true);
+  };
+
+  const handleOpenCreateJob = () => {
+    setCreateJobError(null);
+    setEditingJob(null);
+    setNewJobForm(emptyJobForm);
+    setIsCreatingJob(true);
   };
 
   const handleDeleteVacancy = async (jobId: string, positionTitle: string) => {
@@ -320,20 +397,29 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       return;
     }
 
+    setUpdatingJobId(jobId);
+    setSyncFeedback(null);
+
     try {
       await deleteJobVacancyFromFirestore(jobId);
-      alert(`Maitagumpay na nabura ang "${positionTitle}" sa database!`);
-      window.location.reload();
+      setSyncFeedback({
+        type: 'success',
+        message: `Matagumpay na nabura ang "${positionTitle}" sa database.`,
+      });
     } catch (err) {
       console.error('Failed to delete job vacancy:', err);
-      alert('Nabigong burahin ang job vacancy sa database.');
+      setSyncFeedback({
+        type: 'error',
+        message: 'Nabigong burahin ang job vacancy sa database.',
+      });
+    } finally {
+      setUpdatingJobId(null);
     }
   };
 
-  const handleCreateJobSubmit = async (e: React.FormEvent) => {
+  const handleCreateOrUpdateJobSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateJobError(null);
-    setCreateJobSuccess(null);
 
     const itemNo = (newJobForm.plantillaItemNumber || newJobForm.itemNo || '').trim().toUpperCase();
     if (!newJobForm.positionTitle.trim() || !itemNo) {
@@ -341,58 +427,93 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       return;
     }
 
-    const docId = `vacancy-${Date.now()}`;
+    setIsSavingJob(true);
+    const isEditing = Boolean(editingJob);
+    const docId = editingJob ? editingJob.id : `vacancy-${Date.now()}`;
+    const duties = newJobForm.dutiesText
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const competencies = newJobForm.competenciesText
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const todayStr = getTodayDateString();
+    const newDeadline = newJobForm.applicationDeadline;
+    const isExtendedToActive =
+      isEditing &&
+      editingJob?.status !== 'Open' &&
+      Boolean(newDeadline) &&
+      newDeadline >= todayStr;
+
+    const resolvedStatus: PlantillaJob['status'] = isExtendedToActive
+      ? 'Open'
+      : editingJob?.status || 'Open';
+
     const payload: PlantillaJob = {
+      ...(editingJob || {}),
       id: docId,
       positionTitle: newJobForm.positionTitle.trim(),
-      agency: 'DA-BFAR',
+      agency: editingJob?.agency || 'DA-BFAR',
       plantillaItemNumber: itemNo,
-      itemNo: itemNo,
+      itemNo,
       office: newJobForm.office.trim(),
       division: newJobForm.division.trim(),
       region: newJobForm.region.trim(),
       placeOfAssignment: newJobForm.placeOfAssignment.trim(),
       salaryGrade: Number(newJobForm.salaryGrade) || 15,
       plantillaType: newJobForm.plantillaType,
-      status: 'Open',
-      datePosted: newJobForm.datePosted || new Date().toISOString().split('T')[0],
-      postingDate: newJobForm.datePosted || new Date().toISOString().split('T')[0],
-      applicationDeadline: newJobForm.applicationDeadline,
-      closingDate: newJobForm.applicationDeadline,
+      status: resolvedStatus,
+      datePosted: newJobForm.datePosted || todayStr,
+      postingDate: newJobForm.datePosted || todayStr,
+      applicationDeadline: newDeadline,
+      closingDate: newDeadline,
       officialSourceUrl:
-        newJobForm.officialSourceUrl.trim() || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
+        newJobForm.officialSourceUrl.trim() ||
+        'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
       qualificationStandards: {
         education: newJobForm.education.trim(),
         experience: newJobForm.experience.trim(),
         training: newJobForm.training.trim(),
         eligibility: newJobForm.eligibility.trim(),
       },
-      dutiesAndResponsibilities: newJobForm.dutiesText
-        .split('\n')
-        .map((s) => s.trim())
-        .filter(Boolean),
-      competencies: newJobForm.competenciesText
-        .split('\n')
-        .map((s) => s.trim())
-        .filter(Boolean),
+      dutiesAndResponsibilities: duties,
+      competencies,
       attachedDocuments: [
         {
           name: newJobForm.documentTitle.trim() || 'Official Notice of Vacancy (CS Form 9)',
-          url: newJobForm.documentUrl.trim() || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
-          type: 'PDF',
+          url:
+            newJobForm.documentUrl.trim() ||
+            'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
+          type: editingJob?.attachedDocuments?.[0]?.type || 'PDF',
         },
       ],
     };
 
     try {
       await saveJobVacancyToFirestore(payload);
-      onAddJob(payload);
+      if (isEditing && editingJob) {
+        onUpdateJob(editingJob.id, payload);
+      } else {
+        onAddJob(payload);
+      }
       setIsCreatingJob(false);
-      setCreateJobSuccess('Matagumpay na naidaragdag ang bagong plantilla item!');
-      window.location.reload();
+      setEditingJob(null);
+      setNewJobForm(emptyJobForm);
+      setSyncFeedback({
+        type: 'success',
+        message: isEditing
+          ? isExtendedToActive
+            ? `Na-update at na-extend ang deadline ng "${payload.positionTitle}" hanggang ${newDeadline} (Active / Open na ulit).`
+            : `Na-update na ang plantilla item na "${payload.positionTitle}" (Deadline: ${newDeadline}).`
+          : `Matagumpay na naidagdag ang bagong plantilla item na "${payload.positionTitle}".`,
+      });
     } catch (err) {
       console.error('Failed to save job vacancy:', err);
       setCreateJobError('Nabigong i-save ang job vacancy sa database.');
+    } finally {
+      setIsSavingJob(false);
     }
   };
 
@@ -460,7 +581,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
     return (
       <div className="max-w-4xl mx-auto my-8 space-y-6">
-        {/* Security Alert Banner */}
         <div className="bg-slate-900 text-white rounded-2xl p-6 sm:p-8 shadow-xl border border-slate-800 space-y-4">
           <div className="flex items-start gap-4">
             <div className="w-12 h-12 rounded-xl bg-red-600/20 border border-red-500/40 text-red-400 flex items-center justify-center shrink-0">
@@ -498,9 +618,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           </div>
         </div>
 
-        {/* Authorized Personnel Authentication Box */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-md p-6 sm:p-8 max-w-xl mx-auto space-y-6">
-          {/* Header with Top-Right Staff Sign-In Toggle Bar */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-4 border-b border-slate-200">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-200 text-[#024794] flex items-center justify-center shrink-0">
@@ -516,7 +634,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </div>
             </div>
 
-            {/* Top-Right Staff Sign-In Toggle Bar */}
             <div
               role="tablist"
               aria-label="Staff sign-in method"
@@ -567,7 +684,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           )}
 
           {signInMethod === 'google' ? (
-            /* Google Firebase Auth Quick Entry for Authorized HR Admin */
             <div className="space-y-4">
               <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3.5 text-xs text-slate-700 space-y-1">
                 <span className="font-bold text-[#024794] block">
@@ -642,7 +758,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 )}
             </div>
           ) : (
-            /* Agency Employee ID & Passkey Verification Form */
             <form onSubmit={handleDoLogin} className="space-y-4 text-xs">
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">Verified System Role:</label>
@@ -700,7 +815,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </form>
           )}
 
-          {/* Quick link for official live portal */}
           <div className="text-center pt-2 border-t border-slate-100">
             <span className="text-[11px] text-slate-400 block mb-1">Existing Bureau Systems:</span>
             <a
@@ -721,7 +835,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   // AUTHENTICATED HR PERSONNEL DASHBOARD
   return (
     <div className="space-y-6">
-      {/* Verified Role Session Banner */}
       <div className="bg-slate-900 text-white rounded-xl p-4 shadow-sm border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-emerald-600/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center font-black text-sm">
@@ -762,7 +875,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         </div>
       </div>
 
-      {/* Dynamic Recruitment & Personnel Metrics (Calculated from Real Database Records) */}
+      {/* Dynamic Recruitment & Personnel Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
           <span className="text-[10px] font-bold text-slate-500 uppercase block">Registered Applicants</span>
@@ -859,7 +972,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       {/* TAB 1: APPLICANTS TABLE */}
       {adminTab === 'applicants' && (
         <div className="bg-white rounded-b-xl shadow-xs border border-slate-200 overflow-hidden">
-          {/* Controls Bar */}
           <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
             <div className="relative flex-1 max-w-sm">
               <input
@@ -904,7 +1016,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </div>
           </div>
 
-          {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
@@ -1022,7 +1133,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       {/* TAB 2: PLANTILLA VACANCIES & OFFICIAL BFAR SYNCHRONIZATION */}
       {adminTab === 'plantilla' && (
         <div className="bg-white rounded-b-xl shadow-xs border border-slate-200 p-5 space-y-6">
-          {/* Official Source & Synchronization Console Card */}
           <div className="bg-gradient-to-r from-slate-900 via-[#0a2540] to-slate-900 text-white rounded-xl p-5 border border-slate-700 shadow-md space-y-4">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-1">
@@ -1068,7 +1178,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => setIsCreatingJob(true)}
+                  onClick={handleOpenCreateJob}
                   className="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -1077,7 +1187,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </div>
             </div>
 
-            {/* Sync Feedback Message */}
             {syncFeedback && (
               <div
                 className={`p-3 rounded-lg text-xs flex items-center justify-between border ${
@@ -1095,6 +1204,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <span>{syncFeedback.message}</span>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setSyncFeedback(null)}
                   className="text-slate-400 hover:text-white text-xs p-1"
                 >
@@ -1103,7 +1213,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </div>
             )}
 
-            {/* Sync Status Info Bar */}
             <div className="bg-slate-950/70 border border-slate-800 rounded-lg p-3 text-xs flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-4 text-slate-300">
                 <div className="flex items-center gap-1.5">
@@ -1147,7 +1256,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </button>
             </div>
 
-            {/* Collapsible Sync Audit Log Drawer */}
             {showAuditLogs && (
               <div className="bg-slate-950 border border-slate-800 rounded-lg p-3 space-y-2 max-h-56 overflow-y-auto">
                 <div className="flex items-center justify-between pb-1 border-b border-slate-800 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
@@ -1186,12 +1294,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             )}
           </div>
 
-          {/* Plantilla Vacancies Listing with Filter Controls */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200">
             <div>
               <h4 className="text-sm font-bold text-slate-900">Official Plantilla Items Ledger ({jobs.length})</h4>
               <p className="text-xs text-slate-500">
-                Central Office positions synchronized from official DA-BFAR announcements.
+                Central Office positions synchronized from official DA-BFAR announcements. Click <strong>Edit</strong> to
+                modify details or extend the deadline.
               </p>
             </div>
 
@@ -1245,6 +1353,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 const isOpen = job.status === 'Open';
                 const deadline = job.applicationDeadline || job.closingDate;
                 const posted = job.datePosted || job.postingDate;
+                const isBusy = updatingJobId === job.id;
 
                 return (
                   <div
@@ -1252,7 +1361,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     className={`rounded-xl border p-4 space-y-3 flex flex-col justify-between transition-all ${
                       isOpen
                         ? 'bg-white border-slate-200 shadow-xs hover:border-blue-300'
-                        : 'bg-slate-50 border-slate-200 opacity-80'
+                        : 'bg-slate-50 border-slate-200 opacity-90'
                     }`}
                   >
                     <div className="space-y-2">
@@ -1289,13 +1398,19 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         </div>
                         <div className="flex items-center justify-between text-slate-500">
                           <span>Deadline:</span>
-                          <span className={`font-semibold ${isOpen ? 'text-blue-900' : 'text-slate-500'}`}>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditJob(job)}
+                            title="Click to edit or extend deadline"
+                            className={`font-semibold underline decoration-dotted underline-offset-2 cursor-pointer ${
+                              isOpen ? 'text-blue-900 hover:text-[#024794]' : 'text-slate-600 hover:text-slate-900'
+                            }`}
+                          >
                             {deadline}
-                          </span>
+                          </button>
                         </div>
                       </div>
 
-                      {/* Qualification Standards Summary */}
                       <div className="text-[11px] text-slate-600 space-y-0.5 pt-1">
                         <div>
                           <strong className="text-slate-700">Education:</strong>{' '}
@@ -1309,39 +1424,49 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     </div>
 
                     {/* Card Actions */}
-                    <div className="pt-2 border-t border-slate-100 space-y-2">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <a
-                          href={job.officialSourceUrl || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/'}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[#024794] hover:underline text-[11px] font-semibold flex items-center gap-1"
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+                      <a
+                        href={job.officialSourceUrl || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/'}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[#024794] hover:underline text-[11px] font-semibold flex items-center gap-1"
+                      >
+                        <span>Official Notice</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditJob(job)}
+                          disabled={isBusy}
+                          className="px-2.5 py-1 rounded text-[11px] font-bold bg-blue-50 hover:bg-blue-100 text-[#024794] border border-blue-200 transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50"
                         >
-                          <span>Official Notice</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
+                          <Edit className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
 
-                        <div className="flex items-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleToggleVacancyStatus(job.id, job.status)}
-                            className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${
-                              isOpen
-                                ? 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                                : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'
-                            }`}
-                          >
-                            {isOpen ? 'Mark Expired' : 'Reactivate'}
-                          </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleVacancyStatus(job)}
+                          disabled={isBusy}
+                          className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors cursor-pointer disabled:opacity-50 ${
+                            isOpen
+                              ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                              : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800 border border-emerald-200'
+                          }`}
+                        >
+                          {isBusy ? 'Saving...' : isOpen ? 'Mark Expired' : 'Reactivate'}
+                        </button>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteVacancy(job.id, job.positionTitle)}
-                            className="px-2.5 py-1 rounded text-[11px] font-bold bg-red-50 hover:bg-red-100 text-red-600 transition-colors"
-                          >
-                            Delete
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteVacancy(job.id, job.positionTitle)}
+                          disabled={isBusy}
+                          className="px-2.5 py-1 rounded text-[11px] font-bold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1431,7 +1556,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       {selectedApp && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
-            {/* Modal Header */}
             <div className="bg-[#024794] text-white p-5 flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1">
@@ -1454,9 +1578,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="p-6 overflow-y-auto space-y-6 text-xs text-slate-700">
-              {/* AI Qualification Standards (QS) Evaluation */}
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-4 rounded-xl space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1479,7 +1601,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   </div>
                 </div>
 
-                {/* MANDATORY LEGAL & CSC ADVISORY DISCLAIMER */}
                 <div className="bg-amber-50 border border-amber-300 rounded-lg p-2.5 flex items-start gap-2 text-[11px] text-amber-900">
                   <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                   <div className="space-y-0.5 leading-relaxed">
@@ -1493,7 +1614,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   </div>
                 </div>
 
-                {/* If Internal Applicant: Display Verified Internal Personnel Card */}
                 {selectedApp.applicantType === 'internal' && (
                   <div className="bg-purple-100/70 border border-purple-200 rounded-lg p-3 text-[11px] text-purple-950 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -1523,7 +1643,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   </div>
                 )}
 
-                {/* 4 Pillars Matrix with Training Exclusion Notice */}
                 {selectedApp.aiScreening?.qsCompliance && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
                     <div className="bg-white p-2.5 rounded-lg border border-slate-200">
@@ -1576,7 +1695,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 )}
               </div>
 
-              {/* Application Letter to the National Director */}
               {(selectedApp.applicationLetterText || selectedApp.statementOfIntent) && (
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
                   <div className="flex items-center justify-between">
@@ -1593,7 +1711,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </div>
               )}
 
-              {/* Educational Background with Units & Attachments */}
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
                 <span className="font-bold text-slate-800 block text-xs">
                   Educational Background &amp; Credentials
@@ -1631,39 +1748,37 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 ))}
               </div>
 
-              {/* Mandatory Supporting Documents Verification */}
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
                 <span className="font-bold text-slate-800 block text-xs">
                   Mandatory Document Checklist Verification
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                  {selectedApp.documentsUploaded.map((doc, idx) => (
+                  {selectedApp.documentsUploaded.map((docItem, idx) => (
                     <div
                       key={idx}
                       className="bg-white p-2 rounded-lg border border-slate-200 flex items-center justify-between gap-1.5"
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="bg-[#024794] text-white font-mono font-bold text-[9px] px-1.5 py-0.5 rounded shrink-0">
-                          {doc.category || 'DOC'}
+                          {docItem.category || 'DOC'}
                         </span>
-                        <span className="font-medium text-slate-800 truncate" title={doc.name}>
-                          {doc.name}
+                        <span className="font-medium text-slate-800 truncate" title={docItem.name}>
+                          {docItem.name}
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
-                        {doc.autoCorrected && (
+                        {docItem.autoCorrected && (
                           <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1 rounded">
                             Auto-Sorted
                           </span>
                         )}
-                        <span className="font-mono text-[9px] text-slate-400">{doc.fileSize}</span>
+                        <span className="font-mono text-[9px] text-slate-400">{docItem.fileSize}</span>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Tailored HRMPSB Interview Questions */}
               {selectedApp.aiScreening?.tailoredInterviewQuestions && (
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
                   <div className="flex items-center justify-between">
@@ -1689,7 +1804,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </div>
               )}
 
-              {/* HRMPSB Decision Console (Streamlined 5-Stage Pipeline) */}
               <div className="bg-slate-900 text-white p-4 rounded-xl space-y-4">
                 <h4 className="font-bold text-xs uppercase tracking-wider text-amber-400">
                   HRMPSB Deliberation &amp; Application Result Console
@@ -1759,7 +1873,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
               <span className="text-[11px] text-slate-500">Logged at: {selectedApp.submissionDate}</span>
               <div className="flex items-center space-x-2">
@@ -1782,34 +1895,39 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         </div>
       )}
 
-      {/* OFFICIAL BFAR VACANCY IMPORT & VERIFICATION MODAL */}
+      {/* OFFICIAL BFAR VACANCY CREATE & EDIT MODAL */}
       {isCreatingJob && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-200">
-            {/* Modal Header */}
             <div className="bg-[#024794] text-white p-4 flex items-start justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="bg-emerald-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded uppercase">
-                    Official Ingestion
+                    {editingJob ? 'Edit Plantilla Item' : 'Official Ingestion'}
                   </span>
                   <span className="text-sky-200 font-mono text-xs">bfar.da.gov.ph / CS Form 9</span>
                 </div>
-                <h3 className="text-base font-bold text-white">Import &amp; Verify Official Plantilla Vacancy</h3>
+                <h3 className="text-base font-bold text-white">
+                  {editingJob
+                    ? `Edit Vacancy & Extend Deadline: ${editingJob.positionTitle}`
+                    : 'Import & Verify Official Plantilla Vacancy'}
+                </h3>
                 <p className="text-xs text-sky-200 mt-0.5">
                   Synchronize official notices from https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/.
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setIsCreatingJob(false)}
+                onClick={() => {
+                  setIsCreatingJob(false);
+                  setEditingJob(null);
+                }}
                 className="text-white/80 hover:text-white p-1 rounded-full hover:bg-white/10"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="p-6 overflow-y-auto space-y-4 text-xs">
               {createJobError && (
                 <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-lg flex items-start gap-2">
@@ -1832,8 +1950,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </p>
               </div>
 
-              <form id="importVacancyForm" onSubmit={handleCreateJobSubmit} className="space-y-4">
-                {/* Basic Details */}
+              <form id="importVacancyForm" onSubmit={handleCreateOrUpdateJobSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="font-semibold text-slate-700 block mb-1">Position Title *</label>
@@ -1914,14 +2031,20 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-[#024794]"
                     />
                   </div>
-                  <div>
-                    <label className="font-semibold text-slate-700 block mb-1">Application Deadline</label>
+                  <div className="bg-blue-50/70 p-2 rounded-lg border border-blue-200">
+                    <label className="font-bold text-[#024794] mb-1 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>Application Deadline (Extendable)</span>
+                    </label>
                     <input
                       type="date"
                       value={newJobForm.applicationDeadline}
                       onChange={(e) => setNewJobForm({ ...newJobForm, applicationDeadline: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-xs focus:ring-2 focus:ring-[#024794]"
+                      className="w-full bg-white border border-blue-300 rounded-lg p-1.5 text-xs font-semibold text-slate-900 focus:ring-2 focus:ring-[#024794]"
                     />
+                    <span className="text-[10px] text-[#024794] mt-0.5 block">
+                      Pumili ng bagong petsa para ma-extend.
+                    </span>
                   </div>
                 </div>
 
@@ -1937,7 +2060,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   />
                 </div>
 
-                {/* CSC Qualification Standards */}
                 <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-3">
                   <span className="font-bold text-slate-800 text-xs block">
                     Civil Service Commission (CSC) Qualification Standards
@@ -1991,7 +2113,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   </div>
                 </div>
 
-                {/* Attached Document & Duties */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="font-semibold text-slate-700 block mb-1">Attached Document Title</label>
@@ -2029,13 +2150,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </form>
             </div>
 
-            {/* Modal Footer */}
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
               <span className="text-[11px] text-slate-500">Authoritative Source: bfar.da.gov.ph</span>
               <div className="flex items-center space-x-2">
                 <button
                   type="button"
-                  onClick={() => setIsCreatingJob(false)}
+                  onClick={() => {
+                    setIsCreatingJob(false);
+                    setEditingJob(null);
+                  }}
                   className="px-4 py-2 rounded-lg border border-slate-300 text-slate-700 font-semibold text-xs hover:bg-slate-100"
                 >
                   Cancel
@@ -2043,10 +2166,17 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 <button
                   type="submit"
                   form="importVacancyForm"
-                  className="px-5 py-2 rounded-lg bg-[#024794] hover:bg-[#033b7a] text-white font-bold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+                  disabled={isSavingJob}
+                  className="px-5 py-2 rounded-lg bg-[#024794] hover:bg-[#033b7a] disabled:opacity-50 text-white font-bold text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
                 >
                   <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Verify &amp; Add to Registry</span>
+                  <span>
+                    {isSavingJob
+                      ? 'Saving...'
+                      : editingJob
+                      ? 'Save Changes & Deadline'
+                      : 'Verify & Add to Registry'}
+                  </span>
                 </button>
               </div>
             </div>
