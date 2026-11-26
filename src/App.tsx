@@ -225,7 +225,7 @@ export default function App() {
       : activeTab;
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-100 font-['Plus_Jakarta_Sans',sans-serif]">
+    <div className="min-h-screen flex flex-col bg-[#F6F7F9] text-[#0F172A] font-['DM_Sans','Plus_Jakarta_Sans',sans-serif]">
       <Header
         activeTab={headerActiveTab}
         setActiveTab={(tab) => {
@@ -255,9 +255,9 @@ export default function App() {
         isExternalApplicantSession={isExternalApplicantSession}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-8">
         {isCheckingPortalAuth && !isAdminView ? (
-          <div className="bg-white border border-slate-200 rounded-xl p-8 text-center text-xs font-semibold text-slate-600 shadow-xs">
+          <div className="bg-white border border-[#DCE2E8] rounded-sm p-8 text-center text-xs font-semibold text-[#475569]">
             Checking portal session...
           </div>
         ) : isAdminView ? (
@@ -307,7 +307,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setActiveTab('jobs')}
-                    className="text-xs font-bold text-[#024794] hover:underline cursor-pointer"
+                    className="text-xs font-bold text-[#0F3557] hover:text-[#C69214] transition-colors cursor-pointer"
                   >
                     &larr; Back to Plantilla Vacancies
                   </button>
