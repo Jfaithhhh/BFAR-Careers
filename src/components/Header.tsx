@@ -107,15 +107,17 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="w-full bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
-      <div className="bg-[#0b2447] text-white text-xs px-4 py-1.5 flex flex-wrap items-center justify-between gap-2 border-b border-blue-950">
+    <header className="w-full bg-white border-b border-[#DCE2E8] sticky top-0 z-40">
+      <div className="bg-[#071A2F] text-white text-xs px-4 py-1.5 flex flex-wrap items-center justify-between gap-2 border-b border-[#0F3557]">
         <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-1.5 font-bold tracking-wider text-sky-200">
-            <span className="bg-sky-500/20 px-1.5 py-0.5 rounded text-[10px] text-sky-300 font-mono">GOVPH</span>
+          <div className="flex items-center space-x-1.5 font-bold tracking-wider text-white">
+            <span className="bg-[#0F3557] border border-[#C69214]/50 px-1.5 py-0.5 rounded-sm text-[10px] text-[#C69214] font-mono">
+              GOVPH
+            </span>
             <span>REPUBLIC OF THE PHILIPPINES</span>
           </div>
-          <span className="hidden md:inline text-blue-400">|</span>
-          <span className="hidden md:inline text-amber-200 font-semibold text-[11px]">
+          <span className="hidden md:inline text-[#DCE2E8]/30">|</span>
+          <span className="hidden md:inline text-[#FBF7EC] font-medium text-[11px]">
             {isExternalApplicantSession
               ? 'Public Plantilla Recruitment Portal'
               : 'Internal Recruitment & Personnel Promotion Portal'}
@@ -123,46 +125,46 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <div className="flex items-center space-x-4 text-[11px]">
-          <div className="hidden sm:flex items-center space-x-1 text-slate-300">
-            <span className="text-amber-400 font-medium">Philippine Standard Time (PST):</span>
+          <div className="hidden sm:flex items-center space-x-1 text-[#DCE2E8]">
+            <span className="text-[#C69214] font-semibold">Philippine Standard Time (PST):</span>
             <span className="font-mono text-white">{pstTime || 'Synchronizing...'}</span>
           </div>
-          <div className="flex items-center space-x-2 text-slate-300">
+          <div className="flex items-center space-x-2 text-[#DCE2E8]">
             <a
               href="https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/"
               target="_blank"
               rel="noreferrer"
-              className="hover:text-amber-300 flex items-center gap-1 font-semibold text-amber-200 transition-colors"
+              className="hover:text-white flex items-center gap-1 font-semibold text-[#C69214] transition-colors"
               title="Official BFAR Job Vacancies"
             >
               <span>bfar.da.gov.ph/careers</span>
-              <ExternalLink className="w-3 h-3 text-amber-300" />
+              <ExternalLink className="w-3 h-3 text-[#C69214]" />
             </a>
 
             {!isExternalApplicantSession && (
               <>
-                <span className="text-blue-500">·</span>
+                <span className="text-[#DCE2E8]/30">·</span>
 
                 {currentUser && canStaffSignIn ? (
-                  <div className="flex items-center gap-1.5 bg-blue-950/80 border border-blue-700/60 rounded px-2 py-0.5">
+                  <div className="flex items-center gap-1.5 bg-[#0F3557] border border-[#DCE2E8]/25 rounded-sm px-2 py-0.5">
                     {currentUser.photoURL ? (
                       <img
                         src={currentUser.photoURL}
                         alt={currentUser.displayName || 'Staff'}
-                        className="w-4 h-4 rounded-full border border-sky-300"
+                        className="w-4 h-4 rounded-sm border border-[#C69214]"
                       />
                     ) : (
-                      <UserIcon className="w-3.5 h-3.5 text-sky-300" />
+                      <UserIcon className="w-3.5 h-3.5 text-[#C69214]" />
                     )}
-                    <span className="text-[10px] text-sky-100 max-w-[120px] truncate" title={currentUser.email || ''}>
+                    <span className="text-[10px] text-white max-w-[120px] truncate" title={currentUser.email || ''}>
                       {currentUser.displayName || currentUser.email?.split('@')[0]}
                     </span>
                     {currentUser.email === 'jaiciervo7@gmail.com' || currentUser.email?.endsWith('@bfar.da.gov.ph') ? (
-                      <span className="bg-amber-400 text-slate-950 text-[9px] font-black px-1 rounded uppercase">
+                      <span className="bg-[#C69214] text-[#071A2F] text-[9px] font-bold px-1 rounded-sm uppercase">
                         Admin
                       </span>
                     ) : (
-                      <span className="bg-sky-500/30 text-sky-200 text-[9px] font-bold px-1 rounded">
+                      <span className="bg-[#0D4F3C] text-[#EBF5F1] text-[9px] font-bold px-1 rounded-sm">
                         Staff
                       </span>
                     )}
@@ -170,7 +172,7 @@ export const Header: React.FC<HeaderProps> = ({
                       type="button"
                       onClick={handleSignOut}
                       title="Sign out from DA-BFAR Portal"
-                      className="text-slate-400 hover:text-red-300 ml-1 p-0.5 transition-colors"
+                      className="text-[#DCE2E8] hover:text-red-300 ml-1 p-0.5 transition-colors cursor-pointer"
                     >
                       <LogOut className="w-3 h-3" />
                     </button>
@@ -181,10 +183,10 @@ export const Header: React.FC<HeaderProps> = ({
                     onClick={handleSignIn}
                     disabled={!canStaffSignIn || isSigningIn}
                     aria-disabled={!canStaffSignIn || isSigningIn}
-                    className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold transition-all shadow-xs ${
+                    className={`flex items-center gap-1 px-2 py-0.5 rounded-sm text-[10px] font-bold transition-colors border ${
                       canStaffSignIn
-                        ? 'bg-sky-600 hover:bg-sky-500 text-white cursor-pointer'
-                        : 'bg-slate-800/80 text-slate-400 border border-slate-700 cursor-not-allowed opacity-60'
+                        ? 'bg-[#0F3557] hover:bg-[#0D4F3C] text-white border-[#C69214]/60 cursor-pointer'
+                        : 'bg-[#0F3557]/50 text-[#DCE2E8]/60 border-[#DCE2E8]/15 cursor-not-allowed'
                     }`}
                     title={
                       canStaffSignIn
@@ -192,12 +194,12 @@ export const Header: React.FC<HeaderProps> = ({
                         : 'Locked: Naka-off ang HR & HRMPSB Portal o hindi pa naka-verify ang Admin'
                     }
                   >
-                    {canStaffSignIn ? <LogIn className="w-3 h-3" /> : <Lock className="w-3 h-3 text-slate-400" />}
+                    {canStaffSignIn ? <LogIn className="w-3 h-3 text-[#C69214]" /> : <Lock className="w-3 h-3 text-[#DCE2E8]/60" />}
                     <span>{isSigningIn ? 'Signing In...' : 'Staff Sign In'}</span>
                   </button>
                 )}
 
-                <span className="text-blue-500">·</span>
+                <span className="text-[#DCE2E8]/30">·</span>
 
                 <button
                   type="button"
@@ -205,29 +207,29 @@ export const Header: React.FC<HeaderProps> = ({
                   aria-checked={isRestrictedActive}
                   aria-label="Toggle HR and HRMPSB Restricted Portal"
                   onClick={handleToggleRestrictedPortal}
-                  className={`flex items-center gap-2 pl-2 pr-1.5 py-0.5 rounded-full text-[11px] font-semibold transition-all cursor-pointer border ${
+                  className={`flex items-center gap-2 pl-2 pr-1.5 py-0.5 rounded-sm text-[11px] font-semibold transition-colors cursor-pointer border ${
                     isRestrictedActive
-                      ? 'bg-amber-400 text-slate-950 border-amber-300 font-bold shadow-xs'
-                      : 'bg-blue-900/70 hover:bg-blue-800 text-sky-100 border-blue-700/70'
+                      ? 'bg-[#C69214] text-[#071A2F] border-[#C69214] font-bold'
+                      : 'bg-[#0F3557] hover:bg-[#0D4F3C] text-white border-[#DCE2E8]/25'
                   }`}
                   title="Toggle Restricted HR & HRMPSB Staff Portal"
                 >
-                  <Lock className={`w-3 h-3 ${isRestrictedActive ? 'text-slate-950' : 'text-amber-300'}`} />
+                  <Lock className={`w-3 h-3 ${isRestrictedActive ? 'text-[#071A2F]' : 'text-[#C69214]'}`} />
                   <span>HR &amp; HRMPSB Portal (Restricted)</span>
                   {pendingCount > 0 && (
-                    <span className="bg-red-500 text-white text-[9px] font-extrabold px-1.5 rounded-full">
+                    <span className="bg-[#071A2F] text-[#C69214] border border-[#C69214]/50 text-[9px] font-bold px-1.5 rounded-sm">
                       {pendingCount}
                     </span>
                   )}
                   <span
                     aria-hidden="true"
-                    className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
-                      isRestrictedActive ? 'bg-slate-950' : 'bg-slate-600'
+                    className={`relative inline-flex h-4 w-7 items-center rounded-sm transition-colors ${
+                      isRestrictedActive ? 'bg-[#071A2F]' : 'bg-[#071A2F]/80 border border-[#DCE2E8]/30'
                     }`}
                   >
                     <span
-                      className={`inline-block h-3 w-3 transform rounded-full transition-transform ${
-                        isRestrictedActive ? 'translate-x-3.5 bg-amber-300' : 'translate-x-0.5 bg-white'
+                      className={`inline-block h-3 w-3 transform rounded-sm transition-transform ${
+                        isRestrictedActive ? 'translate-x-3.5 bg-[#C69214]' : 'translate-x-0.5 bg-[#DCE2E8]'
                       }`}
                     />
                   </span>
@@ -238,15 +240,15 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      <div className="relative bg-white border-b border-slate-200 shadow-xs overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 relative z-10">
+      <div className="relative bg-white border-b border-[#DCE2E8] overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4 relative z-10">
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <div className="h-14 sm:h-16 w-auto flex items-center justify-center">
                 <img
                   src="/assets/ph_coat_of_arms.png"
                   alt="Coat of Arms of the Republic of the Philippines"
-                  className="h-14 sm:h-16 w-auto object-contain drop-shadow-xs"
+                  className="h-14 sm:h-16 w-auto object-contain"
                 />
               </div>
 
@@ -254,30 +256,33 @@ export const Header: React.FC<HeaderProps> = ({
                 <img
                   src="/assets/bfar_da_logo.png"
                   alt="Department of Agriculture - Bureau of Fisheries and Aquatic Resources"
-                  className="h-14 sm:h-16 w-auto object-contain drop-shadow-xs"
+                  className="h-14 sm:h-16 w-auto object-contain"
                 />
               </div>
             </div>
 
             <div className="flex flex-col justify-center">
-              <span className="text-[10px] sm:text-xs font-black tracking-widest text-slate-800 uppercase leading-tight font-sans">
+              <span className="text-[10px] sm:text-xs font-bold tracking-widest text-[#475569] uppercase leading-tight">
                 REPUBLIC OF THE PHILIPPINES
               </span>
-              <span className="text-[10px] sm:text-xs font-black tracking-widest text-slate-800 uppercase leading-tight font-sans">
+              <span className="text-[10px] sm:text-xs font-bold tracking-widest text-[#475569] uppercase leading-tight">
                 DEPARTMENT OF AGRICULTURE
               </span>
-              <h1 className="text-base sm:text-xl lg:text-2xl font-black text-[#024794] tracking-tight uppercase leading-tight mt-0.5">
+              <h1
+                className="text-base sm:text-xl lg:text-2xl font-bold text-[#071A2F] tracking-tight uppercase leading-tight mt-0.5"
+                style={{ fontFamily: "'Libre Baskerville', 'Cormorant Garamond', Georgia, serif" }}
+              >
                 BUREAU OF FISHERIES AND AQUATIC RESOURCES
               </h1>
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1">
-                <span className="bg-amber-100 text-amber-900 border border-amber-300/80 text-[10px] px-2 py-0.2 rounded-full font-bold">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1.5">
+                <span className="bg-[#FBF7EC] text-[#071A2F] border border-[#C69214]/50 text-[10px] px-2 py-0.5 rounded-sm font-bold">
                   Central Office (NCR) • Quezon City
                 </span>
-                <span className="text-[11px] text-slate-500 hidden sm:inline">
+                <span className="text-[11px] text-[#475569] hidden sm:inline">
                   Fisheries Building Complex, BPI Compound, Brgy. Vasra, Visayas Avenue, Diliman
                 </span>
-                <span className="text-slate-300 hidden sm:inline">|</span>
-                <span className="text-[11px] font-semibold text-[#024794] hidden lg:inline">
+                <span className="text-[#DCE2E8] hidden sm:inline">|</span>
+                <span className="text-[11px] font-semibold text-[#0F3557] hidden lg:inline">
                   Human Resource Merit Promotion and Selection Board (HRMPSB)
                 </span>
               </div>
@@ -287,21 +292,21 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {!hideNavTabs && (
-        <nav className="bg-white border-t border-slate-100 px-4 lg:px-8">
+        <nav className="bg-white border-b border-[#DCE2E8] px-4 lg:px-8">
           <div className="max-w-7xl mx-auto flex items-center justify-between overflow-x-auto no-scrollbar">
             <div className="flex items-center space-x-1 sm:space-x-2 py-2">
               <button
                 type="button"
                 onClick={() => handleTabSelect('jobs')}
-                className={`px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
+                className={`px-3.5 py-2 rounded-sm text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap cursor-pointer ${
                   activeTab === 'jobs'
-                    ? 'bg-blue-50 text-[#024794] border-b-2 border-[#024794]'
-                    : 'text-slate-600 hover:text-[#024794] hover:bg-slate-50'
+                    ? 'bg-[#FBF7EC] text-[#0F3557] border-b-2 border-[#C69214]'
+                    : 'text-[#475569] hover:text-[#0F3557] hover:bg-[#F6F7F9]'
                 }`}
               >
-                <Briefcase className="w-4 h-4 text-[#024794]" />
+                <Briefcase className="w-4 h-4 text-[#0F3557]" />
                 <span>Plantilla Vacancies</span>
-                <span className="bg-blue-100 text-[#024794] text-[11px] font-bold px-1.5 py-0.2 rounded-full">
+                <span className="bg-[#EBF5F1] text-[#0D4F3C] border border-[#0D4F3C]/20 text-[11px] font-bold px-1.5 py-0.2 rounded-sm">
                   {openCount}
                 </span>
               </button>
@@ -311,18 +316,15 @@ export const Header: React.FC<HeaderProps> = ({
                   <button
                     type="button"
                     onClick={() => handleTabSelect('apply')}
-                    className={`px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
+                    className={`px-3.5 py-2 rounded-sm text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap cursor-pointer ${
                       activeTab === 'apply'
-                        ? 'bg-blue-50 text-[#024794] border-b-2 border-[#024794]'
-                        : 'text-slate-600 hover:text-[#024794] hover:bg-slate-50'
+                        ? 'bg-[#FBF7EC] text-[#0F3557] border-b-2 border-[#C69214]'
+                        : 'text-[#475569] hover:text-[#0F3557] hover:bg-[#F6F7F9]'
                     }`}
                   >
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                    </span>
+                    <span className="h-2 w-2 rounded-sm bg-[#C69214]" />
                     <span>Internal Application (Fast-Fill)</span>
-                    <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide">
+                    <span className="bg-[#FBF7EC] text-[#071A2F] border border-[#C69214]/40 text-[10px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wide">
                       Staff Only
                     </span>
                   </button>
@@ -330,15 +332,15 @@ export const Header: React.FC<HeaderProps> = ({
                   <button
                     type="button"
                     onClick={() => handleTabSelect('internal')}
-                    className={`px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
+                    className={`px-3.5 py-2 rounded-sm text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap cursor-pointer ${
                       activeTab === 'internal'
-                        ? 'bg-blue-50 text-[#024794] border-b-2 border-[#024794]'
-                        : 'text-slate-600 hover:text-[#024794] hover:bg-slate-50'
+                        ? 'bg-[#FBF7EC] text-[#0F3557] border-b-2 border-[#C69214]'
+                        : 'text-[#475569] hover:text-[#0F3557] hover:bg-[#F6F7F9]'
                     }`}
                   >
-                    <UserCheck className="w-4 h-4 text-emerald-600" />
+                    <UserCheck className="w-4 h-4 text-[#0D4F3C]" />
                     <span>Internal Recruitment (BFAR Personnel)</span>
-                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide">
+                    <span className="bg-[#EBF5F1] text-[#0D4F3C] border border-[#0D4F3C]/25 text-[10px] font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wide">
                       Promotion Hub
                     </span>
                   </button>
@@ -346,13 +348,13 @@ export const Header: React.FC<HeaderProps> = ({
                   <button
                     type="button"
                     onClick={() => handleTabSelect('track')}
-                    className={`px-3.5 py-2 rounded-md text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap ${
+                    className={`px-3.5 py-2 rounded-sm text-xs sm:text-sm font-semibold flex items-center gap-2 transition-colors whitespace-nowrap cursor-pointer ${
                       activeTab === 'track'
-                        ? 'bg-blue-50 text-[#024794] border-b-2 border-[#024794]'
-                        : 'text-slate-600 hover:text-[#024794] hover:bg-slate-50'
+                        ? 'bg-[#FBF7EC] text-[#0F3557] border-b-2 border-[#C69214]'
+                        : 'text-[#475569] hover:text-[#0F3557] hover:bg-[#F6F7F9]'
                     }`}
                   >
-                    <FileSearch className="w-4 h-4 text-[#024794]" />
+                    <FileSearch className="w-4 h-4 text-[#0F3557]" />
                     <span>Track Application Status</span>
                   </button>
                 </>
@@ -360,8 +362,8 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
 
             {!isExternalApplicantSession && (
-              <div className="hidden lg:flex items-center text-xs text-slate-500 gap-1.5">
-                <Award className="w-3.5 h-3.5 text-amber-500" />
+              <div className="hidden lg:flex items-center text-xs text-[#475569] gap-1.5">
+                <Award className="w-3.5 h-3.5 text-[#C69214]" />
                 <span>PRC RA 1080 &amp; Civil Service Commission Integrated</span>
               </div>
             )}
