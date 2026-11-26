@@ -803,9 +803,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   onChange={(e) => setVerifiedRole(e.target.value as AdminRole)}
                   className="w-full bg-[#F6F7F9] border border-[#DCE2E8] rounded-sm p-2.5 font-semibold text-[#0F172A] focus:outline-none focus:border-[#0F3557]"
                 >
-                  <option value="HR_Specialist">HR Administrative</option>
-                  <option value="HR_Supervisor">HR Supervisor</option>
-                  <option value="HR_Chief">HR Chief</option>
+                  <option value="HR_Specialist">Human Resource Administrative</option>
+                  <option value="HR_Supervisor">Human Resource Supervisor</option>
+                  <option value="HR_Chief">Human Resource Chief</option>
                 </select>
               </div>
 
