@@ -133,7 +133,8 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
         onNavigateTab('jobs');
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Sign in failed. Please check your credentials.';
+      const message =
+        err instanceof Error ? err.message : 'Sign in failed. Please check your credentials.';
       setErrorMsg(message);
     } finally {
       setLoading(false);
@@ -198,9 +199,10 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
           uid: pending.uid,
           email: pending.email,
           username: pending.username,
-          generatedCode: typeof (pending as { code?: unknown }).code === 'string'
-            ? String((pending as { code?: unknown }).code)
-            : undefined,
+          generatedCode:
+            typeof (pending as { code?: unknown }).code === 'string'
+              ? String((pending as { code?: unknown }).code)
+              : undefined,
         });
       } else {
         const { profile, requiresOtp } = await loginExternalApplicant(extIdentifier, extPassword);
@@ -284,11 +286,13 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
   if (portalUser) {
     const isEmployee = portalUser.role === 'bfar_employee';
     return (
-      <div className="mb-4 bg-white border border-slate-200 rounded-lg px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
+      <div className="mb-4 bg-white border border-slate-200 rounded-xl px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 shadow-2xs">
         <div className="flex items-center gap-2 text-xs">
           <span
-            className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${
-              isEmployee ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-[#024794]'
+            className={`px-2.5 py-0.5 rounded-md font-bold text-[10px] uppercase border ${
+              isEmployee
+                ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                : 'bg-blue-100 text-[#024794] border-blue-200'
             }`}
           >
             {isEmployee ? 'BFAR Employee' : 'External Applicant'}
@@ -300,7 +304,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
         <button
           type="button"
           onClick={onPortalSignOut}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-red-700 px-2.5 py-1 rounded-md hover:bg-red-50 transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-rose-700 px-2.5 py-1 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" />
           <span>Sign Out</span>
@@ -311,8 +315,8 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
 
   return (
     <div className="py-6 sm:py-10 flex items-center justify-center">
-      <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-        <div className="bg-[#0b2447] px-6 py-4 text-white">
+      <div className="w-full max-w-md bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+        <div className="bg-[#024794] px-6 py-4 text-white">
           <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber-300">
             DA-BFAR Careers Portal
           </p>
@@ -322,13 +326,13 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
         </div>
 
         <div className="p-6">
-          <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 mb-5">
+          <div className="grid grid-cols-3 gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200 mb-5">
             <button
               type="button"
               onClick={() => handleSelectOption('bfar_employee')}
               className={`py-2 px-2 rounded-lg text-[11px] font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 selectedOption === 'bfar_employee'
-                  ? 'bg-white text-emerald-800 shadow-2xs ring-1 ring-emerald-600/20'
+                  ? 'bg-white text-emerald-800 shadow-2xs ring-1 ring-emerald-200'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -341,7 +345,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
               onClick={() => handleSelectOption('external_applicant')}
               className={`py-2 px-2 rounded-lg text-[11px] font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 selectedOption === 'external_applicant'
-                  ? 'bg-white text-[#024794] shadow-2xs ring-1 ring-blue-600/20'
+                  ? 'bg-white text-[#024794] shadow-2xs ring-1 ring-blue-200'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -352,7 +356,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
             <button
               type="button"
               onClick={() => handleSelectOption('admin')}
-              className="py-2 px-2 rounded-lg text-[11px] font-bold flex flex-col items-center justify-center gap-1 text-amber-900 hover:bg-amber-50 transition-all cursor-pointer"
+              className="py-2 px-2 rounded-lg text-[11px] font-bold flex flex-col items-center justify-center gap-1 text-amber-950 hover:bg-amber-50 transition-all cursor-pointer"
             >
               <ShieldCheck className="w-4 h-4" />
               <span>HR Admin</span>
@@ -391,8 +395,8 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
           </div>
 
           {errorMsg && (
-            <div className="mb-4 p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <div className="mb-4 p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
               <span>{errorMsg}</span>
             </div>
           )}
@@ -413,7 +417,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                         value={empFullName}
                         onChange={(e) => setEmpFullName(e.target.value)}
                         placeholder="Juan Dela Cruz"
-                        className="w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
+                        className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600"
                       />
                     </div>
                   </div>
@@ -431,7 +435,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                           value={empDivision}
                           onChange={(e) => setEmpDivision(e.target.value)}
                           placeholder="Aquaculture Div."
-                          className="w-full pl-8 pr-2.5 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
+                          className="w-full pl-8 pr-2.5 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600"
                         />
                       </div>
                     </div>
@@ -446,7 +450,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                         value={empPosition}
                         onChange={(e) => setEmpPosition(e.target.value)}
                         placeholder="Aquaculturist I"
-                        className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
+                        className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600"
                       />
                     </div>
                   </div>
@@ -458,7 +462,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                     <select
                       value={empStatus}
                       onChange={(e) => setEmpStatus(e.target.value as EmployeeStatus)}
-                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600 bg-white"
+                      className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 bg-white cursor-pointer"
                     >
                       <option value="Permanent">Permanent</option>
                       <option value="Casual">Casual</option>
@@ -481,7 +485,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                     value={empEmail}
                     onChange={(e) => setEmpEmail(e.target.value)}
                     placeholder="name@bfar.da.gov.ph"
-                    className="w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
+                    className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600"
                   />
                 </div>
               </div>
@@ -496,7 +500,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                     value={empPassword}
                     onChange={(e) => setEmpPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
+                    className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600"
                   />
                 </div>
               </div>
@@ -514,7 +518,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                       value={empConfirmPassword}
                       onChange={(e) => setEmpConfirmPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600"
+                      className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600"
                     />
                   </div>
                 </div>
@@ -523,7 +527,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-emerald-700 hover:bg-emerald-600 disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-lg transition-colors cursor-pointer"
+                className="w-full bg-emerald-700 hover:bg-emerald-600 disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-lg shadow-xs transition-colors cursor-pointer"
               >
                 {loading
                   ? 'Please wait...'
@@ -559,7 +563,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                         value={extIdentifier}
                         onChange={(e) => setExtIdentifier(e.target.value)}
                         placeholder="you@gmail.com or username"
-                        className="w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
+                        className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#024794] focus:border-[#024794]"
                       />
                     </div>
                   </div>
@@ -576,7 +580,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                         value={extPassword}
                         onChange={(e) => setExtPassword(e.target.value)}
                         placeholder="••••••••"
-                        className="w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
+                        className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#024794] focus:border-[#024794]"
                       />
                     </div>
                   </div>
@@ -595,7 +599,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                         value={extUsername}
                         onChange={(e) => setExtUsername(e.target.value)}
                         placeholder="unique_username"
-                        className="w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
+                        className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#024794] focus:border-[#024794]"
                       />
                     </div>
                   </div>
@@ -612,7 +616,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                         value={extEmail}
                         onChange={(e) => setExtEmail(e.target.value)}
                         placeholder="you@gmail.com"
-                        className="w-full pl-8 pr-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
+                        className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#024794] focus:border-[#024794]"
                       />
                     </div>
                   </div>
@@ -630,7 +634,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                           value={extPassword}
                           onChange={(e) => setExtPassword(e.target.value)}
                           placeholder="••••••••"
-                          className="w-full pl-8 pr-2.5 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
+                          className="w-full pl-8 pr-2.5 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#024794] focus:border-[#024794]"
                         />
                       </div>
                     </div>
@@ -647,7 +651,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                           value={extConfirmPassword}
                           onChange={(e) => setExtConfirmPassword(e.target.value)}
                           placeholder="••••••••"
-                          className="w-full pl-8 pr-2.5 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
+                          className="w-full pl-8 pr-2.5 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#024794] focus:border-[#024794]"
                         />
                       </div>
                     </div>
@@ -658,7 +662,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-[#024794] hover:bg-blue-800 disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-lg transition-colors cursor-pointer"
+                className="w-full bg-[#024794] hover:bg-[#033b7a] disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-lg shadow-xs transition-colors cursor-pointer"
               >
                 {loading
                   ? 'Processing...'
@@ -672,9 +676,9 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
       </div>
 
       {otpModalData && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-sm w-full border border-slate-200 shadow-xl overflow-hidden">
-            <div className="bg-[#0b2447] text-white px-4 py-3 flex items-center justify-between">
+            <div className="bg-[#024794] text-white px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <KeyRound className="w-4 h-4 text-amber-300" />
                 <h3 className="font-bold text-xs">6-Digit Account Verification</h3>
@@ -682,14 +686,14 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
               <button
                 type="button"
                 onClick={() => setOtpModalData(null)}
-                className="text-slate-300 hover:text-white cursor-pointer"
+                className="text-white/80 hover:text-white cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             <form onSubmit={handleVerifyOtp} className="p-4 space-y-3">
-              <p className="text-xs text-slate-600">
+              <p className="text-xs text-slate-600 leading-relaxed">
                 Verification code for <strong>{otpModalData.email}</strong> (expires in 5 mins). The
                 portal does not access applicant Gmail accounts.
               </p>
@@ -704,7 +708,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
               )}
 
               {otpError && (
-                <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs">
+                <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs">
                   {otpError}
                 </div>
               )}
@@ -717,13 +721,13 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                 value={otpCode}
                 onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="000000"
-                className="w-full text-center tracking-[0.45em] font-mono text-lg font-black py-2 border border-slate-300 rounded-lg focus:outline-none focus:border-[#024794]"
+                className="w-full text-center tracking-[0.45em] font-mono text-lg font-black py-2 bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-[#024794] focus:border-[#024794]"
               />
 
               <button
                 type="submit"
                 disabled={otpLoading || otpCode.length !== 6}
-                className="w-full bg-[#024794] hover:bg-blue-800 disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-lg cursor-pointer"
+                className="w-full bg-[#024794] hover:bg-[#033b7a] disabled:opacity-60 text-white text-xs font-bold py-2.5 rounded-lg shadow-xs cursor-pointer"
               >
                 {otpLoading ? 'Verifying...' : 'Verify & Continue to Vacancies'}
               </button>

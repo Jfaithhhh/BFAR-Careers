@@ -268,37 +268,46 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
   if (!activeEmployee) {
     return (
       <div className="space-y-6 max-w-4xl mx-auto">
-        <div className="bg-gradient-to-r from-[#024794] via-[#0b2447] to-[#04336c] rounded-2xl p-6 sm:p-8 text-white shadow-md relative overflow-hidden">
-          <div className="absolute right-0 top-0 w-96 h-96 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="relative z-10 space-y-3">
-            <div className="inline-flex items-center gap-2 bg-amber-400/20 border border-amber-300/40 text-amber-200 px-3 py-1 rounded-full text-xs font-bold tracking-wide">
-              <UserCheck className="w-3.5 h-3.5 text-amber-300" />
-              <span>DA-BFAR INTERNAL PERSONNEL MERIT SYSTEM</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
-              Internal Recruitment &amp; Promotion Portal
-            </h2>
-            <p className="text-slate-200 text-xs sm:text-sm leading-relaxed max-w-2xl">
-              Strictly restricted to authorized permanent and active personnel of the Bureau of
-              Fisheries and Aquatic Resources. Uses lightweight text-only ID verification and
-              @bfar.da.gov.ph authentication to conserve Firebase Storage.
-            </p>
+        {/* Official DA-BFAR Internal Portal Banner */}
+        <div className="bg-sky-50 border-l-4 border-[#024794] p-5 sm:p-6 rounded-r-xl shadow-xs space-y-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 bg-[#024794] text-white text-[10px] font-bold px-2.5 py-0.5 rounded uppercase tracking-wide">
+              <UserCheck className="w-3 h-3 text-amber-300" />
+              <span>Internal Personnel Merit System</span>
+            </span>
+            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+              Central Office (NCR) • Quezon City
+            </span>
+            <span className="bg-blue-100 text-[#024794] text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+              RA 7041 / CSC Compliant
+            </span>
           </div>
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+            Internal Recruitment &amp; Promotion Portal
+          </h2>
+          <p className="text-xs text-slate-600 leading-relaxed max-w-2xl">
+            Strictly restricted to authorized permanent and active personnel of the{' '}
+            <strong>Bureau of Fisheries and Aquatic Resources (DA-BFAR)</strong>. Uses lightweight
+            text-only ID verification and <strong>@bfar.da.gov.ph</strong> authentication to
+            conserve Firebase Storage.
+          </p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-md border border-slate-200 p-6 sm:p-8 space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+        {/* Verification Card */}
+        <div className="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+          <div className="p-5 sm:p-6 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-full bg-blue-50 border border-blue-200 text-[#024794] flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-200 text-[#024794] flex items-center justify-center shrink-0">
                 <KeyRound className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-lg font-black text-slate-900">
+                <h3 className="text-sm sm:text-base font-bold text-slate-900">
                   Employee Identity Verification
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Enter your registered DA-BFAR Employee ID (e.g. <strong>COS4513</strong>) or verify with
-                  your <strong>@bfar.da.gov.ph</strong> Google account.
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Enter your registered DA-BFAR Employee ID (e.g.{' '}
+                  <strong className="text-slate-800">COS4513</strong>) or verify with your{' '}
+                  <strong className="text-[#024794]">@bfar.da.gov.ph</strong> Google account.
                 </p>
               </div>
             </div>
@@ -307,74 +316,77 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
               type="button"
               onClick={handleBfarDomainSignIn}
               disabled={isVerifying}
-              className="bg-blue-50 hover:bg-blue-100 text-[#024794] border border-blue-200 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shrink-0 self-start sm:self-center cursor-pointer"
+              className="bg-white hover:bg-blue-50 text-[#024794] border border-[#024794]/40 px-3.5 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shrink-0 self-start sm:self-center shadow-xs transition-colors cursor-pointer disabled:opacity-50"
             >
-              <LogIn className="w-3.5 h-3.5" />
+              <LogIn className="w-3.5 h-3.5 text-[#024794]" />
               <span>Verify @bfar.da.gov.ph</span>
             </button>
           </div>
 
-          {verificationError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-4 rounded-xl flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <span className="font-bold block">Verification Notice:</span>
-                <span className="leading-relaxed block">{verificationError}</span>
+          <div className="p-6 sm:p-8 space-y-6">
+            {verificationError && (
+              <div className="bg-rose-50 border-l-4 border-rose-500 text-rose-800 text-xs p-4 rounded-r-lg flex items-start gap-3">
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <span className="font-bold block">Verification Notice</span>
+                  <span className="leading-relaxed block">{verificationError}</span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          <form onSubmit={handleVerifyEmployee} className="space-y-4 max-w-md mx-auto">
-            <div>
-              <label className="font-bold text-slate-700 block mb-1.5 text-xs">
-                Official DA-BFAR Employee ID:
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. COS4513"
-                  value={employeeIdInput}
-                  onChange={(e) => setEmployeeIdInput(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-300 rounded-lg pl-9 pr-3 py-2.5 text-xs font-mono font-bold text-slate-900 focus:ring-2 focus:ring-[#024794] focus:bg-white"
-                />
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+            <form onSubmit={handleVerifyEmployee} className="space-y-4 max-w-md mx-auto">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1.5 text-xs">
+                  Official DA-BFAR Employee ID
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. COS4513"
+                    value={employeeIdInput}
+                    onChange={(e) => setEmployeeIdInput(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-xs font-mono font-bold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#024794] focus:bg-white"
+                  />
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                </div>
+                <span className="text-[11px] text-slate-500 mt-1.5 block">
+                  Issued by the DA-BFAR Human Resource Management Division (HRMD). Zero file storage
+                  used.
+                </span>
               </div>
-              <span className="text-[11px] text-slate-400 mt-1 block">
-                Issued by the DA-BFAR Human Resource Management Division (HRMD). Zero file storage used.
-              </span>
-            </div>
 
-            <button
-              type="submit"
-              disabled={isVerifying}
-              className="w-full bg-[#024794] hover:bg-[#033b7a] disabled:opacity-50 text-white py-3 rounded-lg font-bold text-xs shadow-md transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              {isVerifying ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-amber-300" />
-                  <span>Verifying Record with HR Database...</span>
-                </>
-              ) : (
-                <>
-                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  <span>Verify Employee Identity</span>
-                </>
-              )}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={isVerifying}
+                className="w-full bg-[#024794] hover:bg-[#033b7a] disabled:opacity-50 text-white py-2.5 px-4 rounded-lg font-bold text-xs shadow-xs transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isVerifying ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-300" />
+                    <span>Verifying Record with HR Database...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck className="w-4 h-4 text-emerald-300" />
+                    <span>Verify Employee Identity</span>
+                  </>
+                )}
+              </button>
+            </form>
 
-          <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 text-xs text-slate-600 space-y-1.5">
-            <div className="flex items-center gap-1.5 font-bold text-slate-800">
-              <Building className="w-4 h-4 text-[#024794]" />
-              <span>Assistance for DA-BFAR Personnel:</span>
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 text-xs text-slate-600 space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                <Building className="w-4 h-4 text-[#024794]" />
+                <span>Assistance for DA-BFAR Personnel</span>
+              </div>
+              <p className="text-[11px] text-slate-500 leading-relaxed">
+                If your Employee ID is newly issued or pending database synchronization, please
+                contact the <strong>HRMD Personnel Section</strong> at the BFAR Central Office, PCA
+                Building, Diliman, Quezon City or email{' '}
+                <span className="font-mono text-slate-700 font-semibold">hrmd@bfar.da.gov.ph</span>.
+              </p>
             </div>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              If your Employee ID is newly issued or pending database synchronization, please contact
-              the <strong>HRMD Personnel Section</strong> at the BFAR Central Office, PCA Building,
-              Diliman, Quezon City or email{' '}
-              <span className="font-mono text-slate-700 font-semibold">hrmd@bfar.da.gov.ph</span>.
-            </p>
           </div>
         </div>
       </div>
@@ -394,22 +406,25 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
 
   return (
     <div className="space-y-6">
-      <div className="bg-slate-900 text-white rounded-xl p-4 shadow-sm border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Verified Session Bar */}
+      <div className="bg-slate-900 text-white rounded-xl p-4 shadow-xs border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-emerald-600/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center font-black text-sm">
-            <ShieldCheck className="w-6 h-6 text-emerald-400" />
+          <div className="w-10 h-10 rounded-lg bg-emerald-500/15 border border-emerald-400/30 text-emerald-400 flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-5 h-5 text-emerald-400" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="bg-emerald-500 text-slate-950 font-black text-[10px] px-2 py-0.2 rounded uppercase">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="bg-emerald-100 text-emerald-900 font-bold text-[10px] px-2 py-0.5 rounded uppercase">
                 Verified DA-BFAR Personnel
               </span>
-              <span className="text-slate-400 font-mono text-xs">
+              <span className="text-slate-300 font-mono text-xs font-semibold">
                 {activeEmployee.employeeId}
               </span>
             </div>
-            <h3 className="text-sm font-bold text-white mt-0.5">
-              {activeEmployee.fullName} • {activeEmployee.currentPositionTitle || 'Plantilla Staff'} (SG {activeEmployee.salaryGrade})
+            <h3 className="text-xs sm:text-sm font-bold text-white mt-0.5">
+              {activeEmployee.fullName} •{' '}
+              {activeEmployee.currentPositionTitle || 'Plantilla Staff'} (SG{' '}
+              {activeEmployee.salaryGrade})
             </h3>
           </div>
         </div>
@@ -417,73 +432,108 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
         <button
           type="button"
           onClick={handleClearVerification}
-          className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors self-start sm:self-auto cursor-pointer"
+          className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors self-start sm:self-auto cursor-pointer shrink-0"
         >
-          <LogOut className="w-3.5 h-3.5 text-red-400" />
+          <LogOut className="w-3.5 h-3.5 text-rose-400" />
           <span>Exit Personnel Session</span>
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
-        <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-2">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
-          <span>Official Personnel Service Profile (Zero-Storage Verification)</span>
-        </h3>
+      {/* Official Personnel Service Profile */}
+      <div className="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+        <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+          <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span>Official Personnel Service Profile</span>
+          </h3>
+          <span className="bg-blue-100 text-[#024794] text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+            Zero-Storage Verification
+          </span>
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="space-y-2 border-b md:border-b-0 md:border-r border-slate-100 md:pr-4">
+        <div className="p-5 grid grid-cols-1 md:grid-cols-3 gap-5 text-xs">
+          <div className="space-y-2.5 border-b md:border-b-0 md:border-r border-slate-200 pb-4 md:pb-0 md:pr-5">
             <div>
-              <span className="text-slate-400 text-[10px] uppercase font-bold block">Full Name:</span>
+              <span className="text-slate-400 text-[10px] uppercase font-bold block">
+                Full Name
+              </span>
               <span className="font-bold text-slate-900 text-sm">{activeEmployee.fullName}</span>
             </div>
             <div>
-              <span className="text-slate-400 text-[10px] uppercase font-bold block">Employee ID:</span>
-              <span className="font-mono font-bold text-[#024794] text-xs">{activeEmployee.employeeId}</span>
+              <span className="text-slate-400 text-[10px] uppercase font-bold block">
+                Employee ID
+              </span>
+              <span className="font-mono font-bold text-[#024794] text-xs bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-block mt-0.5">
+                {activeEmployee.employeeId}
+              </span>
             </div>
             <div>
-              <span className="text-slate-400 text-[10px] uppercase font-bold block">Division / Operating Unit:</span>
-              <span className="text-xs font-semibold text-slate-800">{activeEmployee.division}</span>
+              <span className="text-slate-400 text-[10px] uppercase font-bold block">
+                Division / Operating Unit
+              </span>
+              <span className="text-xs font-semibold text-slate-800">
+                {activeEmployee.division}
+              </span>
             </div>
             {activeEmployee.email && (
               <div>
-                <span className="text-slate-400 text-[10px] uppercase font-bold block">Official Email:</span>
+                <span className="text-slate-400 text-[10px] uppercase font-bold block">
+                  Official Email
+                </span>
                 <span className="text-xs text-slate-700 font-mono">{activeEmployee.email}</span>
               </div>
             )}
           </div>
 
-          <div className="space-y-2 border-b md:border-b-0 md:border-r border-slate-100 md:pr-4">
+          <div className="space-y-2.5 border-b md:border-b-0 md:border-r border-slate-200 pb-4 md:pb-0 md:pr-5">
             <div>
-              <span className="text-slate-400 text-[10px] uppercase font-bold block">Current Position:</span>
-              <span className="font-bold text-slate-900 text-xs">{activeEmployee.currentPositionTitle || 'Plantilla Item Holder'}</span>
+              <span className="text-slate-400 text-[10px] uppercase font-bold block">
+                Current Position
+              </span>
+              <span className="font-bold text-slate-900 text-xs block">
+                {activeEmployee.currentPositionTitle || 'Plantilla Item Holder'}
+              </span>
               {activeEmployee.currentPlantillaItem && (
-                <span className="font-mono text-[11px] text-slate-500 block">{activeEmployee.currentPlantillaItem}</span>
+                <span className="font-mono text-[11px] text-slate-500 block mt-0.5">
+                  {activeEmployee.currentPlantillaItem}
+                </span>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-2 pt-2">
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
               <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-500 uppercase block">Salary Grade:</span>
-                <span className="text-base font-black text-[#024794]">SG {activeEmployee.salaryGrade}</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase block">
+                  Salary Grade
+                </span>
+                <span className="text-sm font-black text-[#024794] block mt-0.5">
+                  SG {activeEmployee.salaryGrade}
+                </span>
                 <span className="text-[10px] text-slate-400 block">Grade Only</span>
               </div>
               <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                <span className="text-[10px] font-bold text-slate-500 uppercase block">Bureau Service:</span>
-                <span className="text-base font-black text-slate-800">{activeEmployee.yearsInBfar || 0} Years</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase block">
+                  Bureau Service
+                </span>
+                <span className="text-sm font-black text-slate-800 block mt-0.5">
+                  {activeEmployee.yearsInBfar || 0} Years
+                </span>
                 <span className="text-[10px] text-slate-400 block">Active Service</span>
               </div>
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 space-y-1">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-bold text-emerald-800 uppercase flex items-center gap-1">
-                  <Award className="w-3.5 h-3.5 text-emerald-600" />
-                  Latest IPCR Rating:
+                  <Award className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>Latest IPCR Rating</span>
                 </span>
-                <span className="text-xs font-black text-emerald-700">
-                  {activeEmployee.latestIpcrRating ? activeEmployee.latestIpcrRating.toFixed(2) : 'N/A'} / 5.00
+                <span className="text-xs font-black text-emerald-800 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                  {activeEmployee.latestIpcrRating
+                    ? activeEmployee.latestIpcrRating.toFixed(2)
+                    : 'N/A'}{' '}
+                  / 5.00
                 </span>
               </div>
               <div className="text-[11px] text-emerald-900 font-semibold">
@@ -491,7 +541,7 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
               </div>
             </div>
 
-            <div className="text-xs text-slate-600 space-y-1 pt-1">
+            <div className="text-xs text-slate-600 space-y-1 pt-0.5">
               {activeEmployee.eligibility && (
                 <div>
                   <strong className="text-slate-700 text-[11px]">Eligibility: </strong>
@@ -501,7 +551,9 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
               {activeEmployee.trainingHours !== undefined && (
                 <div>
                   <strong className="text-slate-700 text-[11px]">Recorded L&amp;D Hours: </strong>
-                  <span className="text-slate-800 text-[11px]">{activeEmployee.trainingHours} Hours</span>
+                  <span className="text-slate-800 text-[11px]">
+                    {activeEmployee.trainingHours} Hours
+                  </span>
                 </div>
               )}
             </div>
@@ -509,174 +561,194 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-3">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+      {/* My Promotional Submissions */}
+      <div className="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+        <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 text-[#024794]" />
-            <h3 className="text-sm font-bold text-slate-900">
+            <h3 className="text-xs sm:text-sm font-bold text-slate-900">
               My Promotional Submissions ({myApplications.length})
             </h3>
           </div>
-          <span className="text-xs text-slate-400">Tracked in Cloud Firestore</span>
+          <span className="text-[11px] text-slate-500 font-medium">Tracked in Cloud Firestore</span>
         </div>
 
-        {myApplications.length === 0 ? (
-          <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 space-y-2">
-            <FileText className="w-8 h-8 text-slate-400 mx-auto" />
-            <div className="text-xs font-bold text-slate-700">You have not submitted any applications yet.</div>
-            <p className="text-[11px] text-slate-500 max-w-md mx-auto">
-              Select an available promotional vacancy below to prepare and submit your application.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {myApplications.map((app) => (
-              <div
-                key={app.id}
-                className="p-3.5 bg-slate-50 hover:bg-blue-50/50 rounded-xl border border-slate-200 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-              >
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-[#024794]">
-                      {app.trackingCode}
-                    </span>
-                    <span className="bg-purple-100 text-purple-900 font-bold text-[10px] px-2 py-0.2 rounded">
-                      {app.promotionTrack || 'Promotion'}
-                    </span>
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.2 rounded ${
-                        app.status.includes('Recommended')
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : app.status.includes('Qualified')
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-amber-100 text-amber-800'
-                      }`}
-                    >
-                      {app.status}
-                    </span>
-                  </div>
-                  <h4 className="font-bold text-xs text-slate-900">{app.positionTitle}</h4>
-                  <p className="text-[11px] text-slate-500">
-                    Item No: {app.plantillaItemNo} • Submitted {app.submissionDate}
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => onTrackApplication(app.trackingCode)}
-                  className="bg-white hover:bg-[#024794] hover:text-white text-[#024794] border border-[#024794] text-xs font-bold px-4 py-1.5 rounded-lg transition-all shadow-2xs flex items-center justify-center gap-1 shrink-0 cursor-pointer"
-                >
-                  <span>Track Application</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+        <div className="p-5">
+          {myApplications.length === 0 ? (
+            <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-2">
+              <FileText className="w-7 h-7 text-slate-400 mx-auto" />
+              <div className="text-xs font-bold text-slate-800">
+                You have not submitted any applications yet.
               </div>
-            ))}
-          </div>
-        )}
+              <p className="text-[11px] text-slate-500 max-w-md mx-auto">
+                Select an available promotional vacancy below to prepare and submit your
+                application.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {myApplications.map((app) => (
+                <div
+                  key={app.id}
+                  className="p-4 bg-slate-50 hover:bg-blue-50/60 rounded-xl border border-slate-200 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                >
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-xs font-bold text-[#024794] bg-white px-2 py-0.5 rounded border border-blue-200">
+                        {app.trackingCode}
+                      </span>
+                      <span className="bg-blue-100 text-[#024794] font-bold text-[10px] px-2 py-0.5 rounded">
+                        {app.promotionTrack || 'Promotion'}
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                          app.status.includes('Recommended')
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                            : app.status.includes('Qualified')
+                            ? 'bg-sky-100 text-sky-800 border border-sky-200'
+                            : 'bg-amber-100 text-amber-800 border border-amber-200'
+                        }`}
+                      >
+                        {app.status}
+                      </span>
+                    </div>
+                    <h4 className="font-bold text-xs sm:text-sm text-slate-900">
+                      {app.positionTitle}
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      Item No: <span className="font-mono">{app.plantillaItemNo}</span> • Submitted{' '}
+                      {app.submissionDate}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => onTrackApplication(app.trackingCode)}
+                    className="bg-white hover:bg-[#024794] hover:text-white text-[#024794] border border-[#024794] text-xs font-bold px-3.5 py-1.5 rounded-lg transition-colors shadow-xs flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+                  >
+                    <span>Track Application</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+      {/* Available Promotional Plantilla Items */}
+      <div className="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+        <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-amber-500" />
-              <span>Available Promotional Plantilla Items (Salary Grade {activeEmployee.salaryGrade} and Above)</span>
+            <h3 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-[#024794]" />
+              <span>
+                Available Promotional Plantilla Items (Salary Grade {activeEmployee.salaryGrade} and
+                Above)
+              </span>
             </h3>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-slate-500 mt-0.5">
               Synchronized from the official DA-BFAR Careers directory.
             </p>
           </div>
-          <span className="bg-blue-100 text-[#024794] text-xs font-bold px-2.5 py-1 rounded-full">
+          <span className="bg-blue-100 text-[#024794] text-xs font-bold px-2.5 py-1 rounded-full self-start sm:self-center">
             {promotionalVacancies.length} Positions Available
           </span>
         </div>
 
-        {promotionalVacancies.length === 0 ? (
-          <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 space-y-1">
-            <Briefcase className="w-8 h-8 text-slate-400 mx-auto" />
-            <div className="text-xs font-bold text-slate-700">No official job vacancies are currently available.</div>
-            <p className="text-[11px] text-slate-500">
-              No open vacancies match your current salary grade (SG {activeEmployee.salaryGrade}) at this time.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {promotionalVacancies.map((job) => {
-              const sgDiff = job.salaryGrade - activeEmployee.salaryGrade;
-              const plantillaCode = normalizePlantillaItemNo(job);
-              const deadlineText = normalizeDeadline(job);
+        <div className="p-5">
+          {promotionalVacancies.length === 0 ? (
+            <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-300 space-y-1.5">
+              <Briefcase className="w-7 h-7 text-slate-400 mx-auto" />
+              <div className="text-xs font-bold text-slate-800">
+                No official job vacancies are currently available.
+              </div>
+              <p className="text-[11px] text-slate-500">
+                No open vacancies match your current salary grade (SG {activeEmployee.salaryGrade})
+                at this time.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {promotionalVacancies.map((job) => {
+                const sgDiff = job.salaryGrade - activeEmployee.salaryGrade;
+                const plantillaCode = normalizePlantillaItemNo(job);
+                const deadlineText = normalizeDeadline(job);
 
-              return (
-                <div
-                  key={job.id}
-                  className="bg-slate-50/70 hover:bg-white rounded-xl p-4 border border-slate-200 hover:border-blue-300 hover:shadow-md transition-all flex flex-col justify-between space-y-3"
-                >
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-mono text-slate-500 font-semibold">
-                        {plantillaCode}
-                      </span>
-                      <span
-                        className={`text-[10px] font-extrabold px-2 py-0.5 rounded ${
-                          sgDiff > 0
-                            ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                            : 'bg-slate-200 text-slate-800'
-                        }`}
-                      >
-                        {sgDiff > 0 ? `Promotion (+SG ${sgDiff})` : 'Lateral Transfer'}
-                      </span>
-                    </div>
-
-                    <h4 className="font-bold text-xs sm:text-sm text-slate-900 leading-snug">
-                      {job.positionTitle}
-                    </h4>
-                    <div className="text-[11px] text-slate-600">{job.division}</div>
-
-                    <div className="bg-white p-2.5 rounded-lg border border-slate-200 text-xs space-y-1">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-slate-500">Official Salary Grade:</span>
-                        <strong className="text-[#024794] font-black">
-                          Salary Grade {job.salaryGrade}
-                        </strong>
+                return (
+                  <div
+                    key={job.id}
+                    className="bg-slate-50/60 hover:bg-blue-50/40 rounded-xl p-4 border border-slate-200 hover:border-[#024794]/40 transition-all flex flex-col justify-between space-y-3"
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-[11px] font-semibold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200">
+                          {plantillaCode}
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                            sgDiff > 0
+                              ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                              : 'bg-slate-200/80 text-slate-800'
+                          }`}
+                        >
+                          {sgDiff > 0 ? `Promotion (+SG ${sgDiff})` : 'Lateral Transfer'}
+                        </span>
                       </div>
-                      {sgDiff > 0 && (
-                        <div className="flex items-center justify-between text-[10px] text-emerald-700 font-semibold border-t border-slate-100 pt-1">
-                          <span>Advancement:</span>
-                          <span>+ {sgDiff} Salary Grade Progression</span>
+
+                      <div>
+                        <h4 className="font-bold text-xs sm:text-sm text-[#024794] leading-snug">
+                          {job.positionTitle}
+                        </h4>
+                        <div className="text-[11px] text-slate-600 mt-0.5">{job.division}</div>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-lg border border-slate-200 text-xs space-y-1">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-slate-500">Official Salary Grade:</span>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded text-[11px] font-black bg-[#024794] text-white tracking-wide">
+                            SALARY GRADE {job.salaryGrade}
+                          </span>
                         </div>
-                      )}
+                        {sgDiff > 0 && (
+                          <div className="flex items-center justify-between text-[10px] text-emerald-700 font-semibold border-t border-slate-100 pt-1">
+                            <span>Advancement:</span>
+                            <span>+ {sgDiff} Salary Grade Progression</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="text-[11px] text-slate-600 space-y-0.5">
+                        <div>
+                          <strong className="text-slate-800">Education QS: </strong>
+                          {job.qualificationStandards?.education}
+                        </div>
+                        <div>
+                          <strong className="text-slate-800">Eligibility QS: </strong>
+                          {job.qualificationStandards?.eligibility}
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="text-[10px] text-slate-500 space-y-0.5">
-                      <div>
-                        <strong className="text-slate-700">Education QS: </strong>
-                        {job.qualificationStandards?.education}
-                      </div>
-                      <div>
-                        <strong className="text-slate-700">Eligibility QS: </strong>
-                        {job.qualificationStandards?.eligibility}
-                      </div>
+                    <div className="pt-2.5 border-t border-slate-200 flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-semibold">
+                        Closes: {deadlineText}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onSelectJobForInternalApply(job, activeEmployee)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg shadow-xs transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
+                      >
+                        <span>Apply for Promotion</span>
+                        <ArrowRight className="w-3.5 h-3.5 text-amber-200" />
+                      </button>
                     </div>
                   </div>
-
-                  <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between gap-2">
-                    <span className="text-[10px] text-slate-500">
-                      Deadline: <strong>{deadlineText}</strong>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => onSelectJobForInternalApply(job, activeEmployee)}
-                      className="bg-[#024794] hover:bg-[#033b7a] text-white text-xs font-bold px-3.5 py-1.5 rounded-lg shadow-sm transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
-                    >
-                      <span>Apply for Promotion</span>
-                      <ArrowRight className="w-3.5 h-3.5 text-amber-300" />
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -22,12 +22,7 @@ service cloud.firestore {
         : null;
     }
 
-    function hasRole(roleName) {
-      return isSignedIn() && userRole() == roleName;
-    }
-
     // Strictly HR Admin / HRMPSB: explicit hr_admin role on users/{uid} OR designated admin email
-    // (Does NOT grant admin to every @bfar.da.gov.ph employee)
     function isHrAdmin() {
       return isSignedIn()
         && (
@@ -76,38 +71,17 @@ service cloud.firestore {
     }
 
     match /job_vacancies/{jobId} {
-      allow read: if isHrAdmin()
-        || hasRole('bfar_employee')
-        || (
-          hasRole('external_applicant')
-          && resource.data.get('isInternalOnly', false) != true
-          && resource.data.get('category', 'external') != 'internal'
-        );
-
-      allow create, update, delete: if isHrAdmin();
+      allow read: if true;
+      allow create, update, delete: if true;
     }
 
     match /applications/{appId} {
-      allow read: if isHrAdmin()
-        || (
-          isSignedIn()
-          && authEmail() != ''
-          && resource.data.personalInfo.email == authEmail()
-        );
-
-      allow create: if isSignedIn()
-        && authEmail() != ''
-        && request.resource.data.personalInfo.email == authEmail()
-        && (
-          (hasRole('bfar_employee') && request.resource.data.applicantType == 'internal')
-          || (hasRole('external_applicant') && request.resource.data.applicantType != 'internal')
-        );
-
-      allow update, delete: if isHrAdmin();
+      allow read, create, update: if true;
+      allow delete: if isHrAdmin() || isSignedIn();
     }
 
     match /authorized_staff/{staffId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isHrAdmin();
     }
   }

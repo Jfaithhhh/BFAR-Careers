@@ -164,20 +164,20 @@ export const JobsTable: React.FC<JobsTableProps> = ({
   return (
     <div className="space-y-6">
       {/* Official CSC & DA-BFAR Banner */}
-      <div className="bg-sky-50 border-l-4 border-[#024794] p-4 rounded-r-lg shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div className="bg-sky-50 border-l-4 border-[#024794] p-4 rounded-r-xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-bold text-[#024794] text-sm">
+            <span className="font-extrabold text-[#024794] text-sm">
               DA-BFAR Central Office Plantilla Vacancies
             </span>
-            <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+            <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
               Central Office (NCR) • Quezon City
             </span>
-            <span className="bg-blue-100 text-[#024794] text-[10px] font-bold px-2 py-0.5 rounded uppercase">
+            <span className="bg-blue-100 text-[#024794] border border-blue-200 text-[10px] font-bold px-2 py-0.5 rounded uppercase">
               RA 7041 / CSC Compliant
             </span>
           </div>
-          <p className="text-xs text-slate-600 mt-1">
+          <p className="text-xs text-slate-600 mt-1 leading-relaxed">
             Official publication of authorized Plantilla positions at{' '}
             <strong>
               BFAR Central Office, Fisheries Building Complex, BPI Compound, Brgy. Vasra, Visayas
@@ -188,7 +188,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
               href="https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/"
               target="_blank"
               rel="noreferrer"
-              className="text-[#024794] font-semibold underline hover:text-blue-700 inline-flex items-center gap-0.5"
+              className="text-[#024794] font-semibold underline hover:text-[#033b7a] inline-flex items-center gap-0.5"
             >
               bfar.da.gov.ph/opportunities/job-vacancies-careers
               <ExternalLink className="w-3 h-3 ml-0.5 inline" />
@@ -201,7 +201,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
             href="https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/"
             target="_blank"
             rel="noreferrer"
-            className="bg-white hover:bg-slate-50 text-[#024794] border border-[#024794]/40 px-3 py-1.5 rounded-md text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+            className="bg-white hover:bg-slate-50 text-[#024794] border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-colors"
           >
             <span>Verify on Official Portal</span>
             <ExternalLink className="w-3.5 h-3.5 text-[#024794]" />
@@ -222,7 +222,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                   setEntriesPerPage(Number(e.target.value));
                   setCurrentPage(1);
                 }}
-                className="bg-white border border-slate-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-[#024794]"
+                className="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs focus:outline-hidden focus:ring-2 focus:ring-[#024794] cursor-pointer"
               >
                 <option value={5}>5</option>
                 <option value={10}>10</option>
@@ -239,7 +239,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                   setDivisionFilter(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="bg-white border border-slate-300 rounded-md px-2.5 py-1 text-xs focus:ring-2 focus:ring-[#024794] max-w-[200px]"
+                className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs focus:outline-hidden focus:ring-2 focus:ring-[#024794] max-w-[200px] cursor-pointer"
               >
                 {divisions.map((d) => (
                   <option key={d} value={d}>
@@ -257,7 +257,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                   setSgFilter(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="bg-white border border-slate-300 rounded-md px-2.5 py-1 text-xs font-semibold text-[#024794] focus:ring-2 focus:ring-[#024794]"
+                className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-semibold text-[#024794] focus:outline-hidden focus:ring-2 focus:ring-[#024794] cursor-pointer"
               >
                 {salaryGrades.map((sg) => (
                   <option key={sg} value={sg}>
@@ -275,7 +275,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                   setStatusFilter(e.target.value as 'All' | 'Open' | 'Expired');
                   setCurrentPage(1);
                 }}
-                className="bg-white border border-slate-300 rounded-md px-2.5 py-1 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-[#024794]"
+                className="bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-xs font-semibold text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-[#024794] cursor-pointer"
               >
                 <option value="All">All Publications</option>
                 <option value="Open">Active (Open for Application)</option>
@@ -295,7 +295,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                   setSearchTerm(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-64 sm:w-72 bg-white border border-slate-300 rounded-md pl-8 pr-7 py-1.5 text-xs focus:outline-hidden focus:ring-2 focus:ring-[#024794]"
+                className="w-64 sm:w-72 bg-white border border-slate-300 rounded-lg pl-8 pr-7 py-1.5 text-xs focus:outline-hidden focus:ring-2 focus:ring-[#024794]"
               />
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
               {searchTerm && (
@@ -305,7 +305,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                     setSearchTerm('');
                     setCurrentPage(1);
                   }}
-                  className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 text-xs"
+                  className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
                   aria-label="Clear search"
                 >
                   ✕
@@ -319,52 +319,52 @@ export const JobsTable: React.FC<JobsTableProps> = ({
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="bg-slate-900 text-white font-semibold border-b border-slate-950 select-none">
+              <tr className="bg-[#024794] text-white font-semibold border-b border-[#033b7a] select-none">
                 <th
                   onClick={() => handleSort('positionTitle')}
-                  className="py-3 px-4 cursor-pointer hover:bg-slate-800 transition-colors"
+                  className="py-3 px-4 cursor-pointer hover:bg-[#033b7a] transition-colors"
                 >
                   <div className="flex items-center justify-between gap-1 min-w-[220px]">
                     <span>Position Title &amp; Division</span>
-                    <ArrowUpDown className="w-3 h-3 opacity-60" />
+                    <ArrowUpDown className="w-3 h-3 opacity-75" />
                   </div>
                 </th>
                 <th
                   onClick={() => handleSort('salaryGrade')}
-                  className="py-3 px-4 cursor-pointer hover:bg-slate-800 transition-colors whitespace-nowrap min-w-[140px]"
+                  className="py-3 px-4 cursor-pointer hover:bg-[#033b7a] transition-colors whitespace-nowrap min-w-[140px]"
                 >
                   <div className="flex items-center justify-between gap-1">
                     <span className="text-amber-300 font-bold uppercase tracking-wide">
                       Salary Grade
                     </span>
-                    <ArrowUpDown className="w-3 h-3 opacity-60" />
+                    <ArrowUpDown className="w-3 h-3 opacity-75" />
                   </div>
                 </th>
                 <th
                   onClick={() => handleSort('itemNo')}
-                  className="py-3 px-4 cursor-pointer hover:bg-slate-800 transition-colors whitespace-nowrap min-w-[170px]"
+                  className="py-3 px-4 cursor-pointer hover:bg-[#033b7a] transition-colors whitespace-nowrap min-w-[170px]"
                 >
                   <div className="flex items-center justify-between gap-1">
                     <span>Plantilla Item No.</span>
-                    <ArrowUpDown className="w-3 h-3 opacity-60" />
+                    <ArrowUpDown className="w-3 h-3 opacity-75" />
                   </div>
                 </th>
                 <th
                   onClick={() => handleSort('postingDate')}
-                  className="py-3 px-4 cursor-pointer hover:bg-slate-800 transition-colors whitespace-nowrap"
+                  className="py-3 px-4 cursor-pointer hover:bg-[#033b7a] transition-colors whitespace-nowrap"
                 >
                   <div className="flex items-center justify-between gap-1">
                     <span>Date Posted</span>
-                    <ArrowUpDown className="w-3 h-3 opacity-60" />
+                    <ArrowUpDown className="w-3 h-3 opacity-75" />
                   </div>
                 </th>
                 <th
                   onClick={() => handleSort('closingDate')}
-                  className="py-3 px-4 cursor-pointer hover:bg-slate-800 transition-colors whitespace-nowrap min-w-[130px]"
+                  className="py-3 px-4 cursor-pointer hover:bg-[#033b7a] transition-colors whitespace-nowrap min-w-[130px]"
                 >
                   <div className="flex items-center justify-between gap-1">
                     <span>Application Deadline</span>
-                    <ArrowUpDown className="w-3 h-3 opacity-60" />
+                    <ArrowUpDown className="w-3 h-3 opacity-75" />
                   </div>
                 </th>
                 <th className="py-3 px-4 text-center whitespace-nowrap min-w-[180px]">
@@ -384,7 +384,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                 <tr>
                   <td colSpan={6} className="py-16 text-center px-4">
                     <div className="max-w-md mx-auto space-y-3">
-                      <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 text-[#024794] flex items-center justify-center mx-auto shadow-xs">
+                      <div className="w-12 h-12 rounded-xl bg-blue-50 border border-blue-200 text-[#024794] flex items-center justify-center mx-auto shadow-2xs">
                         <Building className="w-6 h-6 text-[#024794]" />
                       </div>
                       <h4 className="text-sm font-bold text-slate-800">
@@ -402,7 +402,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                           href="https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/"
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#024794] text-white text-xs font-bold hover:bg-blue-900 transition-colors shadow-xs"
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#024794] text-white text-xs font-bold hover:bg-[#033b7a] transition-colors shadow-xs"
                         >
                           <span>Visit Official BFAR Careers Page</span>
                           <ExternalLink className="w-3 h-3 text-sky-200" />
@@ -424,8 +424,8 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                   return (
                     <tr
                       key={job.id}
-                      className={`hover:bg-blue-50/70 transition-colors ${
-                        idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'
+                      className={`hover:bg-blue-50/60 transition-colors ${
+                        idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'
                       }`}
                     >
                       <td className="py-3 px-4">
@@ -443,7 +443,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                             {job.office || 'BFAR Central Office'}
                           </span>
                           <span>•</span>
-                          <span className="bg-emerald-50 text-emerald-700 font-bold px-1.5 py-0.2 rounded border border-emerald-200">
+                          <span className="bg-emerald-50 text-emerald-700 font-bold px-1.5 py-0.5 rounded border border-emerald-200">
                             {job.plantillaType}
                           </span>
                         </div>
@@ -451,7 +451,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
 
                       <td className="py-3 px-4 whitespace-nowrap">
                         <div className="flex flex-col items-start gap-1">
-                          <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-black bg-gradient-to-r from-[#024794] to-[#0460c4] text-white shadow-xs tracking-wide">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-black bg-[#024794] text-white shadow-2xs tracking-wide">
                             SALARY GRADE {job.salaryGrade}
                           </span>
                           <span className="text-[10px] text-slate-600 font-medium tracking-tight">
@@ -461,7 +461,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                       </td>
 
                       <td className="py-3 px-4 whitespace-nowrap">
-                        <span className="font-mono text-xs font-semibold text-slate-800 bg-slate-100 px-2.5 py-1 rounded border border-slate-200 block w-fit">
+                        <span className="font-mono text-xs font-semibold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-md border border-slate-200 block w-fit">
                           {itemNo}
                         </span>
                         <span className="text-[10px] text-slate-400 block mt-0.5">
@@ -475,10 +475,10 @@ export const JobsTable: React.FC<JobsTableProps> = ({
 
                       <td className="py-3 px-4 whitespace-nowrap">
                         <span
-                          className={`px-2.5 py-1 rounded border text-xs inline-flex items-center gap-1 font-bold ${
+                          className={`px-2.5 py-1 rounded-md border text-xs inline-flex items-center gap-1 font-bold ${
                             isExpired
                               ? 'bg-rose-50 text-rose-800 border-rose-200'
-                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                              : 'bg-amber-50 text-amber-900 border-amber-200'
                           }`}
                         >
                           <Clock
@@ -491,7 +491,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                             Application Closed (Deadline Passed)
                           </span>
                         ) : (
-                          <span className="block text-[10px] text-emerald-600 font-semibold mt-0.5">
+                          <span className="block text-[10px] text-emerald-700 font-semibold mt-0.5">
                             Accepting Applications
                           </span>
                         )}
@@ -506,7 +506,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                             }
                             target="_blank"
                             rel="noreferrer"
-                            className="bg-white hover:bg-slate-100 text-[#024794] border border-[#024794]/40 px-2.5 py-1.5 rounded text-xs font-semibold shadow-xs flex items-center gap-1 transition-all"
+                            className="bg-white hover:bg-slate-100 text-[#024794] border border-blue-200 px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-2xs flex items-center gap-1 transition-all"
                             title="View Official Vacancy Announcement on bfar.da.gov.ph"
                           >
                             <span>Notice</span>
@@ -516,7 +516,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                           <button
                             type="button"
                             onClick={() => setSelectedJobForModal(job)}
-                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-2.5 py-1.5 rounded text-xs font-semibold shadow-xs flex items-center gap-1 transition-all"
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-2.5 py-1.5 rounded-lg text-xs font-semibold shadow-2xs flex items-center gap-1 transition-all cursor-pointer"
                             title="View Qualification Standards and Details"
                           >
                             <Eye className="w-3.5 h-3.5 text-slate-600" />
@@ -527,7 +527,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                             <button
                               type="button"
                               disabled
-                              className="bg-slate-200 text-slate-400 px-3 py-1.5 rounded text-xs font-bold cursor-not-allowed shadow-none"
+                              className="bg-slate-200 text-slate-400 px-3 py-1.5 rounded-lg text-xs font-bold cursor-not-allowed shadow-none"
                               title="The application deadline for this position has passed"
                             >
                               <span>Closed</span>
@@ -536,7 +536,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                             <button
                               type="button"
                               onClick={() => onSelectJobForApply(job)}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all active:scale-95"
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer"
                               title="Apply for this Plantilla Vacancy"
                             >
                               <Sparkles className="w-3.5 h-3.5 text-amber-300" />
@@ -566,7 +566,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
               type="button"
               onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 text-xs font-medium"
+              className="px-3 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 text-xs font-medium cursor-pointer"
             >
               Previous
             </button>
@@ -575,7 +575,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                 key={pg}
                 type="button"
                 onClick={() => setCurrentPage(pg)}
-                className={`px-3 py-1 rounded text-xs font-semibold ${
+                className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer ${
                   currentPage === pg
                     ? 'bg-[#024794] text-white'
                     : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
@@ -588,7 +588,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
               type="button"
               onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
               disabled={currentPage === totalPages || totalPages === 0}
-              className="px-3 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 text-xs font-medium"
+              className="px-3 py-1 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 text-xs font-medium cursor-pointer"
             >
               Next
             </button>
@@ -599,22 +599,22 @@ export const JobsTable: React.FC<JobsTableProps> = ({
       {/* Plantilla Vacancy Detail Modal */}
       {selectedJobForModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200">
+          <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-xl border border-slate-200">
             <div className="bg-[#024794] text-white p-6 sticky top-0 z-10 flex items-start justify-between gap-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2 mb-1.5">
                   <span className="bg-amber-400 text-slate-950 text-xs font-black px-2.5 py-0.5 rounded uppercase">
                     SALARY GRADE {selectedJobForModal.salaryGrade}
                   </span>
-                  <span className="bg-blue-800 text-sky-200 font-mono text-xs px-2 py-0.5 rounded">
+                  <span className="bg-white/15 text-sky-100 font-mono text-xs px-2 py-0.5 rounded border border-white/20">
                     {getItemNumber(selectedJobForModal)}
                   </span>
-                  <span className="bg-emerald-500/20 text-emerald-300 text-xs px-2 py-0.5 rounded font-semibold border border-emerald-400/30">
+                  <span className="bg-emerald-500/20 text-emerald-200 text-xs px-2 py-0.5 rounded font-semibold border border-emerald-400/30">
                     {selectedJobForModal.plantillaType}
                   </span>
                 </div>
                 <h3 className="text-xl font-black">{selectedJobForModal.positionTitle}</h3>
-                <p className="text-xs text-sky-200 mt-1 flex items-center gap-1.5">
+                <p className="text-xs text-sky-100 mt-1 flex items-center gap-1.5">
                   <Building className="w-3.5 h-3.5 shrink-0" />
                   <span>{selectedJobForModal.division} • BFAR Central Office</span>
                 </p>
@@ -622,7 +622,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
               <button
                 type="button"
                 onClick={() => setSelectedJobForModal(null)}
-                className="text-white/80 hover:text-white p-1 rounded-full hover:bg-white/10 text-lg"
+                className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 text-lg cursor-pointer"
                 aria-label="Close modal"
               >
                 ✕
@@ -630,9 +630,9 @@ export const JobsTable: React.FC<JobsTableProps> = ({
             </div>
 
             <div className="p-6 space-y-6 text-xs text-slate-700">
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="bg-sky-50 border border-blue-200 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-[#024794] text-white flex items-center justify-center font-black text-lg shadow-xs">
+                  <div className="w-12 h-12 rounded-xl bg-[#024794] text-white flex items-center justify-center font-black text-lg shadow-2xs">
                     SG{selectedJobForModal.salaryGrade}
                   </div>
                   <div>
@@ -654,7 +654,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                     <span className="text-[10px] text-slate-500 uppercase font-bold block">
                       Application Deadline
                     </span>
-                    <span className="font-bold text-amber-900 bg-amber-100/90 px-2.5 py-0.5 rounded border border-amber-300 inline-block">
+                    <span className="font-bold text-amber-950 bg-amber-100 px-2.5 py-0.5 rounded border border-amber-200 inline-block">
                       {getClosingDate(selectedJobForModal)}
                     </span>
                   </div>
@@ -686,7 +686,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                     }
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-[#024794] border border-blue-300 font-bold text-xs shadow-2xs transition-colors"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-[#024794] border border-blue-200 font-bold text-xs shadow-2xs transition-colors"
                   >
                     <span>View Official Announcement</span>
                     <ExternalLink className="w-3.5 h-3.5 text-[#024794]" />
@@ -696,7 +696,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
 
               {selectedJobForModal.attachedDocuments &&
                 selectedJobForModal.attachedDocuments.length > 0 && (
-                  <div className="bg-sky-50/60 p-3 rounded-lg border border-sky-200">
+                  <div className="bg-sky-50/70 p-3 rounded-xl border border-blue-200">
                     <span className="text-[10px] font-bold text-[#024794] uppercase tracking-wider block mb-1.5 flex items-center gap-1">
                       <FileText className="w-3.5 h-3.5 text-[#024794]" />
                       <span>Official Attached Vacancy Notice Documents</span>
@@ -708,7 +708,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                           href={doc.url}
                           target="_blank"
                           rel="noreferrer"
-                          className="flex items-center justify-between bg-white p-2 rounded border border-sky-100 hover:border-blue-300 text-xs transition-colors"
+                          className="flex items-center justify-between bg-white p-2 rounded-lg border border-slate-200 hover:border-blue-300 text-xs transition-colors"
                         >
                           <span className="font-medium text-slate-800 truncate">{doc.name}</span>
                           <span className="text-[10px] font-bold text-[#024794] flex items-center gap-1 shrink-0 ml-2">
@@ -727,29 +727,29 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                   <span>CSC Qualification Standards (QS) Requirements</span>
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                     <span className="font-bold text-[#024794] block mb-1">Education</span>
                     <p className="text-slate-700">
                       {selectedJobForModal.qualificationStandards.education}
                     </p>
                   </div>
-                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                     <span className="font-bold text-[#024794] block mb-1">Experience</span>
                     <p className="text-slate-700">
                       {selectedJobForModal.qualificationStandards.experience}
                     </p>
                   </div>
-                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                     <span className="font-bold text-[#024794] block mb-1">Training</span>
                     <p className="text-slate-700">
                       {selectedJobForModal.qualificationStandards.training}
                     </p>
-                    <span className="text-[10px] text-amber-700 block mt-1">
+                    <span className="text-[10px] text-amber-800 block mt-1">
                       *Note: Only formal learning &amp; development counts. Facilitator/RP roles
                       excluded.
                     </span>
                   </div>
-                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
                     <span className="font-bold text-[#024794] block mb-1">Eligibility</span>
                     <p className="text-slate-700">
                       {selectedJobForModal.qualificationStandards.eligibility}
@@ -762,7 +762,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                 <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
                   Key Duties and Responsibilities
                 </h4>
-                <ul className="space-y-1.5 list-disc list-inside bg-slate-50 p-4 rounded-lg border border-slate-200 text-slate-700">
+                <ul className="space-y-1.5 list-disc list-inside bg-slate-50 p-4 rounded-xl border border-slate-200 text-slate-700">
                   {selectedJobForModal.dutiesAndResponsibilities.map((duty, idx) => (
                     <li key={idx} className="leading-relaxed">
                       {duty}
@@ -792,7 +792,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
               <button
                 type="button"
                 onClick={() => setSelectedJobForModal(null)}
-                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-semibold"
+                className="px-4 py-2 border border-slate-300 bg-white rounded-lg text-slate-700 hover:bg-slate-100 font-semibold cursor-pointer"
               >
                 Close
               </button>
@@ -828,7 +828,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                       setSelectedJobForModal(null);
                       onSelectJobForApply(job);
                     }}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg font-bold shadow-md flex items-center gap-2 text-xs"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg font-bold shadow-xs flex items-center gap-2 text-xs cursor-pointer"
                   >
                     <Sparkles className="w-4 h-4 text-amber-300" />
                     <span>Apply for this Position</span>

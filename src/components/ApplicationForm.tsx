@@ -1064,39 +1064,39 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
   if (submissionSuccess) {
     return (
-      <div className="max-w-3xl mx-auto my-8 bg-white rounded-2xl shadow-xl border border-emerald-200 overflow-hidden">
+      <div className="max-w-3xl mx-auto my-6 bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
         <div
           className={`p-6 sm:p-8 text-center space-y-3 ${
             submissionSuccess.status === 'Rejected'
-              ? 'bg-gradient-to-r from-rose-700 to-red-800'
-              : 'bg-gradient-to-r from-emerald-600 to-teal-700'
+              ? 'bg-rose-700'
+              : 'bg-[#024794]'
           } text-white`}
         >
-          <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2 ring-4 ring-white/30">
+          <div className="w-14 h-14 bg-white/15 rounded-xl flex items-center justify-center mx-auto mb-1 border border-white/25">
             {submissionSuccess.status === 'Rejected' ? (
-              <AlertCircle className="w-10 h-10 text-white" />
+              <AlertCircle className="w-8 h-8 text-white" />
             ) : (
-              <CheckCircle2 className="w-10 h-10 text-white" />
+              <CheckCircle2 className="w-8 h-8 text-emerald-300" />
             )}
           </div>
           <span
-            className={`font-black text-xs px-3.5 py-1 rounded-full uppercase tracking-wider inline-block ${
+            className={`font-black text-xs px-3 py-1 rounded-md uppercase tracking-wide inline-block ${
               submissionSuccess.status === 'Rejected'
-                ? 'bg-white text-rose-900 shadow-sm'
-                : 'bg-amber-300 text-slate-950 shadow-sm'
+                ? 'bg-white text-rose-900 shadow-xs'
+                : 'bg-amber-400 text-slate-950 shadow-xs'
             }`}
           >
             Status: {submissionSuccess.status}
           </span>
-          <h2 className="text-2xl sm:text-3xl font-black">
+          <h2 className="text-xl sm:text-2xl font-black">
             {submissionSuccess.status === 'Rejected'
               ? 'Preliminary Evaluation Completed'
               : 'Application Successfully Logged'}
           </h2>
-          <p className="text-white/90 text-xs sm:text-sm max-w-lg mx-auto">
+          <p className="text-sky-100 text-xs sm:text-sm max-w-lg mx-auto leading-relaxed">
             Your application for <strong>{submissionSuccess.positionTitle}</strong> has been logged in
             the DA-BFAR Recruitment &amp; HRMIS portal under Plantilla Item No.{' '}
-            {submissionSuccess.plantillaItemNo}.
+            <strong className="font-mono">{submissionSuccess.plantillaItemNo}</strong>.
           </p>
         </div>
 
@@ -1110,10 +1110,10 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
             <div className="inline-flex items-center gap-2 mt-1">
               <span
-                className={`text-xs font-bold px-3 py-1 rounded-full ${
+                className={`text-xs font-bold px-3 py-1 rounded-md ${
                   submissionSuccess.status === 'Rejected'
-                    ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                    : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                    : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                 }`}
               >
                 Initial Status: {submissionSuccess.status}
@@ -1136,19 +1136,21 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
           )}
 
           {submissionSuccess.aiScreening && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-3 text-xs">
-              <div className="flex items-center justify-between">
+            <div className="bg-sky-50 border border-blue-200 rounded-xl p-4 space-y-2.5 text-xs">
+              <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-[#024794]" />
                   <span className="font-bold text-[#024794]">
                     Civil Service Qualification Standards (QS) Evaluation:
                   </span>
                 </div>
-                <span className="font-extrabold text-[#024794] bg-white px-2.5 py-1 rounded shadow-xs">
+                <span className="font-extrabold text-[#024794] bg-white border border-blue-200 px-2.5 py-1 rounded shadow-2xs">
                   QS Score: {submissionSuccess.aiScreening.overallScore} / 100
                 </span>
               </div>
-              <p className="text-slate-700">{submissionSuccess.aiScreening.summaryRecommendation}</p>
+              <p className="text-slate-700 leading-relaxed">
+                {submissionSuccess.aiScreening.summaryRecommendation}
+              </p>
             </div>
           )}
 
@@ -1156,7 +1158,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             <button
               type="button"
               onClick={() => onNavigateToTrack(submissionSuccess.trackingCode)}
-              className="w-full sm:w-auto bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold shadow-md transition-all active:scale-95 text-center"
+              className="w-full sm:w-auto bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold shadow-xs transition-all active:scale-95 text-center cursor-pointer"
             >
               Track Application Status Now
             </button>
@@ -1166,7 +1168,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 setSubmissionSuccess(null);
                 setActiveSection('letter');
               }}
-              className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-800 px-6 py-2.5 rounded-lg text-xs font-semibold border border-slate-300 text-center"
+              className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-800 px-6 py-2.5 rounded-lg text-xs font-semibold border border-slate-300 text-center cursor-pointer"
             >
               Submit Another Application
             </button>
@@ -1178,12 +1180,12 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
   if (jobs.length === 0 || !activeJob) {
     return (
-      <div className="max-w-3xl mx-auto my-8 bg-white rounded-2xl shadow-sm border border-slate-200 p-8 sm:p-12 text-center space-y-4">
-        <div className="w-16 h-16 bg-blue-50 text-[#024794] rounded-full flex items-center justify-center mx-auto border border-blue-200">
-          <Building2 className="w-8 h-8 text-[#024794]" />
+      <div className="max-w-3xl mx-auto my-6 bg-white rounded-xl shadow-xs border border-slate-200 p-8 sm:p-12 text-center space-y-4">
+        <div className="w-14 h-14 bg-blue-50 text-[#024794] rounded-xl flex items-center justify-center mx-auto border border-blue-200">
+          <Building2 className="w-7 h-7 text-[#024794]" />
         </div>
         <div className="max-w-md mx-auto space-y-2">
-          <h3 className="text-lg font-black text-slate-900">
+          <h3 className="text-base sm:text-lg font-black text-slate-900">
             No official job vacancies are currently available.
           </h3>
           <p className="text-xs text-slate-500 leading-relaxed">
@@ -1197,7 +1199,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             href="https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/"
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#024794] text-white text-xs font-bold hover:bg-blue-900 transition-colors shadow-xs"
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#024794] text-white text-xs font-bold hover:bg-[#033b7a] transition-colors shadow-xs"
           >
             <span>Visit Official BFAR Careers Page</span>
             <ExternalLink className="w-3.5 h-3.5 text-sky-200" />
@@ -1213,14 +1215,14 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {!isExternalApplicant && (
-        <div className="bg-white rounded-xl shadow-xs border border-purple-200 p-4 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-purple-100 pb-3">
+        <div className="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+          <div className="bg-sky-50 border-b border-slate-200 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2">
-                <span className="bg-purple-700 text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="bg-[#024794] text-white text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
                   Restricted System
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-purple-900 block">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#024794]">
                   Internal DA-BFAR Employees &amp; Personnel Only
                 </span>
               </div>
@@ -1229,122 +1231,126 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </h3>
             </div>
 
-            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1.5 rounded-lg text-xs font-bold">
+            <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-1.5 rounded-lg text-xs font-bold shrink-0">
               <UserCheck className="w-4 h-4 text-emerald-600" />
               <span>Active Employee Verification Required</span>
             </div>
           </div>
 
-          <div className="bg-gradient-to-r from-purple-50 via-blue-50/50 to-indigo-50/60 rounded-xl p-4 border border-purple-200 space-y-3">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-lg bg-purple-700 text-white flex items-center justify-center font-bold shrink-0 shadow-xs">
-                  <UserCheck className="w-5 h-5 text-purple-200" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-extrabold text-xs text-purple-950">
-                      Internal BFAR Employee Merit Verification &amp; Fast-Fill
-                    </span>
-                    <span className="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1.5 py-0.2 rounded">
-                      HRMIS Integrated
-                    </span>
+          <div className="p-4 space-y-3">
+            <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 space-y-3">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-lg bg-[#024794] text-white flex items-center justify-center font-bold shrink-0 shadow-2xs">
+                    <UserCheck className="w-5 h-5 text-amber-300" />
                   </div>
-                  <p className="text-[11px] text-purple-800">
-                    Auto-populates service record, civil service eligibility, and verified IPCR
-                    performance rating for promotion.
-                  </p>
+                  <div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-extrabold text-xs text-slate-900">
+                        Internal BFAR Employee Merit Verification &amp; Fast-Fill
+                      </span>
+                      <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                        HRMIS Integrated
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600">
+                      Auto-populates service record, civil service eligibility, and verified IPCR
+                      performance rating for promotion.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
+                  <span className="font-bold text-slate-700 text-[11px] whitespace-nowrap">
+                    Employee ID:
+                  </span>
+                  <div className="flex items-center gap-1.5 flex-1">
+                    <input
+                      type="text"
+                      placeholder="e.g. COS4513"
+                      value={bfarEmployeeId}
+                      onChange={(e) => setBfarEmployeeId(e.target.value)}
+                      className="bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-slate-900 shadow-2xs focus:ring-2 focus:ring-[#024794] focus:outline-hidden w-full sm:w-48"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleVerifyInForm}
+                      disabled={isVerifyingStaff}
+                      className="bg-[#024794] hover:bg-[#033b7a] text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-1 cursor-pointer"
+                    >
+                      {isVerifyingStaff ? 'Verifying...' : 'Verify ID'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
-                <span className="font-bold text-purple-900 text-[11px] whitespace-nowrap">
-                  Employee ID:
-                </span>
-                <div className="flex items-center gap-1.5 flex-1">
-                  <input
-                    type="text"
-                    placeholder="e.g. COS4513"
-                    value={bfarEmployeeId}
-                    onChange={(e) => setBfarEmployeeId(e.target.value)}
-                    className="bg-white border border-purple-300 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-purple-950 shadow-2xs focus:ring-2 focus:ring-purple-600 w-full sm:w-48"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleVerifyInForm}
-                    disabled={isVerifyingStaff}
-                    className="bg-purple-800 hover:bg-purple-900 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-1"
+              {internalVerificationError && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-800 text-xs p-3 rounded-lg flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{internalVerificationError}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                    Current Plantilla Item:
+                  </span>
+                  <span className="font-bold text-slate-900 truncate block mt-0.5">
+                    {currentPlantillaItem || 'Unverified'}
+                  </span>
+                  <span className="text-[10px] text-[#024794] font-semibold">
+                    {currentSalaryGrade !== ''
+                      ? `Salary Grade ${currentSalaryGrade}`
+                      : 'SG Pending'}
+                  </span>
+                </div>
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                    Years in Bureau:
+                  </span>
+                  <span className="font-bold text-slate-900 block mt-0.5">
+                    {yearsInBfar !== ''
+                      ? `${yearsInBfar} Years of Service`
+                      : 'Pending Verification'}
+                  </span>
+                  <span className="text-[10px] text-slate-500">Service Record</span>
+                </div>
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-[10px] uppercase font-bold text-emerald-700 block">
+                    Latest IPCR Rating:
+                  </span>
+                  <span className="font-black text-emerald-700 text-xs block mt-0.5">
+                    {latestIpcrRating !== ''
+                      ? `${Number(latestIpcrRating).toFixed(2)} / 5.00`
+                      : 'Pending'}
+                  </span>
+                  <span className="text-[10px] text-emerald-800 font-semibold">
+                    {latestIpcrRating !== ''
+                      ? Number(latestIpcrRating) >= 4.5
+                        ? 'Outstanding'
+                        : 'Very Satisfactory'
+                      : 'CSC Standard: Min 4.00'}
+                  </span>
+                </div>
+                <div className="bg-white p-2.5 rounded-lg border border-slate-200">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                    Promotion Track:
+                  </span>
+                  <select
+                    value={promotionTrack}
+                    onChange={(e) =>
+                      setPromotionTrack(
+                        e.target.value as 'Promotion' | 'Lateral Transfer' | 'Reassignment'
+                      )
+                    }
+                    className="bg-transparent font-bold text-[#024794] text-xs w-full focus:outline-hidden mt-0.5 cursor-pointer"
                   >
-                    {isVerifyingStaff ? 'Verifying...' : 'Verify ID'}
-                  </button>
+                    <option value="Promotion">Promotion (Higher SG)</option>
+                    <option value="Lateral Transfer">Lateral Transfer (Same SG)</option>
+                    <option value="Reassignment">Reassignment / Station Shift</option>
+                  </select>
                 </div>
-              </div>
-            </div>
-
-            {internalVerificationError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3 rounded-lg flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-                <span>{internalVerificationError}</span>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
-              <div className="bg-white/80 p-2 rounded-lg border border-purple-100">
-                <span className="text-[9px] uppercase font-bold text-purple-600 block">
-                  Current Plantilla Item:
-                </span>
-                <span className="font-bold text-slate-800 truncate block">
-                  {currentPlantillaItem || 'Unverified'}
-                </span>
-                <span className="text-[10px] text-purple-700">
-                  {currentSalaryGrade !== ''
-                    ? `Salary Grade ${currentSalaryGrade}`
-                    : 'SG Pending'}
-                </span>
-              </div>
-              <div className="bg-white/80 p-2 rounded-lg border border-purple-100">
-                <span className="text-[9px] uppercase font-bold text-purple-600 block">
-                  Years in Bureau:
-                </span>
-                <span className="font-bold text-slate-800 block">
-                  {yearsInBfar !== '' ? `${yearsInBfar} Years of Service` : 'Pending Verification'}
-                </span>
-                <span className="text-[10px] text-slate-500">Service Record</span>
-              </div>
-              <div className="bg-white/80 p-2 rounded-lg border border-purple-100">
-                <span className="text-[9px] uppercase font-bold text-emerald-700 block">
-                  Latest IPCR Rating:
-                </span>
-                <span className="font-black text-emerald-700 text-xs block">
-                  {latestIpcrRating !== ''
-                    ? `${Number(latestIpcrRating).toFixed(2)} / 5.00`
-                    : 'Pending'}
-                </span>
-                <span className="text-[10px] text-emerald-800 font-semibold">
-                  {latestIpcrRating !== ''
-                    ? Number(latestIpcrRating) >= 4.5
-                      ? 'Outstanding'
-                      : 'Very Satisfactory'
-                    : 'CSC Standard: Min 4.00'}
-                </span>
-              </div>
-              <div className="bg-white/80 p-2 rounded-lg border border-purple-100">
-                <span className="text-[9px] uppercase font-bold text-purple-600 block">
-                  Promotion Track:
-                </span>
-                <select
-                  value={promotionTrack}
-                  onChange={(e) =>
-                    setPromotionTrack(
-                      e.target.value as 'Promotion' | 'Lateral Transfer' | 'Reassignment'
-                    )
-                  }
-                  className="bg-transparent font-bold text-purple-900 text-xs w-full focus:outline-hidden"
-                >
-                  <option value="Promotion">Promotion (Higher SG)</option>
-                  <option value="Lateral Transfer">Lateral Transfer (Same SG)</option>
-                  <option value="Reassignment">Reassignment / Station Shift</option>
-                </select>
               </div>
             </div>
           </div>
@@ -1357,9 +1363,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
           <button
             type="button"
             onClick={() => setActiveSection('letter')}
-            className={`flex items-center gap-2 p-2.5 rounded-lg text-left transition-all ${
+            className={`flex items-center gap-2 p-2.5 rounded-lg text-left transition-all cursor-pointer ${
               activeSection === 'letter'
-                ? 'bg-[#024794] text-white shadow-sm ring-2 ring-[#024794]/20'
+                ? 'bg-[#024794] text-white shadow-xs ring-2 ring-[#024794]/20'
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
             }`}
           >
@@ -1381,8 +1387,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             <div className="min-w-0">
               <span className="font-extrabold text-[11px] block truncate">1. Letter</span>
               <span
-                className={`text-[9px] block truncate ${
-                  activeSection === 'letter' ? 'text-blue-100' : 'text-slate-500'
+                className={`text-[10px] block truncate ${
+                  activeSection === 'letter' ? 'text-sky-100' : 'text-slate-500'
                 }`}
               >
                 Application Letter
@@ -1393,9 +1399,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
           <button
             type="button"
             onClick={() => setActiveSection('pds')}
-            className={`flex items-center gap-2 p-2.5 rounded-lg text-left transition-all ${
+            className={`flex items-center gap-2 p-2.5 rounded-lg text-left transition-all cursor-pointer ${
               activeSection === 'pds'
-                ? 'bg-[#024794] text-white shadow-sm ring-2 ring-[#024794]/20'
+                ? 'bg-[#024794] text-white shadow-xs ring-2 ring-[#024794]/20'
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
             }`}
           >
@@ -1417,8 +1423,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             <div className="min-w-0">
               <span className="font-extrabold text-[11px] block truncate">2. PDS</span>
               <span
-                className={`text-[9px] block truncate ${
-                  activeSection === 'pds' ? 'text-blue-100' : 'text-slate-500'
+                className={`text-[10px] block truncate ${
+                  activeSection === 'pds' ? 'text-sky-100' : 'text-slate-500'
                 }`}
               >
                 CS Form 212
@@ -1429,9 +1435,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
           <button
             type="button"
             onClick={() => setActiveSection('position_qs')}
-            className={`flex items-center gap-2 p-2.5 rounded-lg text-left transition-all ${
+            className={`flex items-center gap-2 p-2.5 rounded-lg text-left transition-all cursor-pointer ${
               activeSection === 'position_qs'
-                ? 'bg-[#024794] text-white shadow-sm ring-2 ring-[#024794]/20'
+                ? 'bg-[#024794] text-white shadow-xs ring-2 ring-[#024794]/20'
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
             }`}
           >
@@ -1447,8 +1453,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             <div className="min-w-0">
               <span className="font-extrabold text-[11px] block truncate">3. Position</span>
               <span
-                className={`text-[9px] block truncate ${
-                  activeSection === 'position_qs' ? 'text-blue-100' : 'text-slate-500'
+                className={`text-[10px] block truncate ${
+                  activeSection === 'position_qs' ? 'text-sky-100' : 'text-slate-500'
                 }`}
               >
                 Description &amp; QS
@@ -1459,9 +1465,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
           <button
             type="button"
             onClick={() => setActiveSection('file_uploads')}
-            className={`flex items-center gap-2 p-2.5 rounded-lg text-left transition-all ${
+            className={`flex items-center gap-2 p-2.5 rounded-lg text-left transition-all cursor-pointer ${
               activeSection === 'file_uploads'
-                ? 'bg-[#024794] text-white shadow-sm ring-2 ring-[#024794]/20'
+                ? 'bg-[#024794] text-white shadow-xs ring-2 ring-[#024794]/20'
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
             }`}
           >
@@ -1483,8 +1489,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             <div className="min-w-0">
               <span className="font-extrabold text-[11px] block truncate">4. Uploads</span>
               <span
-                className={`text-[9px] block truncate ${
-                  activeSection === 'file_uploads' ? 'text-blue-100' : 'text-slate-500'
+                className={`text-[10px] block truncate ${
+                  activeSection === 'file_uploads' ? 'text-sky-100' : 'text-slate-500'
                 }`}
               >
                 PL, Elig, WE ({primaryUploadCount}/4)
@@ -1495,9 +1501,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
           <button
             type="button"
             onClick={() => setActiveSection('other_documents')}
-            className={`flex items-center gap-2 p-2.5 rounded-lg text-left transition-all ${
+            className={`flex items-center gap-2 p-2.5 rounded-lg text-left transition-all cursor-pointer ${
               activeSection === 'other_documents'
-                ? 'bg-[#024794] text-white shadow-sm ring-2 ring-[#024794]/20'
+                ? 'bg-[#024794] text-white shadow-xs ring-2 ring-[#024794]/20'
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
             }`}
           >
@@ -1519,8 +1525,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             <div className="min-w-0">
               <span className="font-extrabold text-[11px] block truncate">5. Other Docs</span>
               <span
-                className={`text-[9px] block truncate ${
-                  activeSection === 'other_documents' ? 'text-blue-100' : 'text-slate-500'
+                className={`text-[10px] block truncate ${
+                  activeSection === 'other_documents' ? 'text-sky-100' : 'text-slate-500'
                 }`}
               >
                 TOR, Dipl, PCR ({otherUploadCount}/7)
@@ -1531,9 +1537,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
           <button
             type="button"
             onClick={() => setActiveSection('review_submit')}
-            className={`flex items-center gap-2 p-2.5 rounded-lg text-left transition-all ${
+            className={`flex items-center gap-2 p-2.5 rounded-lg text-left transition-all cursor-pointer ${
               activeSection === 'review_submit'
-                ? 'bg-[#024794] text-white shadow-sm ring-2 ring-[#024794]/20'
+                ? 'bg-[#024794] text-white shadow-xs ring-2 ring-[#024794]/20'
                 : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
             }`}
           >
@@ -1549,8 +1555,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             <div className="min-w-0">
               <span className="font-extrabold text-[11px] block truncate">6. Review</span>
               <span
-                className={`text-[9px] block truncate ${
-                  activeSection === 'review_submit' ? 'text-blue-100' : 'text-slate-500'
+                className={`text-[10px] block truncate ${
+                  activeSection === 'review_submit' ? 'text-sky-100' : 'text-slate-500'
                 }`}
               >
                 Review &amp; Submit
@@ -1561,21 +1567,21 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       </div>
 
       {autoCorrectionAlert && (
-        <div className="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-r-xl text-xs text-emerald-900 shadow-sm flex items-start justify-between gap-3">
+        <div className="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-r-xl text-xs text-emerald-900 shadow-xs flex items-start justify-between gap-3">
           <div className="flex items-start gap-2.5">
             <Sparkles className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
             <div>
-              <div className="font-extrabold text-emerald-800 text-[12px] flex items-center gap-1.5">
+              <div className="font-extrabold text-emerald-900 text-xs flex flex-wrap items-center gap-1.5">
                 <span>Intelligent Auto-Correction Applied!</span>
-                <span className="bg-emerald-200 text-emerald-900 text-[10px] px-2 py-0.5 rounded font-mono font-bold">
+                <span className="bg-emerald-200 text-emerald-950 text-[10px] px-2 py-0.5 rounded font-mono font-bold">
                   {autoCorrectionAlert.targetSlot} → {autoCorrectionAlert.detectedCategory}
                 </span>
               </div>
-              <p className="text-emerald-700 text-[11px] mt-0.5">
+              <p className="text-emerald-800 text-[11px] mt-0.5">
                 File <strong>&quot;{autoCorrectionAlert.fileName}&quot;</strong> was automatically
                 organized into its designated category based on document contents.
               </p>
-              <p className="text-emerald-600 text-[10px] mt-0.5 italic">
+              <p className="text-emerald-700 text-[10px] mt-0.5 italic">
                 {autoCorrectionAlert.reason}
               </p>
             </div>
@@ -1583,7 +1589,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
           <button
             type="button"
             onClick={() => setAutoCorrectionAlert(null)}
-            className="text-emerald-500 hover:text-emerald-700 p-1"
+            className="text-emerald-600 hover:text-emerald-800 p-1 cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -1591,15 +1597,15 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       )}
 
       {formError && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl text-xs text-red-700 flex items-center justify-between gap-2 shadow-xs">
+        <div className="bg-rose-50 border-l-4 border-rose-500 p-4 rounded-r-xl text-xs text-rose-800 flex items-center justify-between gap-2 shadow-xs">
           <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
             <span>{formError}</span>
           </div>
           <button
             type="button"
             onClick={() => setFormError(null)}
-            className="text-red-400 hover:text-red-600"
+            className="text-rose-500 hover:text-rose-700 cursor-pointer"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -1618,7 +1624,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <h2 className="text-xl sm:text-2xl font-black text-slate-900">
                   Application Letter addressed to the Chief, Human Resource Management Section (HRMS)
                 </h2>
-                <p className="text-xs text-slate-600 mt-1 max-w-2xl">
+                <p className="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed">
                   <strong>Mandatory Requirement:</strong> The Formal Application Letter (AL) must be
                   written and submitted directly by the applicant (no pre-drafted template provided by
                   the system). Must be addressed to the{' '}
@@ -1635,18 +1641,18 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <span className="font-extrabold text-[#024794] block truncate">
                   {activeJob.positionTitle}
                 </span>
-                <span className="text-[11px] text-slate-500 block">
+                <span className="text-[11px] text-slate-600 block font-mono">
                   SG-{activeJob.salaryGrade} • Item No: {jobItemNo}
                 </span>
               </div>
             </div>
 
-            <div className="bg-amber-50/80 border border-amber-300 rounded-xl p-3.5 text-xs text-amber-900 space-y-1.5">
-              <div className="flex items-center gap-2 font-bold text-amber-950">
-                <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-950 space-y-1.5">
+              <div className="flex items-center gap-2 font-bold text-amber-900">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>Mandatory Civil Service Application Letter Guidelines</span>
               </div>
-              <ul className="grid grid-cols-1 md:grid-cols-2 gap-1 text-[11px] pl-6 list-disc text-amber-800">
+              <ul className="grid grid-cols-1 md:grid-cols-2 gap-1 text-[11px] pl-6 list-disc text-amber-900">
                 <li>
                   Must be addressed to:{' '}
                   <strong>Chief, Human Resource Management Section (HRMS), DA-BFAR</strong>
@@ -1664,7 +1670,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <input
                   ref={letterFileInputRef}
                   type="file"
@@ -1680,7 +1686,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <button
                   type="button"
                   onClick={() => letterFileInputRef.current?.click()}
-                  className="bg-[#024794] hover:bg-[#033b7a] text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-xs transition-colors"
+                  className="bg-[#024794] hover:bg-[#033b7a] text-white text-xs font-bold px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                 >
                   <Upload className="w-3.5 h-3.5" />
                   <span>Upload Signed PDF Application Letter</span>
@@ -1694,7 +1700,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                         setApplicationLetterText('');
                       }
                     }}
-                    className="bg-white hover:bg-slate-100 text-slate-600 border border-slate-300 text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
+                    className="bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 text-xs font-semibold px-3 py-2 rounded-lg transition-colors cursor-pointer"
                   >
                     Clear Text
                   </button>
@@ -1702,7 +1708,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </div>
 
               {letterUploadedFileName && (
-                <div className="text-xs bg-emerald-50 text-emerald-800 border border-emerald-300 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium">
+                <div className="text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 font-medium">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Attached: {letterUploadedFileName}</span>
                 </div>
@@ -1710,7 +1716,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
 
             {letterSuccessNotice && (
-              <div className="bg-blue-50 border-l-4 border-blue-500 p-3 rounded-r-lg text-xs text-[#024794] flex items-center gap-2">
+              <div className="bg-sky-50 border-l-4 border-[#024794] p-3 rounded-r-lg text-xs text-[#024794] flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-600" />
                 <span>{letterSuccessNotice}</span>
               </div>
@@ -1723,14 +1729,14 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     <FileText className="w-3.5 h-3.5 text-[#024794]" />
                     <span>Editable Letter Content:</span>
                   </label>
-                  <span className="text-[10px] text-slate-400">Edits update the preview live</span>
+                  <span className="text-[10px] text-slate-500">Edits update the preview live</span>
                 </div>
                 <textarea
                   rows={18}
                   value={applicationLetterText}
                   onChange={(e) => setApplicationLetterText(e.target.value)}
                   placeholder="Address your formal application letter to the Chief, Human Resource Management Section (HRMS), DA-BFAR..."
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-4 text-xs font-mono leading-relaxed focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-4 text-xs font-mono leading-relaxed text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                 />
               </div>
 
@@ -1740,13 +1746,13 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     <Eye className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Official Letterhead Document Preview:</span>
                   </span>
-                  <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono">
+                  <span className="text-[10px] bg-slate-100 text-slate-600 border border-slate-200 px-2 py-0.5 rounded font-mono">
                     DA-BFAR HRMS Standard
                   </span>
                 </div>
 
-                <div className="bg-amber-50/20 border border-slate-300 rounded-xl p-6 shadow-inner space-y-4 text-xs font-serif leading-relaxed text-slate-800 max-h-[440px] overflow-y-auto">
-                  <div className="text-center space-y-0.5 border-b border-slate-300 pb-3 font-sans">
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 shadow-2xs space-y-4 text-xs leading-relaxed text-slate-800 max-h-[440px] overflow-y-auto">
+                  <div className="text-center space-y-0.5 border-b border-slate-200 pb-3">
                     <span className="text-[10px] uppercase tracking-wider block text-slate-500 font-bold">
                       Republic of the Philippines
                     </span>
@@ -1756,15 +1762,15 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     <span className="text-xs font-black text-[#024794] block tracking-wide">
                       BUREAU OF FISHERIES AND AQUATIC RESOURCES
                     </span>
-                    <span className="text-[9px] text-slate-500 block">
+                    <span className="text-[10px] text-slate-500 block">
                       PCA Building, Elliptical Road, Diliman, Quezon City • Human Resource
                       Management Section (HRMS)
                     </span>
                   </div>
 
-                  <div className="whitespace-pre-line text-[11px] leading-relaxed font-sans text-slate-800 pt-1">
+                  <div className="whitespace-pre-line text-xs leading-relaxed text-slate-800 pt-1">
                     {applicationLetterText || (
-                      <span className="text-slate-400 italic font-sans">
+                      <span className="text-slate-400 italic">
                         Write or paste your formal application letter addressed to the Chief, Human
                         Resource Management Section (HRMS), DA-BFAR...
                       </span>
@@ -1775,11 +1781,11 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           </div>
 
-          <div className="flex justify-end pt-2">
+          <div className="flex justify-end pt-1">
             <button
               type="button"
               onClick={() => setActiveSection('pds')}
-              className="bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm transition-all"
+              className="bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-xs transition-all cursor-pointer"
             >
               <span>Save &amp; Proceed to Section 2: Personal Data Sheet (PDS)</span>
               <ArrowRight className="w-4 h-4" />
@@ -1800,26 +1806,26 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <h2 className="text-lg sm:text-xl font-black text-slate-900">
                   PERSONAL DATA SHEET
                 </h2>
-                <p className="text-[11px] text-slate-500 mt-0.5">
+                <p className="text-xs text-slate-500 mt-0.5">
                   Civil Service Commission prescribed format for government service appointments.
                 </p>
               </div>
             </div>
 
-            <div className="bg-gradient-to-r from-blue-50/70 via-indigo-50/60 to-slate-50 border border-blue-200 rounded-xl p-4 space-y-3">
+            <div className="bg-sky-50/70 border border-blue-200 rounded-xl p-4 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-[#024794] text-white flex items-center justify-center shrink-0 shadow-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-[#024794] text-white flex items-center justify-center shrink-0 shadow-2xs">
                     <Sparkles className="w-4 h-4 text-amber-300" />
                   </div>
                   <div>
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 flex flex-wrap items-center gap-1.5">
                       <span>AI Fast-Fill PDS (CS Form 212)</span>
-                      <span className="bg-blue-100 text-[#024794] text-[9px] font-extrabold px-1.5 py-0.2 rounded uppercase">
+                      <span className="bg-blue-100 text-[#024794] text-[10px] font-extrabold px-1.5 py-0.5 rounded uppercase">
                         Productivity Tool
                       </span>
                     </h4>
-                    <p className="text-[11px] text-slate-500">
+                    <p className="text-[11px] text-slate-600">
                       Paste your actual resume, CV, or service record text below to auto-populate PDS
                       tables in one click.
                     </p>
@@ -1833,7 +1839,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   value={rawResumeText}
                   onChange={(e) => setRawResumeText(e.target.value)}
                   placeholder="Paste your resume or credentials text here (e.g. Full Name, College Degree, School, PRC/CSC Eligibility, Work Experience history, and Training hours)..."
-                  className="w-full bg-white border border-slate-300 rounded-lg p-3 text-xs font-mono text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-[#024794] focus:border-[#024794]"
+                  className="w-full bg-white border border-slate-300 rounded-lg p-3 text-xs font-mono text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-[#024794] focus:border-[#024794] focus:outline-hidden"
                 />
 
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1846,7 +1852,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       <button
                         type="button"
                         onClick={() => setRawResumeText('')}
-                        className="text-xs text-slate-500 hover:text-slate-700 px-2.5 py-1 rounded border border-slate-200 bg-white"
+                        className="text-xs text-slate-600 hover:text-slate-800 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white cursor-pointer"
                       >
                         Clear
                       </button>
@@ -1855,7 +1861,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       type="button"
                       onClick={handleParsePdsWithAI}
                       disabled={isParsingAi || !rawResumeText.trim()}
-                      className="bg-[#024794] hover:bg-[#033b7a] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all"
+                      className="bg-[#024794] hover:bg-[#033b7a] disabled:opacity-50 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
                     >
                       {isParsingAi ? (
                         <>
@@ -1875,19 +1881,19 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
 
             {aiParseStatus && (
-              <div className="bg-emerald-50 border border-emerald-300 p-2.5 rounded-lg text-xs text-emerald-800 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-lg text-xs text-emerald-800 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                 <span>{aiParseStatus}</span>
               </div>
             )}
 
-            <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg text-[11px] text-amber-900 leading-relaxed">
+            <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg text-[11px] text-amber-950 leading-relaxed">
               <strong>WARNING:</strong> Any misrepresentation made in the Personal Data Sheet and the
               Work Experience Sheet shall cause the filing of administrative/criminal case/s against
               the person concerned pursuant to CSC and Ombudsman rules.
             </div>
 
-            <div className="flex flex-wrap gap-1.5 border-b border-slate-200 pb-2 text-xs font-semibold">
+            <div className="flex flex-wrap gap-1.5 border-b border-slate-200 pb-2.5 text-xs font-semibold">
               {(
                 [
                   { id: 'personal', label: 'I. Personal Info' },
@@ -1905,9 +1911,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   key={tab.id}
                   type="button"
                   onClick={() => setPdsActiveTab(tab.id)}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] transition-colors ${
+                  className={`px-3 py-1.5 rounded-lg text-[11px] transition-colors cursor-pointer ${
                     pdsActiveTab === tab.id
-                      ? 'bg-[#024794] text-white font-bold shadow-xs'
+                      ? 'bg-[#024794] text-white font-bold shadow-2xs'
                       : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                   }`}
                 >
@@ -1937,7 +1943,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                         .trim();
                       setPersonalInfo(updated);
                     }}
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
                 <div>
@@ -1952,7 +1958,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                         .trim();
                       setPersonalInfo(updated);
                     }}
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
                 <div>
@@ -1967,7 +1973,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                         .trim();
                       setPersonalInfo(updated);
                     }}
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
                 <div>
@@ -1983,7 +1989,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                         .trim();
                       setPersonalInfo(updated);
                     }}
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
 
@@ -1993,7 +1999,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     type="date"
                     value={personalInfo.birthDate}
                     onChange={(e) => setPersonalInfo({ ...personalInfo, birthDate: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
                 <div>
@@ -2002,7 +2008,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     type="text"
                     value={personalInfo.birthPlace}
                     onChange={(e) => setPersonalInfo({ ...personalInfo, birthPlace: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
                 <div>
@@ -2012,7 +2018,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     onChange={(e) =>
                       setPersonalInfo({ ...personalInfo, sex: e.target.value as 'Male' | 'Female' | '' })
                     }
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   >
                     <option value="">Select</option>
                     <option value="Female">Female</option>
@@ -2034,7 +2040,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           | 'Other',
                       })
                     }
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   >
                     <option value="Single">Single</option>
                     <option value="Married">Married</option>
@@ -2054,7 +2060,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                         citizenship: e.target.value as 'Filipino' | 'Dual Citizenship' | '',
                       })
                     }
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   >
                     <option value="Filipino">Filipino</option>
                     <option value="Dual Citizenship">Dual Citizenship</option>
@@ -2069,7 +2075,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     onChange={(e) =>
                       setPersonalInfo({ ...personalInfo, heightMeters: e.target.value })
                     }
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
                 <div>
@@ -2079,7 +2085,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     placeholder="e.g. 58"
                     value={personalInfo.weightKg}
                     onChange={(e) => setPersonalInfo({ ...personalInfo, weightKg: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
                 <div>
@@ -2089,7 +2095,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     placeholder="e.g. O+, A+, B+"
                     value={personalInfo.bloodType}
                     onChange={(e) => setPersonalInfo({ ...personalInfo, bloodType: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
 
@@ -2099,7 +2105,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     type="text"
                     value={personalInfo.gsisNo}
                     onChange={(e) => setPersonalInfo({ ...personalInfo, gsisNo: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
                 <div>
@@ -2108,7 +2114,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     type="text"
                     value={personalInfo.pagibigNo}
                     onChange={(e) => setPersonalInfo({ ...personalInfo, pagibigNo: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
                 <div>
@@ -2119,7 +2125,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     onChange={(e) =>
                       setPersonalInfo({ ...personalInfo, philhealthNo: e.target.value })
                     }
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
                 <div>
@@ -2128,7 +2134,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     type="text"
                     value={personalInfo.sssNo}
                     onChange={(e) => setPersonalInfo({ ...personalInfo, sssNo: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
 
@@ -2138,7 +2144,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     type="text"
                     value={personalInfo.tinNo}
                     onChange={(e) => setPersonalInfo({ ...personalInfo, tinNo: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
                 <div className="sm:col-span-2">
@@ -2151,7 +2157,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     onChange={(e) =>
                       setPersonalInfo({ ...personalInfo, agencyEmployeeNo: e.target.value })
                     }
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
 
@@ -2166,7 +2172,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       setPersonalInfo({ ...personalInfo, residentialAddress: e.target.value })
                     }
                     placeholder="House/Block/Lot No., Street, Subdivision/Village, Barangay, City/Municipality, Province"
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
                 <div>
@@ -2177,7 +2183,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     onChange={(e) =>
                       setPersonalInfo({ ...personalInfo, residentialZip: e.target.value })
                     }
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
 
@@ -2191,7 +2197,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     onChange={(e) =>
                       setPersonalInfo({ ...personalInfo, permanentAddress: e.target.value })
                     }
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
                 <div>
@@ -2202,7 +2208,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     onChange={(e) =>
                       setPersonalInfo({ ...personalInfo, permanentZip: e.target.value })
                     }
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
 
@@ -2212,7 +2218,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     type="email"
                     value={personalInfo.email}
                     onChange={(e) => setPersonalInfo({ ...personalInfo, email: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
                 <div>
@@ -2223,7 +2229,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     type="tel"
                     value={personalInfo.phone}
                     onChange={(e) => setPersonalInfo({ ...personalInfo, phone: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
                 <div>
@@ -2234,7 +2240,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     onChange={(e) =>
                       setPersonalInfo({ ...personalInfo, telephoneNumber: e.target.value })
                     }
-                    className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2 text-slate-900 focus:bg-white focus:ring-2 focus:ring-[#024794] focus:outline-hidden"
                   />
                 </div>
               </div>
@@ -2265,7 +2271,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                             spouseSurname: e.target.value,
                           })
                         }
-                        className="w-full bg-white border border-slate-300 rounded p-2"
+                        className="w-full bg-white border border-slate-300 rounded-lg p-2"
                       />
                     </div>
                     <div>
@@ -2279,7 +2285,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                             spouseFirstName: e.target.value,
                           })
                         }
-                        className="w-full bg-white border border-slate-300 rounded p-2"
+                        className="w-full bg-white border border-slate-300 rounded-lg p-2"
                       />
                     </div>
                     <div>
@@ -2293,7 +2299,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                             spouseMiddleName: e.target.value,
                           })
                         }
-                        className="w-full bg-white border border-slate-300 rounded p-2"
+                        className="w-full bg-white border border-slate-300 rounded-lg p-2"
                       />
                     </div>
                     <div>
@@ -2307,7 +2313,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                             spouseOccupation: e.target.value,
                           })
                         }
-                        className="w-full bg-white border border-slate-300 rounded p-2"
+                        className="w-full bg-white border border-slate-300 rounded-lg p-2"
                       />
                     </div>
                   </div>
@@ -2331,7 +2337,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                             fatherSurname: e.target.value,
                           })
                         }
-                        className="w-full bg-white border border-slate-300 rounded p-2"
+                        className="w-full bg-white border border-slate-300 rounded-lg p-2"
                       />
                     </div>
                     <div>
@@ -2347,7 +2353,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                             fatherFirstName: e.target.value,
                           })
                         }
-                        className="w-full bg-white border border-slate-300 rounded p-2"
+                        className="w-full bg-white border border-slate-300 rounded-lg p-2"
                       />
                     </div>
                     <div>
@@ -2363,7 +2369,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                             fatherMiddleName: e.target.value,
                           })
                         }
-                        className="w-full bg-white border border-slate-300 rounded p-2"
+                        className="w-full bg-white border border-slate-300 rounded-lg p-2"
                       />
                     </div>
 
@@ -2380,7 +2386,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                             motherMaidenSurname: e.target.value,
                           })
                         }
-                        className="w-full bg-white border border-slate-300 rounded p-2"
+                        className="w-full bg-white border border-slate-300 rounded-lg p-2"
                       />
                     </div>
                     <div>
@@ -2396,7 +2402,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                             motherFirstName: e.target.value,
                           })
                         }
-                        className="w-full bg-white border border-slate-300 rounded p-2"
+                        className="w-full bg-white border border-slate-300 rounded-lg p-2"
                       />
                     </div>
                     <div>
@@ -2412,7 +2418,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                             motherMiddleName: e.target.value,
                           })
                         }
-                        className="w-full bg-white border border-slate-300 rounded p-2"
+                        className="w-full bg-white border border-slate-300 rounded-lg p-2"
                       />
                     </div>
                   </div>
@@ -2431,7 +2437,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           children: [...familyBackground.children, { fullName: '', birthDate: '' }],
                         })
                       }
-                      className="text-[#024794] hover:underline font-bold text-xs flex items-center gap-1"
+                      className="text-[#024794] hover:underline font-bold text-xs flex items-center gap-1 cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Add Child Row</span>
@@ -2456,7 +2462,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                               updated[idx].fullName = e.target.value;
                               setFamilyBackground({ ...familyBackground, children: updated });
                             }}
-                            className="bg-white border border-slate-300 rounded p-2 col-span-2"
+                            className="bg-white border border-slate-300 rounded-lg p-2 col-span-2"
                           />
                           <div className="flex items-center gap-2">
                             <input
@@ -2467,7 +2473,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                                 updated[idx].birthDate = e.target.value;
                                 setFamilyBackground({ ...familyBackground, children: updated });
                               }}
-                              className="bg-white border border-slate-300 rounded p-2 flex-1"
+                              className="bg-white border border-slate-300 rounded-lg p-2 flex-1"
                             />
                             <button
                               type="button"
@@ -2477,7 +2483,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                                   children: familyBackground.children.filter((_, i) => i !== idx),
                                 })
                               }
-                              className="text-red-500 hover:text-red-700 p-1"
+                              className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -2515,14 +2521,14 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       },
                     ])
                   }
-                  className="bg-blue-50 text-[#024794] border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
+                  className="bg-blue-50 hover:bg-blue-100 text-[#024794] border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Education Row</span>
                 </button>
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-lg border border-slate-200">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-[#024794] text-white">
@@ -2655,7 +2661,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           <button
                             type="button"
                             onClick={() => setEducation(education.filter((_, i) => i !== idx))}
-                            className="text-red-500 hover:text-red-700 p-1"
+                            className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -2690,14 +2696,14 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       },
                     ])
                   }
-                  className="bg-blue-50 text-[#024794] border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
+                  className="bg-blue-50 hover:bg-blue-100 text-[#024794] border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Eligibility Row</span>
                 </button>
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-lg border border-slate-200">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-[#024794] text-white">
@@ -2798,7 +2804,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           <button
                             type="button"
                             onClick={() => setEligibility(eligibility.filter((_, i) => i !== idx))}
-                            className="text-red-500 hover:text-red-700 p-1"
+                            className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -2835,14 +2841,14 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       },
                     ])
                   }
-                  className="bg-blue-50 text-[#024794] border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
+                  className="bg-blue-50 hover:bg-blue-100 text-[#024794] border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Experience Row</span>
                 </button>
               </div>
 
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-lg border border-slate-200">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-[#024794] text-white">
@@ -2960,7 +2966,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                             onClick={() =>
                               setWorkExperience(workExperience.filter((_, i) => i !== idx))
                             }
-                            className="text-red-500 hover:text-red-700 p-1"
+                            className="text-rose-500 hover:text-rose-700 p-1 cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -2995,7 +3001,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       },
                     ])
                   }
-                  className="bg-blue-50 text-[#024794] border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
+                  className="bg-blue-50 hover:bg-blue-100 text-[#024794] border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Voluntary Row</span>
@@ -3007,7 +3013,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   No voluntary work entered. Click Add above if applicable.
                 </p>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto rounded-lg border border-slate-200">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-[#024794] text-white">
@@ -3092,7 +3098,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                               onClick={() =>
                                 setVoluntaryWork(voluntaryWork.filter((_, i) => i !== idx))
                               }
-                              className="text-red-500 hover:text-red-700"
+                              className="text-rose-500 hover:text-rose-700 cursor-pointer"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -3134,7 +3140,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       },
                     ])
                   }
-                  className="bg-blue-50 text-[#024794] border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5"
+                  className="bg-blue-50 hover:bg-blue-100 text-[#024794] border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Training Row</span>
@@ -3161,10 +3167,10 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   </div>
                   {trainingAudit.excluded > 0 && (
                     <div className="text-right">
-                      <span className="text-[10px] text-amber-600 uppercase block font-sans font-bold">
+                      <span className="text-[10px] text-amber-700 uppercase block font-sans font-bold">
                         Excluded
                       </span>
-                      <span className="font-bold text-amber-700 text-sm">
+                      <span className="font-bold text-amber-800 text-sm">
                         -{trainingAudit.excluded} Hours
                       </span>
                     </div>
@@ -3173,9 +3179,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </div>
 
               {trainingAudit.flagged.length > 0 && (
-                <div className="bg-amber-50 border border-amber-300 p-2.5 rounded-lg text-xs text-amber-900 space-y-1">
+                <div className="bg-amber-50 border border-amber-200 p-2.5 rounded-lg text-xs text-amber-950 space-y-1">
                   <span className="font-bold">Flagged Non-Qualifying Training Entries:</span>
-                  <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-800">
+                  <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-900">
                     {trainingAudit.flagged.map((f, i) => (
                       <li key={i}>
                         &quot;{f.title}&quot; ({f.hours} hrs) — {f.reason}
@@ -3185,7 +3191,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 </div>
               )}
 
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-lg border border-slate-200">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-[#024794] text-white">
@@ -3282,7 +3288,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           <button
                             type="button"
                             onClick={() => setTraining(training.filter((_, i) => i !== idx))}
-                            className="text-red-500 hover:text-red-700"
+                            className="text-rose-500 hover:text-rose-700 cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -3317,7 +3323,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       })
                     }
                     placeholder="Enter one per line..."
-                    className="w-full bg-white border border-slate-300 rounded p-2 text-xs"
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs"
                   />
                 </div>
 
@@ -3335,7 +3341,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       })
                     }
                     placeholder="Enter one per line..."
-                    className="w-full bg-white border border-slate-300 rounded p-2 text-xs"
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs"
                   />
                 </div>
 
@@ -3353,7 +3359,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       })
                     }
                     placeholder="Enter one per line..."
-                    className="w-full bg-white border border-slate-300 rounded p-2 text-xs"
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2 text-xs"
                   />
                 </div>
               </div>
@@ -3368,7 +3374,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </h3>
 
               <div className="space-y-4">
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+                <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
                   <div className="flex items-start justify-between gap-4">
                     <span className="font-semibold text-slate-800">
                       34. Are you related by consanguinity or affinity to the appointing or
@@ -3376,7 +3382,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       National Gov / 4th degree for Local)?
                     </span>
                     <div className="flex items-center gap-3 shrink-0">
-                      <label className="flex items-center gap-1 font-bold">
+                      <label className="flex items-center gap-1 font-bold cursor-pointer">
                         <input
                           type="radio"
                           name="q34"
@@ -3387,7 +3393,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                         />
                         <span>Yes</span>
                       </label>
-                      <label className="flex items-center gap-1 font-bold">
+                      <label className="flex items-center gap-1 font-bold cursor-pointer">
                         <input
                           type="radio"
                           name="q34"
@@ -3402,14 +3408,14 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+                <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
                   <div className="flex items-start justify-between gap-4">
                     <span className="font-semibold text-slate-800">
                       35. Have you ever been found guilty of any administrative offense or formally
                       charged with a crime?
                     </span>
                     <div className="flex items-center gap-3 shrink-0">
-                      <label className="flex items-center gap-1 font-bold">
+                      <label className="flex items-center gap-1 font-bold cursor-pointer">
                         <input
                           type="radio"
                           name="q35"
@@ -3418,7 +3424,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                         />
                         <span>Yes</span>
                       </label>
-                      <label className="flex items-center gap-1 font-bold">
+                      <label className="flex items-center gap-1 font-bold cursor-pointer">
                         <input
                           type="radio"
                           name="q35"
@@ -3433,14 +3439,14 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+                <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
                   <div className="flex items-start justify-between gap-4">
                     <span className="font-semibold text-slate-800">
                       36. Have you ever been convicted of any crime or violation of any law, decree,
                       or ordinance?
                     </span>
                     <div className="flex items-center gap-3 shrink-0">
-                      <label className="flex items-center gap-1 font-bold">
+                      <label className="flex items-center gap-1 font-bold cursor-pointer">
                         <input
                           type="radio"
                           name="q36"
@@ -3451,7 +3457,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                         />
                         <span>Yes</span>
                       </label>
-                      <label className="flex items-center gap-1 font-bold">
+                      <label className="flex items-center gap-1 font-bold cursor-pointer">
                         <input
                           type="radio"
                           name="q36"
@@ -3466,14 +3472,14 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   </div>
                 </div>
 
-                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
+                <div className="p-3.5 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
                   <div className="flex items-start justify-between gap-4">
                     <span className="font-semibold text-slate-800">
                       37. Have you ever been separated from the service in any mode (resignation,
                       dismissal, dropped)?
                     </span>
                     <div className="flex items-center gap-3 shrink-0">
-                      <label className="flex items-center gap-1 font-bold">
+                      <label className="flex items-center gap-1 font-bold cursor-pointer">
                         <input
                           type="radio"
                           name="q37"
@@ -3484,7 +3490,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                         />
                         <span>Yes</span>
                       </label>
-                      <label className="flex items-center gap-1 font-bold">
+                      <label className="flex items-center gap-1 font-bold cursor-pointer">
                         <input
                           type="radio"
                           name="q37"
@@ -3551,7 +3557,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 </div>
               </div>
 
-              <div className="bg-sky-50 border border-sky-200 p-4 rounded-xl space-y-3">
+              <div className="bg-sky-50 border border-blue-200 p-4 rounded-xl space-y-3">
                 <span className="font-bold text-[#024794] block text-xs">
                   Government Issued ID Presented (Passport, GSIS, SSS, PRC, Driver&apos;s License)
                 </span>
@@ -3566,7 +3572,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                         govIssuedId: { ...declaration.govIssuedId, idType: e.target.value },
                       })
                     }
-                    className="bg-white border border-slate-300 rounded p-2 text-xs"
+                    className="bg-white border border-slate-300 rounded-lg p-2 text-xs"
                   />
                   <input
                     type="text"
@@ -3578,7 +3584,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                         govIssuedId: { ...declaration.govIssuedId, idNumber: e.target.value },
                       })
                     }
-                    className="bg-white border border-slate-300 rounded p-2 text-xs"
+                    className="bg-white border border-slate-300 rounded-lg p-2 text-xs"
                   />
                   <input
                     type="text"
@@ -3593,7 +3599,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                         },
                       })
                     }
-                    className="bg-white border border-slate-300 rounded p-2 text-xs"
+                    className="bg-white border border-slate-300 rounded-lg p-2 text-xs"
                   />
                 </div>
 
@@ -3616,11 +3622,11 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           )}
 
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center justify-between pt-1">
             <button
               type="button"
               onClick={() => setActiveSection('letter')}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-300"
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-300 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Back: 1. Application Letter</span>
@@ -3628,7 +3634,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             <button
               type="button"
               onClick={() => setActiveSection('position_qs')}
-              className="bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm"
+              className="bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer"
             >
               <span>Save &amp; Proceed to Section 3: Position Description &amp; QS</span>
               <ArrowRight className="w-4 h-4" />
@@ -3665,7 +3671,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <span className="text-lg font-black text-[#024794]">
                   Salary Grade {activeJob.salaryGrade}
                 </span>
-                <span className="text-[10px] text-amber-700 block font-semibold">
+                <span className="text-[10px] text-amber-800 block font-semibold">
                   Closes: {jobClosingDate}
                 </span>
               </div>
@@ -3676,29 +3682,29 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 Civil Service Commission (CSC) Qualification Standards:
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
-                  <strong className="text-slate-800 block text-[11px]">1. Education:</strong>
+                <div className="bg-slate-50 p-3.5 rounded-lg border border-slate-200 space-y-1">
+                  <strong className="text-slate-900 block text-[11px]">1. Education:</strong>
                   <p className="text-slate-600 leading-relaxed">
                     {activeJob.qualificationStandards?.education}
                   </p>
                 </div>
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
-                  <strong className="text-slate-800 block text-[11px]">2. Experience:</strong>
+                <div className="bg-slate-50 p-3.5 rounded-lg border border-slate-200 space-y-1">
+                  <strong className="text-slate-900 block text-[11px]">2. Experience:</strong>
                   <p className="text-slate-600 leading-relaxed">
                     {activeJob.qualificationStandards?.experience}
                   </p>
                 </div>
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
-                  <strong className="text-slate-800 block text-[11px]">3. Training:</strong>
+                <div className="bg-slate-50 p-3.5 rounded-lg border border-slate-200 space-y-1">
+                  <strong className="text-slate-900 block text-[11px]">3. Training:</strong>
                   <p className="text-slate-600 leading-relaxed">
                     {activeJob.qualificationStandards?.training}
                   </p>
-                  <span className="text-[10px] text-amber-700 block font-medium">
+                  <span className="text-[10px] text-amber-800 block font-medium">
                     *Excludes RP/Facilitators/Conferences
                   </span>
                 </div>
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
-                  <strong className="text-slate-800 block text-[11px]">4. Eligibility:</strong>
+                <div className="bg-slate-50 p-3.5 rounded-lg border border-slate-200 space-y-1">
+                  <strong className="text-slate-900 block text-[11px]">4. Eligibility:</strong>
                   <p className="text-slate-600 leading-relaxed">
                     {activeJob.qualificationStandards?.eligibility}
                   </p>
@@ -3713,8 +3719,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 </span>
                 <ul className="space-y-1.5 text-[11px] text-slate-700">
                   {(activeJob.dutiesAndResponsibilities || []).map((d, i) => (
-                    <li key={i} className="flex items-start gap-1.5">
-                      <span className="w-4 h-4 rounded-full bg-[#024794] text-white flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5">
+                    <li key={i} className="flex items-start gap-2">
+                      <span className="w-4 h-4 rounded-full bg-[#024794] text-white flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
                         {i + 1}
                       </span>
                       <span>{d}</span>
@@ -3752,17 +3758,17 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-[#024794] to-[#04336b] rounded-xl text-white p-6 shadow-md space-y-4 border border-blue-900">
+          <div className="bg-[#024794] rounded-xl text-white p-6 shadow-xs space-y-4 border border-[#024794]">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center font-black">
+                <div className="w-9 h-9 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center font-black shrink-0">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="font-black text-sm sm:text-base">
                     Gemini AI-Assisted Qualification Assessment
                   </h3>
-                  <p className="text-xs text-sky-200">
+                  <p className="text-xs text-sky-100">
                     Automated pre-screening comparing your PDS credentials against the vacancy&apos;s
                     official QS.
                   </p>
@@ -3773,7 +3779,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 type="button"
                 onClick={handleRunAiFitAssessment}
                 disabled={isEvaluatingFit}
-                className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 transition-all shadow-md shrink-0"
+                className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 transition-all shadow-2xs shrink-0 cursor-pointer"
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isEvaluatingFit ? 'animate-spin' : ''}`} />
                 <span>{isEvaluatingFit ? 'Evaluating Fit...' : 'Run / Re-evaluate AI Fit'}</span>
@@ -3781,63 +3787,63 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
 
             {aiFitAssessment ? (
-              <div className="bg-white/10 backdrop-blur-xs border border-white/20 rounded-xl p-4 space-y-3 text-xs">
-                <div className="flex items-center justify-between">
+              <div className="bg-white/10 border border-white/20 rounded-xl p-4 space-y-3 text-xs">
+                <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <span className="font-bold">Overall Automated Match Score:</span>
                     <span className="bg-white text-[#024794] font-black px-2.5 py-0.5 rounded text-sm">
                       {aiFitAssessment.score} / 100
                     </span>
                   </div>
-                  <span className="text-[10px] text-sky-200">
+                  <span className="text-[10px] text-sky-100">
                     Evaluated at {aiFitAssessment.evaluatedAt}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] pt-1">
-                  <div className="bg-white/10 p-2 rounded">
-                    <span className="block text-sky-200">Education:</span>
+                  <div className="bg-white/10 p-2.5 rounded-lg border border-white/10">
+                    <span className="block text-sky-100">Education:</span>
                     <span className="font-bold text-emerald-300">
                       {aiFitAssessment.educationPass ? '✓ Verified Degree' : '⚠️ Under Review'}
                     </span>
                   </div>
-                  <div className="bg-white/10 p-2 rounded">
-                    <span className="block text-sky-200">Experience:</span>
+                  <div className="bg-white/10 p-2.5 rounded-lg border border-white/10">
+                    <span className="block text-sky-100">Experience:</span>
                     <span className="font-bold text-emerald-300">
                       {aiFitAssessment.experiencePass ? '✓ Meets Standards' : '⚠️ Incomplete'}
                     </span>
                   </div>
-                  <div className="bg-white/10 p-2 rounded">
-                    <span className="block text-sky-200">Qualifying Training:</span>
+                  <div className="bg-white/10 p-2.5 rounded-lg border border-white/10">
+                    <span className="block text-sky-100">Qualifying Training:</span>
                     <span className="font-bold text-emerald-300">
                       {trainingAudit.qualifying} Hours Verified
                     </span>
                   </div>
-                  <div className="bg-white/10 p-2 rounded">
-                    <span className="block text-sky-200">Eligibility:</span>
+                  <div className="bg-white/10 p-2.5 rounded-lg border border-white/10">
+                    <span className="block text-sky-100">Eligibility:</span>
                     <span className="font-bold text-emerald-300">
                       {aiFitAssessment.eligibilityPass ? '✓ 2nd Level Eligible' : '⚠️ Missing'}
                     </span>
                   </div>
                 </div>
 
-                <p className="text-[11px] text-amber-200 italic pt-1 border-t border-white/10">
+                <p className="text-[11px] text-amber-200 italic pt-1 border-t border-white/15">
                   *{aiFitAssessment.advisory}
                 </p>
               </div>
             ) : (
-              <div className="bg-white/10 border border-white/20 rounded-xl p-4 text-center text-xs text-sky-200">
+              <div className="bg-white/10 border border-white/20 rounded-xl p-4 text-center text-xs text-sky-100">
                 Click <strong>&quot;Run / Re-evaluate AI Fit&quot;</strong> to audit your credentials
                 against Civil Service qualification standards.
               </div>
             )}
           </div>
 
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center justify-between pt-1">
             <button
               type="button"
               onClick={() => setActiveSection('pds')}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-300"
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-300 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Back: 2. Personal Data Sheet (PDS)</span>
@@ -3845,7 +3851,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             <button
               type="button"
               onClick={() => setActiveSection('file_uploads')}
-              className="bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm"
+              className="bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer"
             >
               <span>Proceed to Section 4: File Uploads</span>
               <ArrowRight className="w-4 h-4" />
@@ -3857,7 +3863,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       {/* SECTION 4: FILE UPLOADS */}
       {activeSection === 'file_uploads' && (
         <div className="space-y-6">
-          <div className="bg-gradient-to-r from-blue-900 to-[#024794] rounded-2xl p-6 text-white shadow-md space-y-4">
+          <div className="bg-[#024794] rounded-xl p-6 text-white shadow-xs space-y-4 border border-[#024794]">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div>
                 <span className="bg-amber-400 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded uppercase tracking-wider inline-block mb-1">
@@ -3866,7 +3872,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <h3 className="text-lg sm:text-xl font-black">
                   Upload Plantilla (PL), Eligibility, Trainings, and Work Experience (WE)
                 </h3>
-                <p className="text-xs text-sky-100 mt-0.5 max-w-2xl">
+                <p className="text-xs text-sky-100 mt-0.5 max-w-2xl leading-relaxed">
                   Drag and drop files into their slots, or use the universal classifier. Misplaced
                   files are <strong>automatically organized and corrected</strong> into their proper
                   category.
@@ -3883,7 +3889,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 }
               }}
               onClick={() => universalInputRef.current?.click()}
-              className="border-2 border-dashed border-white/40 hover:border-amber-400 bg-white/5 hover:bg-white/10 rounded-xl p-5 text-center cursor-pointer transition-all space-y-2 group"
+              className="border-2 border-dashed border-white/35 hover:border-amber-300 bg-white/5 hover:bg-white/10 rounded-xl p-5 text-center cursor-pointer transition-all space-y-2 group"
             >
               <input
                 ref={universalInputRef}
@@ -3896,21 +3902,21 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   }
                 }}
               />
-              <div className="w-10 h-10 bg-white/15 rounded-full flex items-center justify-center mx-auto group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 bg-white/15 rounded-full flex items-center justify-center mx-auto group-hover:scale-105 transition-transform">
                 <Upload className="w-5 h-5 text-amber-300" />
               </div>
               <div className="text-xs">
                 <span className="font-bold text-white">
                   Click or drag &amp; drop files here to auto-classify
                 </span>
-                <p className="text-[11px] text-sky-200 mt-0.5">
+                <p className="text-[11px] text-sky-100 mt-0.5">
                   Universal scanner: automatically identifies Plantilla, Eligibility, Trainings, or
                   Work Experience.
                 </p>
               </div>
             </div>
 
-            <div className="bg-black/20 rounded-lg p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="bg-black/15 rounded-lg p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="text-[11px] text-amber-300 font-semibold flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>Test Auto-Correction:</span>
@@ -3919,21 +3925,21 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <button
                   type="button"
                   onClick={() => handleTestAutoCorrection('eligibility-in-trainings')}
-                  className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-2.5 py-1 rounded border border-white/10"
+                  className="bg-white/10 hover:bg-white/20 text-white text-[10px] font-semibold px-2.5 py-1 rounded border border-white/15 cursor-pointer"
                 >
                   Eligibility into Trainings
                 </button>
                 <button
                   type="button"
                   onClick={() => handleTestAutoCorrection('ipcr-in-pl')}
-                  className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-2.5 py-1 rounded border border-white/10"
+                  className="bg-white/10 hover:bg-white/20 text-white text-[10px] font-semibold px-2.5 py-1 rounded border border-white/15 cursor-pointer"
                 >
                   IPCR into Plantilla
                 </button>
                 <button
                   type="button"
                   onClick={() => handleTestAutoCorrection('tor-in-we')}
-                  className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-2.5 py-1 rounded border border-white/10"
+                  className="bg-white/10 hover:bg-white/20 text-white text-[10px] font-semibold px-2.5 py-1 rounded border border-white/15 cursor-pointer"
                 >
                   TOR into Work Experience
                 </button>
@@ -3949,16 +3955,16 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               return (
                 <div
                   key={cat.code}
-                  className={`bg-white rounded-xl border p-5 space-y-3 transition-all flex flex-col justify-between ${
+                  className={`bg-white rounded-xl border p-5 space-y-3 transition-all flex flex-col justify-between shadow-xs ${
                     isFilled
-                      ? 'border-emerald-300 shadow-xs ring-1 ring-emerald-200'
-                      : 'border-slate-200 shadow-xs'
+                      ? 'border-emerald-300 ring-1 ring-emerald-200'
+                      : 'border-slate-200'
                   }`}
                 >
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="w-9 h-9 rounded-lg bg-[#024794] text-white flex items-center justify-center font-black text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-9 h-9 rounded-lg bg-[#024794] text-white flex items-center justify-center font-black text-xs shrink-0">
                           {cat.code}
                         </span>
                         <div>
@@ -3970,12 +3976,12 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       </div>
 
                       {isFilled ? (
-                        <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-black px-2 py-0.5 rounded flex items-center gap-1">
+                        <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-black px-2 py-0.5 rounded flex items-center gap-1 shrink-0">
                           <Check className="w-3 h-3 text-emerald-600" />
                           <span>Attached ({catDocs.length})</span>
                         </span>
                       ) : (
-                        <span className="bg-red-50 text-red-700 border border-red-200 text-[10px] font-bold px-2 py-0.5 rounded">
+                        <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded shrink-0">
                           Mandatory
                         </span>
                       )}
@@ -3997,10 +4003,10 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                               <span className="font-semibold text-slate-900 block truncate text-[11px]">
                                 {doc.name}
                               </span>
-                              <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                              <div className="flex items-center gap-2 text-[10px] text-slate-500">
                                 <span>{doc.fileSize}</span>
                                 {doc.autoCorrected && (
-                                  <span className="bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded text-[9px]">
+                                  <span className="bg-amber-100 text-amber-900 font-bold px-1.5 py-0.5 rounded text-[9px]">
                                     Auto-Corrected from {doc.originalCategory}
                                   </span>
                                 )}
@@ -4010,7 +4016,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           <button
                             type="button"
                             onClick={() => handleRemoveDoc(doc.id)}
-                            className="text-red-400 hover:text-red-600 p-1 shrink-0"
+                            className="text-rose-500 hover:text-rose-700 p-1 shrink-0 cursor-pointer"
                             title="Remove file"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -4020,7 +4026,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     </div>
                   ) : (
                     <div className="pt-2 border-t border-slate-100">
-                      <div className="bg-amber-50/60 border border-amber-200/80 rounded-lg p-2.5 text-center text-[11px] text-amber-800">
+                      <div className="bg-amber-50/70 border border-amber-200 rounded-lg p-2.5 text-center text-[11px] text-amber-900">
                         No file uploaded yet. Drop or select a file for {cat.shortLabel}.
                       </div>
                     </div>
@@ -4042,7 +4048,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     <button
                       type="button"
                       onClick={() => slotInputRefs.current[cat.code]?.click()}
-                      className="w-full bg-slate-50 hover:bg-slate-100 text-[#024794] border border-blue-200 rounded-lg py-2 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+                      className="w-full bg-slate-50 hover:bg-blue-50 text-[#024794] border border-blue-200 rounded-lg py-2 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <Paperclip className="w-3.5 h-3.5" />
                       <span>Upload {cat.shortLabel} Document</span>
@@ -4053,11 +4059,11 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             })}
           </div>
 
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center justify-between pt-1">
             <button
               type="button"
               onClick={() => setActiveSection('position_qs')}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-300"
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-300 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Back: 3. Position Description &amp; QS</span>
@@ -4065,7 +4071,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             <button
               type="button"
               onClick={() => setActiveSection('other_documents')}
-              className="bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm"
+              className="bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer"
             >
               <span>Proceed to Section 5: Other Documents</span>
               <ArrowRight className="w-4 h-4" />
@@ -4086,7 +4092,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <h3 className="text-lg sm:text-xl font-black text-slate-900">
                   Other Documents &amp; Compliance Attachments
                 </h3>
-                <p className="text-xs text-slate-600 mt-0.5">
+                <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
                   Upload your Transcript of Records (TOR), Diploma, Registration (REG), Certificates
                   (CERT), Sworn Statements (SWORNS), Performance Commitment and Review (PCR), and
                   Potential documents.
@@ -4110,28 +4116,28 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               return (
                 <div
                   key={cat.code}
-                  className={`bg-white rounded-xl border p-4 space-y-3 transition-all flex flex-col justify-between ${
+                  className={`bg-white rounded-xl border p-4 space-y-3 transition-all flex flex-col justify-between shadow-xs ${
                     isFilled
-                      ? 'border-emerald-300 shadow-xs ring-1 ring-emerald-200'
-                      : 'border-slate-200 shadow-xs'
+                      ? 'border-emerald-300 ring-1 ring-emerald-200'
+                      : 'border-slate-200'
                   }`}
                 >
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center font-black text-[11px]">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="w-8 h-8 rounded-lg bg-[#024794] text-white flex items-center justify-center font-black text-[11px] shrink-0">
                         {cat.code}
                       </span>
                       {isFilled ? (
-                        <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
+                        <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1">
                           <Check className="w-3 h-3 text-emerald-600" />
                           <span>Attached</span>
                         </span>
                       ) : cat.required ? (
-                        <span className="bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded">
+                        <span className="bg-amber-50 text-amber-900 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded">
                           Required
                         </span>
                       ) : (
-                        <span className="bg-slate-100 text-slate-600 text-[10px] font-medium px-2 py-0.5 rounded">
+                        <span className="bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-medium px-2 py-0.5 rounded">
                           Optional
                         </span>
                       )}
@@ -4149,13 +4155,13 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           className="bg-slate-50 p-2 rounded-lg border border-slate-200 flex items-center justify-between gap-1.5 text-xs"
                         >
                           <div className="min-w-0">
-                            <span className="font-semibold text-slate-800 block truncate text-[10px]">
+                            <span className="font-semibold text-slate-800 block truncate text-[11px]">
                               {doc.name}
                             </span>
-                            <div className="flex items-center gap-1.5 text-[9px] text-slate-400">
+                            <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
                               <span>{doc.fileSize}</span>
                               {doc.autoCorrected && (
-                                <span className="text-amber-700 font-bold">
+                                <span className="text-amber-800 font-bold">
                                   Auto-Sorted ({doc.originalCategory})
                                 </span>
                               )}
@@ -4164,7 +4170,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           <button
                             type="button"
                             onClick={() => handleRemoveDoc(doc.id)}
-                            className="text-red-400 hover:text-red-600 p-1 shrink-0"
+                            className="text-rose-500 hover:text-rose-700 p-1 shrink-0 cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -4173,7 +4179,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     </div>
                   ) : (
                     <div className="pt-2 border-t border-slate-100">
-                      <div className="bg-slate-50 p-2 rounded text-center text-[10px] text-slate-400">
+                      <div className="bg-slate-50 p-2 rounded border border-slate-200/80 text-center text-[10px] text-slate-500">
                         No {cat.shortLabel} file attached.
                       </div>
                     </div>
@@ -4195,7 +4201,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     <button
                       type="button"
                       onClick={() => slotInputRefs.current[cat.code]?.click()}
-                      className="w-full bg-slate-50 hover:bg-slate-100 text-[#024794] border border-blue-200 rounded-lg py-1.5 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors"
+                      className="w-full bg-slate-50 hover:bg-blue-50 text-[#024794] border border-blue-200 rounded-lg py-1.5 text-[11px] font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
                       <Paperclip className="w-3.5 h-3.5" />
                       <span>Upload {cat.shortLabel}</span>
@@ -4206,11 +4212,11 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             })}
           </div>
 
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center justify-between pt-1">
             <button
               type="button"
               onClick={() => setActiveSection('file_uploads')}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-300"
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-300 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Back: 4. File Uploads</span>
@@ -4218,7 +4224,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             <button
               type="button"
               onClick={() => setActiveSection('review_submit')}
-              className="bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm"
+              className="bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer"
             >
               <span>Proceed to Section 6: Review &amp; Submit</span>
               <ArrowRight className="w-4 h-4" />
@@ -4238,7 +4244,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               <h3 className="text-xl font-black text-slate-900">
                 Consolidated Application Review &amp; Official Submission
               </h3>
-              <p className="text-xs text-slate-600 mt-0.5">
+              <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
                 Carefully review all six sections before submitting. Once submitted, your docket is
                 forwarded to the DA-BFAR Human Resource Merit Promotion and Selection Board
                 (HRMPSB).
@@ -4253,11 +4259,11 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     <span>1. Application Letter</span>
                   </span>
                   {applicationLetterText || letterUploadedFileName ? (
-                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">
+                    <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded">
                       Complete
                     </span>
                   ) : (
-                    <span className="bg-amber-100 text-amber-800 text-[10px] font-bold px-2 py-0.5 rounded">
+                    <span className="bg-amber-100 text-amber-900 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded">
                       Pending
                     </span>
                   )}
@@ -4272,7 +4278,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveSection('letter')}
-                  className="text-xs font-bold text-[#024794] hover:underline"
+                  className="text-xs font-bold text-[#024794] hover:underline cursor-pointer"
                 >
                   Edit Application Letter →
                 </button>
@@ -4284,13 +4290,13 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     <User className="w-4 h-4 text-[#024794]" />
                     <span>2. Personal Data Sheet (PDS)</span>
                   </span>
-                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">
+                  <span className="bg-emerald-100 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded">
                     CS Form 212 Accomplished
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-600">
                   <span>
-                    Name: <strong>{personalInfo.fullName}</strong>
+                    Name: <strong>{personalInfo.fullName || 'Not yet entered'}</strong>
                   </span>
                   <span>
                     Education: <strong>{education.length} entries</strong>
@@ -4305,7 +4311,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveSection('pds')}
-                  className="text-xs font-bold text-[#024794] hover:underline"
+                  className="text-xs font-bold text-[#024794] hover:underline cursor-pointer"
                 >
                   Edit PDS Fields →
                 </button>
@@ -4343,11 +4349,11 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   <span>Primary Plantilla Files: {primaryUploadCount}/4</span>
                   <span>Other Documents: {otherUploadCount}/7</span>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => setActiveSection('file_uploads')}
-                    className="text-xs font-bold text-[#024794] hover:underline"
+                    className="text-xs font-bold text-[#024794] hover:underline cursor-pointer"
                   >
                     Manage Primary Files →
                   </button>
@@ -4355,7 +4361,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   <button
                     type="button"
                     onClick={() => setActiveSection('other_documents')}
-                    className="text-xs font-bold text-[#024794] hover:underline"
+                    className="text-xs font-bold text-[#024794] hover:underline cursor-pointer"
                   >
                     Manage Other Docs →
                   </button>
@@ -4363,37 +4369,38 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </div>
             </div>
 
-            <div className="bg-amber-50 border border-amber-300 rounded-xl p-4 space-y-3 text-xs">
-              <span className="font-bold text-amber-900 block text-xs flex items-center gap-1.5">
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3 text-xs">
+              <span className="font-bold text-amber-950 block text-xs flex items-center gap-1.5">
                 <ShieldCheck className="w-4 h-4 text-amber-700" />
                 <span>Applicant Affirmation and Digital Certification</span>
               </span>
-              <p className="text-amber-800 leading-relaxed text-[11px]">
+              <p className="text-amber-900 leading-relaxed text-[11px]">
                 I hereby declare under the penalties of perjury that all answers and declarations
                 made in this application, including my Personal Data Sheet (CS Form 212) and all
                 attached documents, are true, correct, and authentic. I authorize the DA-BFAR
                 HRMPSB to verify the authenticity of all credentials.
               </p>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-amber-200/60">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-amber-200">
                 <div className="text-[11px] text-slate-700">
-                  Applicant: <strong>{personalInfo.fullName}</strong> • Date:{' '}
+                  Applicant: <strong>{personalInfo.fullName || 'Applicant'}</strong> • Date:{' '}
                   {new Date().toLocaleDateString('en-PH')}
                 </div>
-                <span className="inline-flex items-center gap-1 bg-white border border-amber-300 text-amber-900 px-3 py-1 rounded font-bold text-[11px]">
+                <span className="inline-flex items-center gap-1 bg-white border border-amber-200 text-amber-950 px-3 py-1 rounded font-bold text-[11px] w-fit">
                   <BadgeCheck className="w-3.5 h-3.5 text-emerald-600" />
                   <span>Digitally Signed</span>
                 </span>
               </div>
             </div>
 
-            <div className="bg-slate-900 text-white rounded-xl p-6 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="bg-[#024794] text-white rounded-xl p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h4 className="font-extrabold text-sm flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                  <ShieldCheck className="w-5 h-5 text-amber-300" />
                   <span>Ready to Transmit Application to DA-BFAR</span>
                 </h4>
-                <p className="text-xs text-slate-400 mt-1">
-                  Target Plantilla Item: <strong>{jobItemNo}</strong> ({activeJob.positionTitle})
+                <p className="text-xs text-sky-100 mt-1">
+                  Target Plantilla Item: <strong className="font-mono">{jobItemNo}</strong> (
+                  {activeJob.positionTitle})
                 </p>
               </div>
 
@@ -4401,7 +4408,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 type="button"
                 onClick={handleSubmitApplication}
                 disabled={isSubmitting}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs px-8 py-3.5 rounded-lg flex items-center justify-center gap-2 shadow-lg transition-all active:scale-95 disabled:opacity-50 shrink-0"
+                className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs px-7 py-3.5 rounded-lg flex items-center justify-center gap-2 shadow-xs transition-all active:scale-95 disabled:opacity-50 shrink-0 cursor-pointer"
               >
                 {isSubmitting ? (
                   <>
@@ -4418,11 +4425,11 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center justify-between pt-1">
             <button
               type="button"
               onClick={() => setActiveSection('other_documents')}
-              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-300"
+              className="bg-slate-100 hover:bg-slate-200 text-slate-700 px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 border border-slate-300 cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>Back: 5. Other Documents</span>
