@@ -42,7 +42,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 
-type AdminRole = 'HR_Specialist' | 'HRMPSB_Member' | 'Director';
+type AdminRole = 'HR_Specialist' | 'HR_Supervisor' | 'HR_Chief';
 
 interface AdminPortalProps {
   jobs: PlantillaJob[];
@@ -53,6 +53,18 @@ interface AdminPortalProps {
   onAuthChange?: (authenticated: boolean) => void;
   onBackToFrontPage?: () => void;
 }
+
+const getRoleLabel = (role: AdminRole) => {
+  switch (role) {
+    case 'HR_Chief':
+      return 'HR Chief';
+    case 'HR_Supervisor':
+      return 'HR Supervisor';
+    case 'HR_Specialist':
+    default:
+      return 'HR Administrative';
+  }
+};
 
 const emptyJobForm: {
   itemNo: string;
@@ -590,8 +602,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
         if (
           staffData.role === 'HR_Specialist' ||
-          staffData.role === 'HRMPSB_Member' ||
-          staffData.role === 'Director'
+          staffData.role === 'HR_Supervisor' ||
+          staffData.role === 'HR_Chief'
         ) {
           setVerifiedRole(staffData.role);
         }
@@ -607,7 +619,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
     return (
       <div className="max-w-2xl mx-auto my-4 space-y-4">
-        {/* Compact Header Strip */}
         <div className="bg-[#071A2F] text-white rounded-sm px-5 py-4 border border-[#0F3557] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-sm bg-[#0F3557] border border-[#C69214]/50 text-[#C69214] flex items-center justify-center shrink-0">
@@ -644,7 +655,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           )}
         </div>
 
-        {/* Main Verification Card (Immediately Visible) */}
         <div className="bg-white rounded-sm border border-[#DCE2E8] p-5 sm:p-6 space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#DCE2E8]">
             <div className="flex items-center gap-3">
@@ -793,9 +803,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   onChange={(e) => setVerifiedRole(e.target.value as AdminRole)}
                   className="w-full bg-[#F6F7F9] border border-[#DCE2E8] rounded-sm p-2.5 font-semibold text-[#0F172A] focus:outline-none focus:border-[#0F3557]"
                 >
-                  <option value="HR_Specialist">HR Administrative Specialist / Secretariat</option>
-                  <option value="HRMPSB_Member">HRMPSB Selection Board Member / Evaluator</option>
-                  <option value="Director">National Director / Appointing Authority</option>
+                  <option value="HR_Specialist">HR Administrative</option>
+                  <option value="HR_Supervisor">HR Supervisor</option>
+                  <option value="HR_Chief">HR Chief</option>
                 </select>
               </div>
 
@@ -844,7 +854,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </form>
           )}
 
-          {/* Statutory Notice & Warning Moved to Bottom */}
           <div className="bg-[#FBF7EC] border border-[#DCE2E8] p-3.5 rounded-sm text-xs space-y-1 text-[#475569]">
             <div className="flex items-center gap-1.5 text-[#071A2F] font-bold text-[11px]">
               <Lock className="w-3.5 h-3.5 text-[#C69214] shrink-0" />
@@ -875,7 +884,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     );
   }
 
-  // AUTHENTICATED HR PERSONNEL DASHBOARD
   return (
     <div className="space-y-6">
       <div className="bg-[#071A2F] text-white rounded-sm p-4 border border-[#0F3557] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -890,14 +898,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </span>
               <span className="text-[#DCE2E8] text-xs">Station: BFAR Central Office (NCR)</span>
             </div>
-            <h3 className="text-sm font-bold text-white mt-0.5">
-              Role:{' '}
-              {verifiedRole === 'Director'
-                ? 'National Director / Appointing Authority'
-                : verifiedRole === 'HRMPSB_Member'
-                ? 'HRMPSB Selection Board Member'
-                : 'HR Administrative Specialist'}
-            </h3>
+            <h3 className="text-sm font-bold text-white mt-0.5">Role: {getRoleLabel(verifiedRole)}</h3>
           </div>
         </div>
 
