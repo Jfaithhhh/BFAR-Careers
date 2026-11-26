@@ -57,12 +57,12 @@ interface AdminPortalProps {
 const getRoleLabel = (role: AdminRole) => {
   switch (role) {
     case 'HR_Chief':
-      return 'HR Chief';
+      return 'Human Resource Chief';
     case 'HR_Supervisor':
-      return 'HR Supervisor';
+      return 'Human Resource Supervisor';
     case 'HR_Specialist':
     default:
-      return 'HR Administrative';
+      return 'Human Resource Administrative';
   }
 };
 
