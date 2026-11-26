@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import {
   Building2,
   CheckCircle2,
+  Eye,
+  EyeOff,
   KeyRound,
   Lock,
   Mail,
@@ -34,16 +36,20 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
 }) => {
   const [empMode, setEmpMode] = useState<'login' | 'register'>('login');
   const [empFullName, setEmpFullName] = useState('');
-  const [empDivision, setEmpDivision] = useState('Administrative and Finance Division');
+  const [empDivision, setEmpDivision] = useState('');
   const [empIdOrEmail, setEmpIdOrEmail] = useState('');
   const [empPassword, setEmpPassword] = useState('');
   const [empConfirmPassword, setEmpConfirmPassword] = useState('');
+  const [showEmpPassword, setShowEmpPassword] = useState(false);
+  const [showEmpConfirmPassword, setShowEmpConfirmPassword] = useState(false);
 
   const [extMode, setExtMode] = useState<'register' | 'login'>('register');
   const [extUsername, setExtUsername] = useState('');
   const [extEmail, setExtEmail] = useState('');
   const [extPassword, setExtPassword] = useState('');
   const [extConfirmPassword, setExtConfirmPassword] = useState('');
+  const [showExtPassword, setShowExtPassword] = useState(false);
+  const [showExtConfirmPassword, setShowExtConfirmPassword] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [otpSent, setOtpSent] = useState(false);
   const [otpVerified, setOtpVerified] = useState(false);
@@ -70,7 +76,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
     resetMessages();
     const cleaned = empIdOrEmail.trim().toUpperCase();
     if (!cleaned || cleaned.includes('@')) {
-      setErrorMessage('Enter your Employee ID (e.g. COS4513) or sign in with your @bfar.da.gov.ph email.');
+      setErrorMessage('Enter your Employee ID or sign in with your @bfar.da.gov.ph email.');
       return;
     }
 
@@ -79,7 +85,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
       email: `${cleaned.toLowerCase()}@bfar.da.gov.ph`,
       fullName: empFullName.trim() || `BFAR Personnel (${cleaned})`,
       role: 'bfar_employee',
-      division: empDivision || 'BFAR Central Office',
+      division: empDivision.trim() || 'BFAR Central Office',
       employeeId: cleaned,
       emailVerified: true,
     } as unknown as PortalUserProfile;
@@ -117,7 +123,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
           email: normalizedEmail,
           password: empPassword,
           fullName: empFullName.trim(),
-          division: empDivision,
+          division: empDivision.trim(),
         } as Parameters<typeof registerBfarEmployee>[0]);
         onAuthenticatedUser(profile);
       }
@@ -133,12 +139,18 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
     setIsSendingOtp(true);
     try {
       const normalizedEmail = extEmail.trim().toLowerCase();
-      const fallbackUsername = extUsername.trim() || normalizedEmail.split('@')[0] || 'applicant';
-      const fallbackPassword = extPassword || 'PortalApplicant123!';
+      if (!normalizedEmail) {
+        throw new Error('Please enter your email address first.');
+      }
+      if (!extPassword) {
+        throw new Error('Please enter your password before sending the OTP.');
+      }
+
+      const derivedUsername = extUsername.trim() || normalizedEmail.split('@')[0];
       const otpResult: unknown = await sendExternalApplicantOtp(
         normalizedEmail,
-        fallbackUsername,
-        fallbackPassword
+        derivedUsername,
+        extPassword
       );
 
       let previewCode: string | null = null;
@@ -252,7 +264,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
               <span className="text-sm font-bold text-[#0F172A]">1. BFAR Employee</span>
             </div>
             <p className="text-[11px] text-[#475569]">
-              @bfar.da.gov.ph or Employee ID (COS4513) &bull; Internal Promotions
+              @bfar.da.gov.ph or Employee ID &bull; Internal Promotions
             </p>
           </button>
 
@@ -318,7 +330,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
               <div>
                 <h3 className="text-sm font-bold text-[#0F172A]">BFAR Employee Internal Portal</h3>
                 <p className="text-xs text-[#475569]">
-                  Sign in with <span className="font-semibold text-[#0F3557]">@bfar.da.gov.ph</span> or enter your Employee ID (e.g. <span className="font-mono font-bold text-[#0F172A]">COS4513</span>).
+                  Sign in with <span className="font-semibold text-[#0F3557]">@bfar.da.gov.ph</span> or enter your Employee ID.
                 </p>
               </div>
               <div className="inline-flex rounded-sm border border-[#DCE2E8] bg-white p-0.5">
@@ -361,7 +373,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                       required
                       value={empFullName}
                       onChange={(e) => setEmpFullName(e.target.value)}
-                      placeholder="Juan Dela Cruz"
+                      placeholder="Enter full name"
                       className="w-full px-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
                     />
                   </div>
@@ -374,6 +386,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                       required
                       value={empDivision}
                       onChange={(e) => setEmpDivision(e.target.value)}
+                      placeholder="Enter office or division"
                       className="w-full px-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
                     />
                   </div>
@@ -390,9 +403,10 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                     <input
                       type="text"
                       required
+                      autoComplete="off"
                       value={empIdOrEmail}
                       onChange={(e) => setEmpIdOrEmail(e.target.value)}
-                      placeholder="COS4513 or name@bfar.da.gov.ph"
+                      placeholder="Enter Employee ID or @bfar.da.gov.ph email"
                       className="w-full pl-9 pr-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
                     />
                   </div>
@@ -405,13 +419,22 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                   <div className="relative">
                     <Lock className="w-4 h-4 text-[#475569] absolute left-3 top-2.5" />
                     <input
-                      type="password"
+                      type={showEmpPassword ? 'text' : 'password'}
                       required={empIdOrEmail.includes('@')}
+                      autoComplete="new-password"
                       value={empPassword}
                       onChange={(e) => setEmpPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
+                      placeholder="Enter password"
+                      className="w-full pl-9 pr-10 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowEmpPassword((prev) => !prev)}
+                      aria-label={showEmpPassword ? 'Hide password' : 'Show password'}
+                      className="text-[#475569] hover:text-[#0F172A] absolute right-2.5 top-2.5 cursor-pointer"
+                    >
+                      {showEmpPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -421,14 +444,26 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                   <label className="block text-xs font-semibold text-[#0F172A] mb-1">
                     Confirm Password *
                   </label>
-                  <input
-                    type="password"
-                    required
-                    value={empConfirmPassword}
-                    onChange={(e) => setEmpConfirmPassword(e.target.value)}
-                    placeholder="Re-enter password"
-                    className="w-full px-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
-                  />
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-[#475569] absolute left-3 top-2.5" />
+                    <input
+                      type={showEmpConfirmPassword ? 'text' : 'password'}
+                      required
+                      autoComplete="new-password"
+                      value={empConfirmPassword}
+                      onChange={(e) => setEmpConfirmPassword(e.target.value)}
+                      placeholder="Re-enter password"
+                      className="w-full pl-9 pr-10 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowEmpConfirmPassword((prev) => !prev)}
+                      aria-label={showEmpConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                      className="text-[#475569] hover:text-[#0F172A] absolute right-2.5 top-2.5 cursor-pointer"
+                    >
+                      {showEmpConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -506,9 +541,10 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                   <input
                     type="text"
                     required
+                    autoComplete="off"
                     value={extUsername}
                     onChange={(e) => setExtUsername(e.target.value)}
-                    placeholder="applicant_username"
+                    placeholder="Enter username"
                     className="w-full px-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
                   />
                 </div>
@@ -524,12 +560,13 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                     <input
                       type="email"
                       required
+                      autoComplete="off"
                       value={extEmail}
                       onChange={(e) => {
                         setExtEmail(e.target.value);
                         setOtpVerified(false);
                       }}
-                      placeholder="your.name@gmail.com"
+                      placeholder="Enter email address"
                       className="w-full pl-9 pr-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
                     />
                   </div>
@@ -554,13 +591,22 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                   <div className="relative">
                     <Lock className="w-4 h-4 text-[#475569] absolute left-3 top-2.5" />
                     <input
-                      type="password"
+                      type={showExtPassword ? 'text' : 'password'}
                       required
+                      autoComplete="new-password"
                       value={extPassword}
                       onChange={(e) => setExtPassword(e.target.value)}
-                      placeholder="At least 6 characters"
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
+                      placeholder="Enter password"
+                      className="w-full pl-9 pr-10 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowExtPassword((prev) => !prev)}
+                      aria-label={showExtPassword ? 'Hide password' : 'Show password'}
+                      className="text-[#475569] hover:text-[#0F172A] absolute right-2.5 top-2.5 cursor-pointer"
+                    >
+                      {showExtPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
 
@@ -569,14 +615,26 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                     <label className="block text-xs font-semibold text-[#0F172A] mb-1">
                       Confirm Password *
                     </label>
-                    <input
-                      type="password"
-                      required
-                      value={extConfirmPassword}
-                      onChange={(e) => setExtConfirmPassword(e.target.value)}
-                      placeholder="Re-enter password"
-                      className="w-full px-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
-                    />
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-[#475569] absolute left-3 top-2.5" />
+                      <input
+                        type={showExtConfirmPassword ? 'text' : 'password'}
+                        required
+                        autoComplete="new-password"
+                        value={extConfirmPassword}
+                        onChange={(e) => setExtConfirmPassword(e.target.value)}
+                        placeholder="Re-enter password"
+                        className="w-full pl-9 pr-10 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowExtConfirmPassword((prev) => !prev)}
+                        aria-label={showExtConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                        className="text-[#475569] hover:text-[#0F172A] absolute right-2.5 top-2.5 cursor-pointer"
+                      >
+                        {showExtConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -593,9 +651,10 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                       inputMode="numeric"
                       maxLength={6}
                       required
+                      autoComplete="one-time-code"
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="123456"
+                      placeholder="Enter 6-digit OTP"
                       className="w-full pl-9 pr-3 py-2 text-sm tracking-widest font-mono border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
                     />
                   </div>
