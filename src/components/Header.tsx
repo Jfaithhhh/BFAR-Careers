@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Award, ExternalLink, UserCheck, Briefcase, FileSearch, Lock, LogIn, LogOut, User as UserIcon } from 'lucide-react';
+import {
+  Award,
+  ExternalLink,
+  UserCheck,
+  Briefcase,
+  FileSearch,
+  Lock,
+  LogIn,
+  LogOut,
+  User as UserIcon,
+} from 'lucide-react';
 import { auth, signInWithGoogle, signOutUser } from '../lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
 
@@ -156,10 +166,14 @@ export const Header: React.FC<HeaderProps> = ({
                     ) : (
                       <UserIcon className="w-3.5 h-3.5 text-[#C69214]" />
                     )}
-                    <span className="text-[10px] text-white max-w-[120px] truncate" title={currentUser.email || ''}>
+                    <span
+                      className="text-[10px] text-white max-w-[120px] truncate"
+                      title={currentUser.email || ''}
+                    >
                       {currentUser.displayName || currentUser.email?.split('@')[0]}
                     </span>
-                    {currentUser.email === 'jaiciervo7@gmail.com' || currentUser.email?.endsWith('@bfar.da.gov.ph') ? (
+                    {currentUser.email === 'jaiciervo7@gmail.com' ||
+                    currentUser.email?.endsWith('@bfar.da.gov.ph') ? (
                       <span className="bg-[#C69214] text-[#071A2F] text-[9px] font-bold px-1 rounded-sm uppercase">
                         Admin
                       </span>
@@ -194,7 +208,11 @@ export const Header: React.FC<HeaderProps> = ({
                         : 'Locked: Naka-off ang HR & HRMPSB Portal o hindi pa naka-verify ang Admin'
                     }
                   >
-                    {canStaffSignIn ? <LogIn className="w-3 h-3 text-[#C69214]" /> : <Lock className="w-3 h-3 text-[#DCE2E8]/60" />}
+                    {canStaffSignIn ? (
+                      <LogIn className="w-3 h-3 text-[#C69214]" />
+                    ) : (
+                      <Lock className="w-3 h-3 text-[#DCE2E8]/60" />
+                    )}
                     <span>{isSigningIn ? 'Signing In...' : 'Staff Sign In'}</span>
                   </button>
                 )}
@@ -214,7 +232,9 @@ export const Header: React.FC<HeaderProps> = ({
                   }`}
                   title="Toggle Restricted HR & HRMPSB Staff Portal"
                 >
-                  <Lock className={`w-3 h-3 ${isRestrictedActive ? 'text-[#071A2F]' : 'text-[#C69214]'}`} />
+                  <Lock
+                    className={`w-3 h-3 ${isRestrictedActive ? 'text-[#071A2F]' : 'text-[#C69214]'}`}
+                  />
                   <span>HR &amp; HRMPSB Portal (Restricted)</span>
                   {pendingCount > 0 && (
                     <span className="bg-[#071A2F] text-[#C69214] border border-[#C69214]/50 text-[9px] font-bold px-1.5 rounded-sm">
@@ -224,12 +244,16 @@ export const Header: React.FC<HeaderProps> = ({
                   <span
                     aria-hidden="true"
                     className={`relative inline-flex h-4 w-7 items-center rounded-sm transition-colors ${
-                      isRestrictedActive ? 'bg-[#071A2F]' : 'bg-[#071A2F]/80 border border-[#DCE2E8]/30'
+                      isRestrictedActive
+                        ? 'bg-[#071A2F]'
+                        : 'bg-[#071A2F]/80 border border-[#DCE2E8]/30'
                     }`}
                   >
                     <span
                       className={`inline-block h-3 w-3 transform rounded-sm transition-transform ${
-                        isRestrictedActive ? 'translate-x-3.5 bg-[#C69214]' : 'translate-x-0.5 bg-[#DCE2E8]'
+                        isRestrictedActive
+                          ? 'translate-x-3.5 bg-[#C69214]'
+                          : 'translate-x-0.5 bg-[#DCE2E8]'
                       }`}
                     />
                   </span>

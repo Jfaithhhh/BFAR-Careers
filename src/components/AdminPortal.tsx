@@ -30,7 +30,6 @@ import {
   LogIn,
   KeyRound,
   UserCheck,
-  ShieldAlert,
   AlertTriangle,
   BadgeCheck,
   FileText,
@@ -43,6 +42,7 @@ import {
 } from 'lucide-react';
 
 type AdminRole = 'HR_Specialist' | 'HR_Supervisor' | 'HR_Chief';
+type PlantillaType = 'Permanent' | 'Contract of Service (COS)' | 'Project-Based';
 
 interface AdminPortalProps {
   jobs: PlantillaJob[];
@@ -50,6 +50,7 @@ interface AdminPortalProps {
   onUpdateApplication: (appId: string, updates: Partial<ApplicationRecord>) => void;
   onAddJob: (job: Partial<PlantillaJob>) => void;
   onUpdateJob: (jobId: string, updates: Partial<PlantillaJob>) => void;
+  onDeleteJob?: (jobId: string) => void;
   onAuthChange?: (authenticated: boolean) => void;
   onBackToFrontPage?: () => void;
 }
@@ -75,7 +76,7 @@ const emptyJobForm: {
   region: string;
   placeOfAssignment: string;
   salaryGrade: number;
-  plantillaType: 'Permanent' | 'Contract of Service (COS)' | 'Project-Based';
+  plantillaType: PlantillaType;
   datePosted: string;
   applicationDeadline: string;
   officialSourceUrl: string;
@@ -127,6 +128,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   onUpdateApplication,
   onAddJob,
   onUpdateJob,
+  onDeleteJob,
   onAuthChange,
   onBackToFrontPage,
 }) => {
@@ -154,13 +156,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const [newStatus, setNewStatus] = useState<ApplicationRecord['status']>('Submitted');
   const [adminRemarks, setAdminRemarks] = useState('');
   const [interviewScore, setInterviewScore] = useState<number | undefined>(undefined);
-  const [finalBoardDecision, setFinalBoardDecision] = useState<ApplicationRecord['finalBoardDecision']>(undefined);
+  const [finalBoardDecision, setFinalBoardDecision] =
+    useState<ApplicationRecord['finalBoardDecision']>(undefined);
   const [isUpdating, setIsUpdating] = useState(false);
-  const [isGeneratingAiQuestions, setIsGeneratingAiQuestions] = useState(false);
 
   const [syncStatus, setSyncStatus] = useState<VacancySyncStatus | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncFeedback, setSyncFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [syncFeedback, setSyncFeedback] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
   const [showAuditLogs, setShowAuditLogs] = useState(false);
   const [vacancyFilter, setVacancyFilter] = useState<'All' | 'Open' | 'Expired'>('All');
   const [updatingJobId, setUpdatingJobId] = useState<string | null>(null);
@@ -217,7 +222,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     const matchesJob = jobFilter === 'All' || app.jobId === jobFilter;
     const matchesType =
       applicantTypeFilter === 'All' ||
-      (applicantTypeFilter === 'internal' ? app.applicantType === 'internal' : app.applicantType !== 'internal');
+      (applicantTypeFilter === 'internal'
+        ? app.applicantType === 'internal'
+        : app.applicantType !== 'internal');
     return matchesSearch && matchesStatus && matchesJob && matchesType;
   });
 
@@ -264,36 +271,6 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
       console.error(err);
     } finally {
       setIsUpdating(false);
-    }
-  };
-
-  const handleGenerateQuestions = async () => {
-    if (!selectedApp) return;
-    setIsGeneratingAiQuestions(true);
-    try {
-      const res = await fetch('/api/ai/interview-questions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jobId: selectedApp.jobId,
-          applicantData: selectedApp,
-        }),
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        const updatedScreening = {
-          ...selectedApp.aiScreening,
-          tailoredInterviewQuestions: json.data,
-        };
-        setSelectedApp({
-          ...selectedApp,
-          aiScreening: updatedScreening,
-        });
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsGeneratingAiQuestions(false);
     }
   };
 
@@ -376,15 +353,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     setCreateJobError(null);
     setEditingJob(job);
     const itemNo = job.plantillaItemNumber || job.itemNo || '';
-    const allowedTypes: Array<'Permanent' | 'Contract of Service (COS)' | 'Project-Based'> = [
+    const allowedTypes: PlantillaType[] = [
       'Permanent',
       'Contract of Service (COS)',
       'Project-Based',
     ];
-    const resolvedPlantillaType = allowedTypes.includes(
-      job.plantillaType as 'Permanent' | 'Contract of Service (COS)' | 'Project-Based'
-    )
-      ? (job.plantillaType as 'Permanent' | 'Contract of Service (COS)' | 'Project-Based')
+    const resolvedPlantillaType = allowedTypes.includes(job.plantillaType as PlantillaType)
+      ? (job.plantillaType as PlantillaType)
       : 'Permanent';
 
     setNewJobForm({
@@ -429,7 +404,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   };
 
   const handleDeleteVacancy = async (jobId: string, positionTitle: string) => {
-    if (!window.confirm(`Sigurado ka bang nais mong burahin ang posisyong "${positionTitle}" sa Firestore database?`)) {
+    if (
+      !window.confirm(
+        `Sigurado ka bang nais mong burahin ang posisyong "${positionTitle}" sa Firestore database?`
+      )
+    ) {
       return;
     }
 
@@ -439,6 +418,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     try {
       await deleteJobVacancyFromFirestore(jobId);
       setDeletedJobIds((prev) => (prev.includes(jobId) ? prev : [...prev, jobId]));
+      onDeleteJob?.(jobId);
       setSyncFeedback({
         type: 'success',
         message: `Matagumpay na nabura ang "${positionTitle}" sa database.`,
@@ -465,70 +445,70 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     }
 
     setIsSavingJob(true);
-    const isEditing = Boolean(editingJob);
-    const docId = editingJob ? editingJob.id : `vacancy-${Date.now()}`;
-    const duties = newJobForm.dutiesText
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const competencies = newJobForm.competenciesText
-      .split('\n')
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    const todayStr = getTodayDateString();
-    const newDeadline = newJobForm.applicationDeadline;
-    const isExtendedToActive =
-      isEditing &&
-      editingJob?.status !== 'Open' &&
-      Boolean(newDeadline) &&
-      newDeadline >= todayStr;
-
-    const resolvedStatus: PlantillaJob['status'] = isExtendedToActive
-      ? 'Open'
-      : editingJob?.status || 'Open';
-
-    const payload: PlantillaJob = {
-      ...(editingJob || {}),
-      id: docId,
-      positionTitle: newJobForm.positionTitle.trim(),
-      agency: editingJob?.agency || 'DA-BFAR',
-      plantillaItemNumber: itemNo,
-      itemNo,
-      office: newJobForm.office.trim(),
-      division: newJobForm.division.trim(),
-      region: newJobForm.region.trim(),
-      placeOfAssignment: newJobForm.placeOfAssignment.trim(),
-      salaryGrade: Number(newJobForm.salaryGrade) || 15,
-      plantillaType: newJobForm.plantillaType,
-      status: resolvedStatus,
-      datePosted: newJobForm.datePosted || todayStr,
-      postingDate: newJobForm.datePosted || todayStr,
-      applicationDeadline: newDeadline,
-      closingDate: newDeadline,
-      officialSourceUrl:
-        newJobForm.officialSourceUrl.trim() ||
-        'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
-      qualificationStandards: {
-        education: newJobForm.education.trim(),
-        experience: newJobForm.experience.trim(),
-        training: newJobForm.training.trim(),
-        eligibility: newJobForm.eligibility.trim(),
-      },
-      dutiesAndResponsibilities: duties,
-      competencies,
-      attachedDocuments: [
-        {
-          name: newJobForm.documentTitle.trim() || 'Official Notice of Vacancy (CS Form 9)',
-          url:
-            newJobForm.documentUrl.trim() ||
-            'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
-          type: editingJob?.attachedDocuments?.[0]?.type || 'PDF',
-        },
-      ],
-    };
-
     try {
+      const isEditing = Boolean(editingJob);
+      const docId = editingJob ? editingJob.id : `vacancy-${Date.now()}`;
+      const duties = newJobForm.dutiesText
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const competencies = newJobForm.competenciesText
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      const todayStr = getTodayDateString();
+      const newDeadline = newJobForm.applicationDeadline;
+      const isExtendedToActive =
+        isEditing &&
+        editingJob?.status !== 'Open' &&
+        Boolean(newDeadline) &&
+        newDeadline >= todayStr;
+
+      const resolvedStatus: PlantillaJob['status'] = isExtendedToActive
+        ? 'Open'
+        : editingJob?.status || 'Open';
+
+      const payload: PlantillaJob = {
+        ...(editingJob || {}),
+        id: docId,
+        positionTitle: newJobForm.positionTitle.trim(),
+        agency: editingJob?.agency || 'DA-BFAR',
+        plantillaItemNumber: itemNo,
+        itemNo,
+        office: newJobForm.office.trim(),
+        division: newJobForm.division.trim(),
+        region: newJobForm.region.trim(),
+        placeOfAssignment: newJobForm.placeOfAssignment.trim(),
+        salaryGrade: Number(newJobForm.salaryGrade) || 15,
+        plantillaType: newJobForm.plantillaType,
+        status: resolvedStatus,
+        datePosted: newJobForm.datePosted || todayStr,
+        postingDate: newJobForm.datePosted || todayStr,
+        applicationDeadline: newDeadline,
+        closingDate: newDeadline,
+        officialSourceUrl:
+          newJobForm.officialSourceUrl.trim() ||
+          'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
+        qualificationStandards: {
+          education: newJobForm.education.trim(),
+          experience: newJobForm.experience.trim(),
+          training: newJobForm.training.trim(),
+          eligibility: newJobForm.eligibility.trim(),
+        },
+        dutiesAndResponsibilities: duties,
+        competencies,
+        attachedDocuments: [
+          {
+            name: newJobForm.documentTitle.trim() || 'Official Notice of Vacancy (CS Form 9)',
+            url:
+              newJobForm.documentUrl.trim() ||
+              'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
+            type: editingJob?.attachedDocuments?.[0]?.type || 'PDF',
+          },
+        ],
+      };
+
       await saveJobVacancyToFirestore(payload);
       setDeletedJobIds((prev) => prev.filter((id) => id !== docId));
       if (isEditing && editingJob) {
@@ -613,7 +593,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         setIsAuthenticated(true);
       } catch (err) {
         console.error('Firestore credential verification error:', err);
-        setLoginError('Unable to verify credentials right now. Check connection or Firestore rules.');
+        setLoginError(
+          'Unable to verify credentials right now. Check connection or Firestore rules.'
+        );
       }
     };
 
@@ -622,7 +604,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         <div className="bg-[#071A2F] text-white rounded-sm px-5 py-4 border border-[#0F3557] flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-sm bg-[#0F3557] border border-[#C69214]/50 text-[#C69214] flex items-center justify-center shrink-0">
-              <ShieldAlert className="w-5 h-5" />
+              <Shield className="w-5 h-5" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -727,8 +709,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   DA-BFAR Google Workspace / HR Admin SSO
                 </span>
                 <p className="text-[11px] text-[#475569] leading-relaxed">
-                  Use your official <strong className="text-[#0F172A]">@bfar.da.gov.ph</strong> email or pre-registered HR Admin Google
-                  account for single sign-on access.
+                  Use your official <strong className="text-[#0F172A]">@bfar.da.gov.ph</strong>{' '}
+                  email or pre-registered HR Admin Google account for single sign-on access.
                 </p>
               </div>
 
@@ -738,7 +720,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   try {
                     const user = await signInWithGoogle();
                     const isAuthorized =
-                      user.email === 'jaiciervo7@gmail.com' || user.email?.endsWith('@bfar.da.gov.ph');
+                      user.email === 'jaiciervo7@gmail.com' ||
+                      user.email?.endsWith('@bfar.da.gov.ph');
                     if (isAuthorized) {
                       setLoginUsername(user.displayName || user.email || 'Admin jaiciervo7');
                       setVerifiedRole('HR_Specialist');
@@ -783,7 +766,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      setLoginUsername(auth.currentUser?.displayName || auth.currentUser?.email || 'Admin');
+                      setLoginUsername(
+                        auth.currentUser?.displayName || auth.currentUser?.email || 'Admin'
+                      );
                       setVerifiedRole('HR_Specialist');
                       setIsAuthenticated(true);
                     }}
@@ -797,7 +782,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           ) : (
             <form onSubmit={handleDoLogin} className="space-y-3.5 text-xs">
               <div>
-                <label className="font-semibold text-[#0F172A] block mb-1">Verified System Role:</label>
+                <label className="font-semibold text-[#0F172A] block mb-1">
+                  Verified System Role:
+                </label>
                 <select
                   value={verifiedRole}
                   onChange={(e) => setVerifiedRole(e.target.value as AdminRole)}
@@ -811,7 +798,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="font-semibold text-[#0F172A] block mb-1">Official Agency Employee ID:</label>
+                  <label className="font-semibold text-[#0F172A] block mb-1">
+                    Official Agency Employee ID:
+                  </label>
                   <input
                     type="text"
                     required
@@ -823,7 +812,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </div>
 
                 <div>
-                  <label className="font-semibold text-[#0F172A] block mb-1">Security Passkey / Password:</label>
+                  <label className="font-semibold text-[#0F172A] block mb-1">
+                    Security Passkey / Password:
+                  </label>
                   <div className="relative">
                     <input
                       type={showPassword ? 'text' : 'password'}
@@ -857,13 +848,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
           <div className="bg-[#FBF7EC] border border-[#DCE2E8] p-3.5 rounded-sm text-xs space-y-1 text-[#475569]">
             <div className="flex items-center gap-1.5 text-[#071A2F] font-bold text-[11px]">
               <Lock className="w-3.5 h-3.5 text-[#C69214] shrink-0" />
-              <span>Statutory Notice &amp; Warning (Republic Act No. 10173 &amp; CSC ORAOHRA):</span>
+              <span>
+                Statutory Notice &amp; Warning (Republic Act No. 10173 &amp; CSC ORAOHRA):
+              </span>
             </div>
             <p className="text-[11px] leading-relaxed">
-              Applicant Personal Data Sheets (CS Form 212), performance ratings (IPCR), and deliberation records
-              contain protected personal and sensitive government information. Any unauthorized attempt to view,
-              alter, or extract candidate data is strictly prohibited and subject to administrative and criminal
-              sanctions under the Cybercrime Prevention Act and Data Privacy Act of 2012.
+              Applicant Personal Data Sheets (CS Form 212), performance ratings (IPCR), and
+              deliberation records contain protected personal and sensitive government information. Any
+              unauthorized attempt to view, alter, or extract candidate data is strictly prohibited and
+              subject to administrative and criminal sanctions under the Cybercrime Prevention Act and
+              Data Privacy Act of 2012.
             </p>
           </div>
 
@@ -898,13 +892,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               </span>
               <span className="text-[#DCE2E8] text-xs">Station: BFAR Central Office (NCR)</span>
             </div>
-            <h3 className="text-sm font-bold text-white mt-0.5">Role: {getRoleLabel(verifiedRole)}</h3>
+            <h3 className="text-sm font-bold text-white mt-0.5">
+              Role: {getRoleLabel(verifiedRole)}
+            </h3>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           <span className="text-[11px] text-[#DCE2E8] hidden md:inline">
-            Logged in as: <strong className="text-white">{loginUsername || 'Authorized Officer'}</strong>
+            Logged in as:{' '}
+            <strong className="text-white">{loginUsername || 'Authorized Officer'}</strong>
           </span>
           <button
             type="button"
@@ -922,48 +919,78 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <div className="bg-white p-3.5 rounded-sm border border-[#DCE2E8]">
-          <span className="text-[10px] font-bold text-[#475569] uppercase block">Registered Applicants</span>
+          <span className="text-[10px] font-bold text-[#475569] uppercase block">
+            Registered Applicants
+          </span>
           <div className="text-xl sm:text-2xl font-bold text-[#0F172A] mt-1">{uniqueApplicants}</div>
           <span className="text-[10px] text-[#475569]">Unique Applicants</span>
         </div>
         <div className="bg-white p-3.5 rounded-sm border border-[#DCE2E8]">
-          <span className="text-[10px] font-bold text-[#475569] uppercase block">Submitted Applications</span>
+          <span className="text-[10px] font-bold text-[#475569] uppercase block">
+            Submitted Applications
+          </span>
           <div className="text-xl sm:text-2xl font-bold text-[#0F172A] mt-1">{totalApps}</div>
           <span className="text-[10px] text-[#475569]">Total Submissions</span>
         </div>
         <div className="bg-white p-3.5 rounded-sm border border-[#DCE2E8]">
-          <span className="text-[10px] font-bold text-[#475569] uppercase block">Under Review</span>
-          <div className="text-xl sm:text-2xl font-bold text-[#C69214] mt-1">{underReviewCount}</div>
+          <span className="text-[10px] font-bold text-[#475569] uppercase block">
+            Under Review
+          </span>
+          <div className="text-xl sm:text-2xl font-bold text-[#C69214] mt-1">
+            {underReviewCount}
+          </div>
           <span className="text-[10px] text-[#475569]">Document Review</span>
         </div>
         <div className="bg-white p-3.5 rounded-sm border border-[#DCE2E8]">
-          <span className="text-[10px] font-bold text-[#475569] uppercase block">Qualified Applicants</span>
-          <div className="text-xl sm:text-2xl font-bold text-[#0F3557] mt-1">{qualifiedCount}</div>
+          <span className="text-[10px] font-bold text-[#475569] uppercase block">
+            Qualified Applicants
+          </span>
+          <div className="text-xl sm:text-2xl font-bold text-[#0F3557] mt-1">
+            {qualifiedCount}
+          </div>
           <span className="text-[10px] text-[#475569]">Meets CSC Standards</span>
         </div>
         <div className="bg-white p-3.5 rounded-sm border border-[#DCE2E8]">
-          <span className="text-[10px] font-bold text-[#475569] uppercase block">Disqualified</span>
-          <div className="text-xl sm:text-2xl font-bold text-red-600 mt-1">{disqualifiedCount}</div>
+          <span className="text-[10px] font-bold text-[#475569] uppercase block">
+            Disqualified
+          </span>
+          <div className="text-xl sm:text-2xl font-bold text-red-600 mt-1">
+            {disqualifiedCount}
+          </div>
           <span className="text-[10px] text-[#475569]">Does Not Meet QS</span>
         </div>
         <div className="bg-white p-3.5 rounded-sm border border-[#DCE2E8]">
-          <span className="text-[10px] font-bold text-[#475569] uppercase block">Approved Applications</span>
+          <span className="text-[10px] font-bold text-[#475569] uppercase block">
+            Approved Applications
+          </span>
           <div className="text-xl sm:text-2xl font-bold text-[#0D4F3C] mt-1">{approvedCount}</div>
           <span className="text-[10px] text-[#475569]">Appointed / Recommended</span>
         </div>
         <div className="bg-white p-3.5 rounded-sm border border-[#DCE2E8]">
-          <span className="text-[10px] font-bold text-[#475569] uppercase block">Active Vacancies</span>
-          <div className="text-xl sm:text-2xl font-bold text-[#0D4F3C] mt-1">{activeVacanciesCount}</div>
+          <span className="text-[10px] font-bold text-[#475569] uppercase block">
+            Active Vacancies
+          </span>
+          <div className="text-xl sm:text-2xl font-bold text-[#0D4F3C] mt-1">
+            {activeVacanciesCount}
+          </div>
           <span className="text-[10px] text-[#475569]">Open Announcements</span>
         </div>
         <div className="bg-white p-3.5 rounded-sm border border-[#DCE2E8]">
-          <span className="text-[10px] font-bold text-[#475569] uppercase block">Expired Vacancies</span>
-          <div className="text-xl sm:text-2xl font-bold text-[#475569] mt-1">{expiredVacanciesCount}</div>
+          <span className="text-[10px] font-bold text-[#475569] uppercase block">
+            Expired Vacancies
+          </span>
+          <div className="text-xl sm:text-2xl font-bold text-[#475569] mt-1">
+            {expiredVacanciesCount}
+          </div>
           <span className="text-[10px] text-[#475569]">Deadline Passed</span>
         </div>
         <div className="bg-white p-3.5 rounded-sm border border-[#DCE2E8] col-span-2 sm:col-span-1 lg:col-span-2">
-          <span className="text-[10px] font-bold text-[#475569] uppercase block">Internal Promotions</span>
-          <div className="text-xl sm:text-2xl font-bold text-[#0F3557] mt-1">{internalPromotionCount}</div>
+          <span className="text-[10px] font-bold text-[#475569] uppercase block">
+            Internal Promotions
+          </span>
+          <div className="text-xl sm:text-2xl font-bold text-[#0F3557] mt-1">
+            {internalPromotionCount}
+          </div>
           <span className="text-[10px] text-[#475569]">Verified Personnel Applications</span>
         </div>
       </div>
@@ -1053,8 +1080,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <option value="Submitted">Submitted</option>
                   <option value="Document Under Review">Document Under Review</option>
                   <option value="CSC QS Qualified - Under Review">CSC QS Qualified</option>
-                  <option value="HRMPSB Deliberation & Interview Scheduled">HRMPSB Interview Scheduled</option>
-                  <option value="HRMPSB Recommended for Appointment">Recommended for Appointment</option>
+                  <option value="HRMPSB Deliberation & Interview Scheduled">
+                    HRMPSB Interview Scheduled
+                  </option>
+                  <option value="HRMPSB Recommended for Appointment">
+                    Recommended for Appointment
+                  </option>
                   <option value="Application Result Released">Application Result Released</option>
                 </select>
               </div>
@@ -1098,7 +1129,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 ) : (
                   filteredApps.map((app) => (
                     <tr key={app.id} className="hover:bg-[#FBF7EC] transition-colors">
-                      <td className="py-3 px-3 font-mono font-bold text-[#0F3557]">{app.trackingCode}</td>
+                      <td className="py-3 px-3 font-mono font-bold text-[#0F3557]">
+                        {app.trackingCode}
+                      </td>
                       <td className="py-3 px-3">
                         <div className="font-bold text-[#0F172A] flex items-center gap-1.5 flex-wrap">
                           <span>{app.personalInfo.fullName}</span>
@@ -1185,9 +1218,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   Official Plantilla Vacancy Synchronization Engine
                 </h3>
                 <p className="text-xs text-[#DCE2E8] max-w-2xl leading-relaxed">
-                  All job opportunities are synchronized directly from the authoritative DA-BFAR Careers Portal.
-                  Monetary salary amounts are strictly suppressed in compliance with CSC rules; only official Salary
-                  Grades (SG) are published.
+                  All job opportunities are synchronized directly from the authoritative DA-BFAR
+                  Careers Portal. Monetary salary amounts are strictly suppressed in compliance with CSC
+                  rules; only official Salary Grades (SG) are published.
                 </p>
               </div>
 
@@ -1209,7 +1242,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   className="bg-[#0F3557] hover:bg-[#0D4F3C] disabled:opacity-50 text-white border border-[#C69214]/40 px-3.5 py-2 rounded-sm text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <RefreshCw
-                    className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin text-[#C69214]' : 'text-[#C69214]'}`}
+                    className={`w-3.5 h-3.5 ${
+                      isSyncing ? 'animate-spin text-[#C69214]' : 'text-[#C69214]'
+                    }`}
                   />
                   <span>{isSyncing ? 'Checking BFAR Portal...' : 'Sync Vacancies'}</span>
                 </button>
@@ -1254,7 +1289,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             <div className="bg-[#0F3557]/70 border border-[#DCE2E8]/20 rounded-sm p-3 text-xs flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-4 text-[#DCE2E8]">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-[#C69214]"></span>
+                  <span className="w-2 h-2 rounded-full bg-[#C69214]" />
                   <span className="text-[#DCE2E8]/80">Sync Status:</span>
                   <span className="font-semibold text-white capitalize">
                     {syncStatus?.status || 'Active & Synchronized'}
@@ -1278,8 +1313,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <Briefcase className="w-3.5 h-3.5 text-[#C69214]" />
                   <span className="text-[#DCE2E8]/80">Registry Count:</span>
                   <span className="font-bold text-white">{visibleJobs.length} items</span>
-                  <span className="text-[#C69214]">({visibleJobs.filter((j) => j.status === 'Open').length} Open)</span>
-                  <span className="text-[#DCE2E8]">({visibleJobs.filter((j) => j.status !== 'Open').length} Closed)</span>
+                  <span className="text-[#C69214]">
+                    ({visibleJobs.filter((j) => j.status === 'Open').length} Open)
+                  </span>
+                  <span className="text-[#DCE2E8]">
+                    ({visibleJobs.filter((j) => j.status !== 'Open').length} Closed)
+                  </span>
                 </div>
               </div>
 
@@ -1290,7 +1329,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               >
                 <History className="w-3.5 h-3.5" />
                 <span>{showAuditLogs ? 'Hide Audit Log' : 'View Sync Audit Log'}</span>
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAuditLogs ? 'rotate-180' : ''}`} />
+                <ChevronDown
+                  className={`w-3.5 h-3.5 transition-transform ${showAuditLogs ? 'rotate-180' : ''}`}
+                />
               </button>
             </div>
 
@@ -1318,7 +1359,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-[#DCE2E8]/70 py-2 text-center">No synchronization events recorded yet.</p>
+                  <p className="text-xs text-[#DCE2E8]/70 py-2 text-center">
+                    No synchronization events recorded yet.
+                  </p>
                 )}
               </div>
             )}
@@ -1326,10 +1369,12 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-[#DCE2E8]">
             <div>
-              <h4 className="text-sm font-bold text-[#0F172A]">Official Plantilla Items Ledger ({visibleJobs.length})</h4>
+              <h4 className="text-sm font-bold text-[#0F172A]">
+                Official Plantilla Items Ledger ({visibleJobs.length})
+              </h4>
               <p className="text-xs text-[#475569]">
-                Central Office positions synchronized from official DA-BFAR announcements. Click <strong>Edit</strong> to
-                modify details or extend the deadline.
+                Central Office positions synchronized from official DA-BFAR announcements. Click{' '}
+                <strong>Edit</strong> to modify details or extend the deadline.
               </p>
             </div>
 
@@ -1417,7 +1462,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       <div>
                         <h5 className="font-bold text-[#0F172A] text-sm">{job.positionTitle}</h5>
                         <p className="text-xs text-[#475569] font-medium mt-0.5">{job.division}</p>
-                        <p className="text-[11px] text-[#475569]">{job.office || 'BFAR Central Office'}</p>
+                        <p className="text-[11px] text-[#475569]">
+                          {job.office || 'BFAR Central Office'}
+                        </p>
                       </div>
 
                       <div className="bg-[#F6F7F9] rounded-sm p-2.5 text-[11px] space-y-1 border border-[#DCE2E8]">
@@ -1432,7 +1479,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                             onClick={() => handleOpenEditJob(job)}
                             title="Click to edit or extend deadline"
                             className={`font-semibold underline decoration-dotted underline-offset-2 cursor-pointer ${
-                              isOpen ? 'text-[#0F3557] hover:text-[#C69214]' : 'text-[#475569] hover:text-[#0F172A]'
+                              isOpen
+                                ? 'text-[#0F3557] hover:text-[#C69214]'
+                                : 'text-[#475569] hover:text-[#0F172A]'
                             }`}
                           >
                             {deadline}
@@ -1443,18 +1492,25 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       <div className="text-[11px] text-[#475569] space-y-0.5 pt-1">
                         <div>
                           <strong className="text-[#0F172A]">Education:</strong>{' '}
-                          <span className="line-clamp-1">{job.qualificationStandards?.education}</span>
+                          <span className="line-clamp-1">
+                            {job.qualificationStandards?.education}
+                          </span>
                         </div>
                         <div>
                           <strong className="text-[#0F172A]">Eligibility:</strong>{' '}
-                          <span className="line-clamp-1">{job.qualificationStandards?.eligibility}</span>
+                          <span className="line-clamp-1">
+                            {job.qualificationStandards?.eligibility}
+                          </span>
                         </div>
                       </div>
                     </div>
 
                     <div className="pt-2 border-t border-[#DCE2E8] flex items-center justify-between gap-2 flex-wrap">
                       <a
-                        href={job.officialSourceUrl || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/'}
+                        href={
+                          job.officialSourceUrl ||
+                          'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/'
+                        }
                         target="_blank"
                         rel="noreferrer"
                         className="text-[#0F3557] hover:text-[#C69214] text-[11px] font-semibold flex items-center gap-1 transition-colors"
@@ -1511,8 +1567,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
               Comparative Assessment Form (CAR) - Ranked Applicant Summary
             </h3>
             <p className="text-xs text-[#475569] mt-0.5">
-              Criteria weighting conforms to CSC Merit Selection Plan: Education (30%), Experience (30%),
-              Qualifying Training (20%), Potential / Interview (20%).
+              Criteria weighting conforms to CSC Merit Selection Plan: Education (30%), Experience
+              (30%), Qualifying Training (20%), Potential / Interview (20%).
             </p>
           </div>
 
@@ -1537,10 +1593,13 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     <td colSpan={9} className="py-12 text-center font-sans">
                       <div className="max-w-md mx-auto flex flex-col items-center justify-center text-center space-y-2">
                         <Scale className="w-8 h-8 text-[#475569]" />
-                        <h4 className="font-bold text-[#0F172A] text-sm">Comparative Assessment Matrix Empty</h4>
+                        <h4 className="font-bold text-[#0F172A] text-sm">
+                          Comparative Assessment Matrix Empty
+                        </h4>
                         <p className="text-xs text-[#475569]">
-                          No internal promotional candidates have submitted applications yet. When submissions are
-                          received, they will be ranked against the CSC Merit Selection Plan criteria here.
+                          No internal promotional candidates have submitted applications yet. When
+                          submissions are received, they will be ranked against the CSC Merit
+                          Selection Plan criteria here.
                         </p>
                       </div>
                     </td>
@@ -1552,18 +1611,24 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     const train = app.aiScreening?.qsCompliance?.trainingScore || 90;
                     const interview = app.interviewScore || 92;
 
-                    const total = Math.round(edu * 0.3 + exp * 0.3 + train * 0.2 + interview * 0.2);
+                    const total = Math.round(
+                      edu * 0.3 + exp * 0.3 + train * 0.2 + interview * 0.2
+                    );
 
                     return (
                       <tr key={app.id} className="hover:bg-[#FBF7EC]">
                         <td className="p-2.5 font-bold text-[#0F172A]">#{idx + 1}</td>
-                        <td className="p-2.5 font-sans font-bold text-[#0F172A]">{app.personalInfo.fullName}</td>
+                        <td className="p-2.5 font-sans font-bold text-[#0F172A]">
+                          {app.personalInfo.fullName}
+                        </td>
                         <td className="p-2.5 font-sans text-[#475569]">{app.positionTitle}</td>
                         <td className="p-2.5 text-center">{edu}%</td>
                         <td className="p-2.5 text-center">{exp}%</td>
                         <td className="p-2.5 text-center">{train}%</td>
                         <td className="p-2.5 text-center">{interview}%</td>
-                        <td className="p-2.5 text-center font-bold text-sm text-[#0F3557]">{total}%</td>
+                        <td className="p-2.5 text-center font-bold text-sm text-[#0F3557]">
+                          {total}%
+                        </td>
                         <td className="p-2.5 font-sans">
                           <span className="text-[11px] font-semibold text-[#0D4F3C] bg-[#EBF5F1] px-2 py-0.5 rounded-sm">
                             {app.finalBoardDecision || 'Shortlisted for Deliberation'}
@@ -1592,7 +1657,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </div>
                 <h3 className="text-xl font-bold">{selectedApp.personalInfo.fullName}</h3>
                 <p className="text-xs text-[#DCE2E8] mt-0.5">
-                  Applied for: <strong>{selectedApp.positionTitle}</strong> • Plantilla Item: {selectedApp.plantillaItemNo}
+                  Applied for: <strong>{selectedApp.positionTitle}</strong> • Plantilla Item:{' '}
+                  {selectedApp.plantillaItemNo}
                 </p>
               </div>
 
@@ -1621,7 +1687,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   </div>
 
                   <div className="text-right">
-                    <span className="text-[10px] font-bold text-[#475569] uppercase block">Suitability Index</span>
+                    <span className="text-[10px] font-bold text-[#475569] uppercase block">
+                      Suitability Index
+                    </span>
                     <span className="text-2xl font-bold text-[#0F3557]">
                       {selectedApp.aiScreening?.overallScore || 90}/100
                     </span>
@@ -1631,12 +1699,15 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 <div className="bg-white border border-[#DCE2E8] rounded-sm p-2.5 flex items-start gap-2 text-[11px] text-[#475569]">
                   <AlertTriangle className="w-4 h-4 text-[#C69214] shrink-0 mt-0.5" />
                   <div className="space-y-0.5 leading-relaxed">
-                    <strong className="font-bold text-[#0F172A]">Initial AI Screening Recommendation (Advisory Only):</strong>
+                    <strong className="font-bold text-[#0F172A]">
+                      Initial AI Screening Recommendation (Advisory Only):
+                    </strong>
                     <span>
                       {' '}
-                      The QS evaluation below is an automated assessment to assist HRMPSB evaluators. Official
-                      qualification standards verification and final appointment decisions rest solely with authorized HR
-                      personnel, the HRMPSB, and the National Director.
+                      The QS evaluation below is an automated assessment to assist HRMPSB
+                      evaluators. Official qualification standards verification and final appointment
+                      decisions rest solely with authorized HR personnel, the HRMPSB, and the
+                      National Director.
                     </span>
                   </div>
                 </div>
@@ -1646,9 +1717,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     <div className="flex items-center gap-2">
                       <UserCheck className="w-4 h-4 text-[#0D4F3C] shrink-0" />
                       <div>
-                        <strong className="block text-[#0F3557]">DA-BFAR Internal Staff Promotion Profile</strong>
+                        <strong className="block text-[#0F3557]">
+                          DA-BFAR Internal Staff Promotion Profile
+                        </strong>
                         <span className="text-[#475569]">
-                          ID: <strong className="font-mono text-[#0F172A]">{selectedApp.bfarEmployeeId || 'BFAR-EMP-VERIFIED'}</strong>{' '}
+                          ID:{' '}
+                          <strong className="font-mono text-[#0F172A]">
+                            {selectedApp.bfarEmployeeId || 'BFAR-EMP-VERIFIED'}
+                          </strong>{' '}
                           • Division: {selectedApp.currentDivision || 'Central Office'} • Track:{' '}
                           {selectedApp.promotionTrack || 'Promotion'}
                         </span>
@@ -1722,10 +1798,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                   <div>
-                    <label className="text-[#DCE2E8] block mb-1 font-semibold">Recruitment Milestone Stage:</label>
+                    <label className="text-[#DCE2E8] block mb-1 font-semibold">
+                      Recruitment Milestone Stage:
+                    </label>
                     <select
                       value={newStatus}
-                      onChange={(e) => setNewStatus(e.target.value as ApplicationRecord['status'])}
+                      onChange={(e) =>
+                        setNewStatus(e.target.value as ApplicationRecord['status'])
+                      }
                       className="w-full bg-[#0F3557] border border-[#DCE2E8]/25 rounded-sm p-2 text-xs font-semibold text-white"
                     >
                       <option value="Submitted">1. Application Submitted</option>
@@ -1734,7 +1814,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       <option value="HRMPSB Deliberation & Interview Scheduled">
                         4. Qualification Assessment &amp; Deliberation
                       </option>
-                      <option value="Application Result Released">5. Final Status / Notice of Result</option>
+                      <option value="Application Result Released">
+                        5. Final Status / Notice of Result
+                      </option>
                       <option value="Rejected">Disqualified / Rejected (Did not meet QS)</option>
                       <option value="Regret / Not Qualified">Notice of Non-Selection / Regret</option>
                     </select>
@@ -1748,13 +1830,17 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       type="number"
                       placeholder="e.g. 94"
                       value={interviewScore ?? ''}
-                      onChange={(e) => setInterviewScore(e.target.value ? Number(e.target.value) : undefined)}
+                      onChange={(e) =>
+                        setInterviewScore(e.target.value ? Number(e.target.value) : undefined)
+                      }
                       className="w-full bg-[#0F3557] border border-[#DCE2E8]/25 rounded-sm p-2 text-xs font-mono text-white"
                     />
                   </div>
 
                   <div>
-                    <label className="text-[#DCE2E8] block mb-1 font-semibold">Final Board Decision:</label>
+                    <label className="text-[#DCE2E8] block mb-1 font-semibold">
+                      Final Board Decision:
+                    </label>
                     <select
                       value={finalBoardDecision || ''}
                       onChange={(e) =>
@@ -1789,7 +1875,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </div>
 
             <div className="p-4 bg-[#F6F7F9] border-t border-[#DCE2E8] flex items-center justify-between">
-              <span className="text-[11px] text-[#475569]">Logged at: {selectedApp.submissionDate}</span>
+              <span className="text-[11px] text-[#475569]">
+                Logged at: {selectedApp.submissionDate}
+              </span>
               <div className="flex items-center space-x-2">
                 <button
                   type="button"
@@ -1821,7 +1909,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   <span className="bg-[#C69214] text-[#071A2F] text-[10px] font-bold px-2 py-0.5 rounded-sm uppercase">
                     {editingJob ? 'Edit Plantilla Item' : 'Official Ingestion'}
                   </span>
-                  <span className="text-[#DCE2E8] font-mono text-xs">bfar.da.gov.ph / CS Form 9</span>
+                  <span className="text-[#DCE2E8] font-mono text-xs">
+                    bfar.da.gov.ph / CS Form 9
+                  </span>
                 </div>
                 <h3 className="text-base font-bold text-white">
                   {editingJob
@@ -1829,7 +1919,8 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     : 'Import & Verify Official Plantilla Vacancy'}
                 </h3>
                 <p className="text-xs text-[#DCE2E8] mt-0.5">
-                  Synchronize official notices from https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/.
+                  Synchronize official notices from
+                  https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/.
                 </p>
               </div>
               <button
@@ -1861,26 +1952,33 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                   Statutory Rule: Salary Confidentiality
                 </span>
                 <p className="text-[11px] text-[#475569] leading-relaxed">
-                  Only the <strong className="text-[#0F172A]">Salary Grade (SG)</strong> is entered and displayed. Numerical monthly salary rates are
-                  confidential and must never be exposed or recorded in the public registry.
+                  Only the <strong className="text-[#0F172A]">Salary Grade (SG)</strong> is entered
+                  and displayed. Numerical monthly salary rates are confidential and must never be
+                  exposed or recorded in the public registry.
                 </p>
               </div>
 
               <form id="importVacancyForm" onSubmit={handleCreateOrUpdateJobSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="font-semibold text-[#0F172A] block mb-1">Position Title *</label>
+                    <label className="font-semibold text-[#0F172A] block mb-1">
+                      Position Title *
+                    </label>
                     <input
                       type="text"
                       required
                       value={newJobForm.positionTitle}
-                      onChange={(e) => setNewJobForm({ ...newJobForm, positionTitle: e.target.value })}
+                      onChange={(e) =>
+                        setNewJobForm({ ...newJobForm, positionTitle: e.target.value })
+                      }
                       placeholder="e.g. Senior Aquaculturist"
                       className="w-full bg-[#F6F7F9] border border-[#DCE2E8] rounded-sm p-2 text-xs focus:outline-none focus:border-[#0F3557]"
                     />
                   </div>
                   <div>
-                    <label className="font-semibold text-[#0F172A] block mb-1">Plantilla Item Number *</label>
+                    <label className="font-semibold text-[#0F172A] block mb-1">
+                      Plantilla Item Number *
+                    </label>
                     <input
                       type="text"
                       required
@@ -1900,7 +1998,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="font-semibold text-[#0F172A] block mb-1">Office / Agency *</label>
+                    <label className="font-semibold text-[#0F172A] block mb-1">
+                      Office / Agency *
+                    </label>
                     <input
                       type="text"
                       required
@@ -1911,7 +2011,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="font-semibold text-[#0F172A] block mb-1">Division / Operating Unit *</label>
+                    <label className="font-semibold text-[#0F172A] block mb-1">
+                      Division / Operating Unit *
+                    </label>
                     <input
                       type="text"
                       required
@@ -1925,21 +2027,29 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="font-semibold text-[#0F172A] block mb-1">Salary Grade (SG) *</label>
+                    <label className="font-semibold text-[#0F172A] block mb-1">
+                      Salary Grade (SG) *
+                    </label>
                     <input
                       type="number"
                       required
                       min={1}
                       max={33}
                       value={newJobForm.salaryGrade}
-                      onChange={(e) => setNewJobForm({ ...newJobForm, salaryGrade: Number(e.target.value) })}
+                      onChange={(e) =>
+                        setNewJobForm({ ...newJobForm, salaryGrade: Number(e.target.value) })
+                      }
                       placeholder="15"
                       className="w-full bg-[#F6F7F9] border border-[#DCE2E8] rounded-sm p-2 font-mono text-xs focus:outline-none focus:border-[#0F3557]"
                     />
-                    <span className="text-[10px] text-[#475569] mt-0.5 block">Official Grade (e.g. 11, 15, 19, 24)</span>
+                    <span className="text-[10px] text-[#475569] mt-0.5 block">
+                      Official Grade (e.g. 11, 15, 19, 24)
+                    </span>
                   </div>
                   <div>
-                    <label className="font-semibold text-[#0F172A] block mb-1">Date Posted (YYYY-MM-DD)</label>
+                    <label className="font-semibold text-[#0F172A] block mb-1">
+                      Date Posted (YYYY-MM-DD)
+                    </label>
                     <input
                       type="date"
                       value={newJobForm.datePosted}
@@ -1955,7 +2065,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     <input
                       type="date"
                       value={newJobForm.applicationDeadline}
-                      onChange={(e) => setNewJobForm({ ...newJobForm, applicationDeadline: e.target.value })}
+                      onChange={(e) =>
+                        setNewJobForm({ ...newJobForm, applicationDeadline: e.target.value })
+                      }
                       className="w-full bg-white border border-[#DCE2E8] rounded-sm p-1.5 text-xs font-semibold text-[#0F172A] focus:outline-none focus:border-[#0F3557]"
                     />
                     <span className="text-[10px] text-[#475569] mt-0.5 block">
@@ -1965,12 +2077,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                 </div>
 
                 <div>
-                  <label className="font-semibold text-[#0F172A] block mb-1">Official Announcement URL *</label>
+                  <label className="font-semibold text-[#0F172A] block mb-1">
+                    Official Announcement URL *
+                  </label>
                   <input
                     type="url"
                     required
                     value={newJobForm.officialSourceUrl}
-                    onChange={(e) => setNewJobForm({ ...newJobForm, officialSourceUrl: e.target.value })}
+                    onChange={(e) =>
+                      setNewJobForm({ ...newJobForm, officialSourceUrl: e.target.value })
+                    }
                     placeholder="https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/"
                     className="w-full bg-[#F6F7F9] border border-[#DCE2E8] rounded-sm p-2 text-xs font-mono text-[#0F3557] focus:outline-none focus:border-[#0F3557]"
                   />
@@ -1983,7 +2099,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="font-semibold text-[#475569] block mb-1">Education Standard *</label>
+                      <label className="font-semibold text-[#475569] block mb-1">
+                        Education Standard *
+                      </label>
                       <input
                         type="text"
                         required
@@ -1994,18 +2112,24 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="font-semibold text-[#475569] block mb-1">Experience Standard *</label>
+                      <label className="font-semibold text-[#475569] block mb-1">
+                        Experience Standard *
+                      </label>
                       <input
                         type="text"
                         required
                         value={newJobForm.experience}
-                        onChange={(e) => setNewJobForm({ ...newJobForm, experience: e.target.value })}
+                        onChange={(e) =>
+                          setNewJobForm({ ...newJobForm, experience: e.target.value })
+                        }
                         placeholder="1 year of relevant experience..."
                         className="w-full bg-white border border-[#DCE2E8] rounded-sm p-1.5 text-xs"
                       />
                     </div>
                     <div>
-                      <label className="font-semibold text-[#475569] block mb-1">Training Standard *</label>
+                      <label className="font-semibold text-[#475569] block mb-1">
+                        Training Standard *
+                      </label>
                       <input
                         type="text"
                         required
@@ -2016,12 +2140,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       />
                     </div>
                     <div>
-                      <label className="font-semibold text-[#475569] block mb-1">Eligibility Standard *</label>
+                      <label className="font-semibold text-[#475569] block mb-1">
+                        Eligibility Standard *
+                      </label>
                       <input
                         type="text"
                         required
                         value={newJobForm.eligibility}
-                        onChange={(e) => setNewJobForm({ ...newJobForm, eligibility: e.target.value })}
+                        onChange={(e) =>
+                          setNewJobForm({ ...newJobForm, eligibility: e.target.value })
+                        }
                         placeholder="Career Service (Professional) / RA 1080"
                         className="w-full bg-white border border-[#DCE2E8] rounded-sm p-1.5 text-xs"
                       />
@@ -2031,21 +2159,29 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="font-semibold text-[#0F172A] block mb-1">Attached Document Title</label>
+                    <label className="font-semibold text-[#0F172A] block mb-1">
+                      Attached Document Title
+                    </label>
                     <input
                       type="text"
                       value={newJobForm.documentTitle}
-                      onChange={(e) => setNewJobForm({ ...newJobForm, documentTitle: e.target.value })}
+                      onChange={(e) =>
+                        setNewJobForm({ ...newJobForm, documentTitle: e.target.value })
+                      }
                       placeholder="Official Notice of Vacancy (CS Form 9)"
                       className="w-full bg-[#F6F7F9] border border-[#DCE2E8] rounded-sm p-2 text-xs"
                     />
                   </div>
                   <div>
-                    <label className="font-semibold text-[#0F172A] block mb-1">Document Link / URL</label>
+                    <label className="font-semibold text-[#0F172A] block mb-1">
+                      Document Link / URL
+                    </label>
                     <input
                       type="text"
                       value={newJobForm.documentUrl}
-                      onChange={(e) => setNewJobForm({ ...newJobForm, documentUrl: e.target.value })}
+                      onChange={(e) =>
+                        setNewJobForm({ ...newJobForm, documentUrl: e.target.value })
+                      }
                       placeholder="https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/"
                       className="w-full bg-[#F6F7F9] border border-[#DCE2E8] rounded-sm p-2 text-xs font-mono"
                     />
@@ -2067,7 +2203,9 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
             </div>
 
             <div className="p-4 bg-[#F6F7F9] border-t border-[#DCE2E8] flex items-center justify-between">
-              <span className="text-[11px] text-[#475569]">Authoritative Source: bfar.da.gov.ph</span>
+              <span className="text-[11px] text-[#475569]">
+                Authoritative Source: bfar.da.gov.ph
+              </span>
               <div className="flex items-center space-x-2">
                 <button
                   type="button"

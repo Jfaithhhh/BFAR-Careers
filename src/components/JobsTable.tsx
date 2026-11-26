@@ -1,18 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { PlantillaJob } from '../types';
 import {
   Search,
   Eye,
   ArrowUpDown,
   Building,
-  GraduationCap,
-  Award,
   Clock,
   Sparkles,
   ExternalLink,
   ShieldCheck,
-  CheckCircle2,
-  AlertCircle,
   FileText,
   BadgeCheck,
 } from 'lucide-react';
@@ -22,6 +18,31 @@ interface JobsTableProps {
   onSelectJobForApply: (job: PlantillaJob) => void;
   isLoading?: boolean;
 }
+
+type SortKey = 'positionTitle' | 'salaryGrade' | 'itemNo' | 'postingDate' | 'closingDate';
+
+const getItemNumber = (job: PlantillaJob): string =>
+  (job.plantillaItemNumber || job.itemNo || '').trim();
+
+const getPostingDate = (job: PlantillaJob): string =>
+  (job.datePosted || job.postingDate || '').trim();
+
+const getClosingDate = (job: PlantillaJob): string =>
+  (job.applicationDeadline || job.closingDate || '').trim();
+
+const isDeadlinePassed = (deadlineStr: string, now: number): boolean => {
+  if (!deadlineStr) return false;
+  const dateOnlyMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(deadlineStr.trim());
+  if (dateOnlyMatch) {
+    const year = Number(dateOnlyMatch[1]);
+    const month = Number(dateOnlyMatch[2]) - 1;
+    const day = Number(dateOnlyMatch[3]);
+    const endOfDayLocal = new Date(year, month, day, 23, 59, 59, 999).getTime();
+    return now > endOfDayLocal;
+  }
+  const parsed = new Date(deadlineStr).getTime();
+  return !Number.isNaN(parsed) && parsed < now;
+};
 
 export const JobsTable: React.FC<JobsTableProps> = ({
   jobs,
@@ -34,35 +55,51 @@ export const JobsTable: React.FC<JobsTableProps> = ({
   const [statusFilter, setStatusFilter] = useState<'All' | 'Open' | 'Expired'>('All');
   const [entriesPerPage, setEntriesPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
-  const [sortField, setSortField] = useState<keyof PlantillaJob>('salaryGrade');
+  const [sortField, setSortField] = useState<SortKey>('salaryGrade');
   const [sortAsc, setSortAsc] = useState(false);
   const [selectedJobForModal, setSelectedJobForModal] = useState<PlantillaJob | null>(null);
 
-  // Distinct Central Office divisions for filter
   const divisions = useMemo(() => {
-    const list = Array.from(new Set(jobs.map((j) => j.division)));
+    const list = Array.from(new Set(jobs.map((j) => j.division).filter(Boolean)));
     return ['All', ...list];
   }, [jobs]);
 
-  // Distinct Salary Grades for quick filtering
   const salaryGrades = useMemo(() => {
-    const list = Array.from(new Set(jobs.map((j) => j.salaryGrade))).sort((a, b) => a - b);
+    const list = Array.from(
+      new Set(jobs.map((j) => j.salaryGrade).filter((sg): sg is number => typeof sg === 'number'))
+    ).sort((a, b) => a - b);
     return ['All', ...list.map((sg) => `SG ${sg}`)];
   }, [jobs]);
 
-  // Filtered and sorted jobs
   const filteredJobs = useMemo(() => {
     const now = Date.now();
+    const s = searchTerm.trim().toLowerCase();
+
+    const getSortValue = (job: PlantillaJob, field: SortKey): string | number => {
+      switch (field) {
+        case 'positionTitle':
+          return (job.positionTitle || '').toLowerCase();
+        case 'salaryGrade':
+          return Number(job.salaryGrade) || 0;
+        case 'itemNo':
+          return getItemNumber(job).toLowerCase();
+        case 'postingDate':
+          return getPostingDate(job).toLowerCase();
+        case 'closingDate':
+          return getClosingDate(job).toLowerCase();
+      }
+    };
+
     return jobs
       .filter((job) => {
         const matchesDivision = divisionFilter === 'All' || job.division === divisionFilter;
         const matchesSg = sgFilter === 'All' || `SG ${job.salaryGrade}` === sgFilter;
 
-        const deadline = job.applicationDeadline || job.closingDate;
+        const deadline = getClosingDate(job);
         const isExpired =
           job.status === 'Expired' ||
           job.status === 'Closed' ||
-          (deadline ? new Date(deadline).getTime() < now : false);
+          isDeadlinePassed(deadline, now);
 
         let matchesStatus = true;
         if (statusFilter === 'Open') {
@@ -71,19 +108,20 @@ export const JobsTable: React.FC<JobsTableProps> = ({
           matchesStatus = isExpired;
         }
 
-        const s = searchTerm.toLowerCase();
+        const itemNo = getItemNumber(job).toLowerCase();
         const matchesSearch =
-          job.positionTitle.toLowerCase().includes(s) ||
-          (job.plantillaItemNumber || job.itemNo).toLowerCase().includes(s) ||
+          !s ||
+          (job.positionTitle || '').toLowerCase().includes(s) ||
+          itemNo.includes(s) ||
           `sg ${job.salaryGrade}`.includes(s) ||
           `sg-${job.salaryGrade}`.includes(s) ||
-          job.division.toLowerCase().includes(s);
+          (job.division || '').toLowerCase().includes(s);
 
         return matchesDivision && matchesSg && matchesStatus && matchesSearch;
       })
       .sort((a, b) => {
-        const valA = a[sortField];
-        const valB = b[sortField];
+        const valA = getSortValue(a, sortField);
+        const valB = getSortValue(b, sortField);
         if (typeof valA === 'string' && typeof valB === 'string') {
           return sortAsc ? valA.localeCompare(valB) : valB.localeCompare(valA);
         }
@@ -94,18 +132,24 @@ export const JobsTable: React.FC<JobsTableProps> = ({
       });
   }, [jobs, searchTerm, divisionFilter, sgFilter, statusFilter, sortField, sortAsc]);
 
-  // Pagination calculation
   const totalEntries = filteredJobs.length;
   const totalPages = Math.ceil(totalEntries / entriesPerPage) || 1;
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   const startIndex = (currentPage - 1) * entriesPerPage;
   const displayedJobs = filteredJobs.slice(startIndex, startIndex + entriesPerPage);
 
-  const handleSort = (field: keyof PlantillaJob) => {
+  const handleSort = (field: SortKey) => {
     if (sortField === field) {
       setSortAsc(!sortAsc);
     } else {
       setSortField(field);
-      setSortAsc(true);
+      setSortAsc(field !== 'salaryGrade');
     }
   };
 
@@ -114,6 +158,8 @@ export const JobsTable: React.FC<JobsTableProps> = ({
     if (sg >= 11) return '2nd Level (Professional)';
     return '1st Level (Sub-Professional)';
   };
+
+  const now = Date.now();
 
   return (
     <div className="space-y-6">
@@ -132,8 +178,12 @@ export const JobsTable: React.FC<JobsTableProps> = ({
             </span>
           </div>
           <p className="text-xs text-slate-600 mt-1">
-            Official publication of authorized Plantilla positions at <strong>BFAR Central Office, Fisheries Building Complex, BPI Compound, Brgy. Vasra, Visayas Avenue, Diliman, Quezon City</strong>.
-            Synchronized with{' '}
+            Official publication of authorized Plantilla positions at{' '}
+            <strong>
+              BFAR Central Office, Fisheries Building Complex, BPI Compound, Brgy. Vasra, Visayas
+              Avenue, Diliman, Quezon City
+            </strong>
+            . Synchronized with{' '}
             <a
               href="https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/"
               target="_blank"
@@ -142,7 +192,8 @@ export const JobsTable: React.FC<JobsTableProps> = ({
             >
               bfar.da.gov.ph/opportunities/job-vacancies-careers
               <ExternalLink className="w-3 h-3 ml-0.5 inline" />
-            </a>.
+            </a>
+            .
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 shrink-0">
@@ -221,7 +272,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
               <select
                 value={statusFilter}
                 onChange={(e) => {
-                  setStatusFilter(e.target.value as any);
+                  setStatusFilter(e.target.value as 'All' | 'Open' | 'Expired');
                   setCurrentPage(1);
                 }}
                 className="bg-white border border-slate-300 rounded-md px-2.5 py-1 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-[#024794]"
@@ -244,13 +295,18 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                   setSearchTerm(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-64 sm:w-72 bg-white border border-slate-300 rounded-md pl-8 pr-3 py-1.5 text-xs focus:outline-hidden focus:ring-2 focus:ring-[#024794]"
+                className="w-64 sm:w-72 bg-white border border-slate-300 rounded-md pl-8 pr-7 py-1.5 text-xs focus:outline-hidden focus:ring-2 focus:ring-[#024794]"
               />
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
               {searchTerm && (
                 <button
-                  onClick={() => setSearchTerm('')}
+                  type="button"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setCurrentPage(1);
+                  }}
                   className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 text-xs"
+                  aria-label="Clear search"
                 >
                   ✕
                 </button>
@@ -278,7 +334,9 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                   className="py-3 px-4 cursor-pointer hover:bg-slate-800 transition-colors whitespace-nowrap min-w-[140px]"
                 >
                   <div className="flex items-center justify-between gap-1">
-                    <span className="text-amber-300 font-bold uppercase tracking-wide">Salary Grade</span>
+                    <span className="text-amber-300 font-bold uppercase tracking-wide">
+                      Salary Grade
+                    </span>
                     <ArrowUpDown className="w-3 h-3 opacity-60" />
                   </div>
                 </th>
@@ -355,11 +413,13 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                 </tr>
               ) : (
                 displayedJobs.map((job, idx) => {
-                  const deadline = job.applicationDeadline || job.closingDate;
+                  const itemNo = getItemNumber(job);
+                  const postedDate = getPostingDate(job);
+                  const deadline = getClosingDate(job);
                   const isExpired =
                     job.status === 'Expired' ||
                     job.status === 'Closed' ||
-                    (deadline ? new Date(deadline).getTime() < Date.now() : false);
+                    isDeadlinePassed(deadline, now);
 
                   return (
                     <tr
@@ -368,7 +428,6 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                         idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'
                       }`}
                     >
-                      {/* Position Title & Assignment */}
                       <td className="py-3 px-4">
                         <div
                           className="font-bold text-[#024794] text-sm hover:underline cursor-pointer flex items-center gap-1.5"
@@ -390,7 +449,6 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                         </div>
                       </td>
 
-                      {/* EMPHASIZED SALARY GRADE COLUMN */}
                       <td className="py-3 px-4 whitespace-nowrap">
                         <div className="flex flex-col items-start gap-1">
                           <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-black bg-gradient-to-r from-[#024794] to-[#0460c4] text-white shadow-xs tracking-wide">
@@ -402,22 +460,19 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                         </div>
                       </td>
 
-                      {/* Plantilla Item Number */}
                       <td className="py-3 px-4 whitespace-nowrap">
                         <span className="font-mono text-xs font-semibold text-slate-800 bg-slate-100 px-2.5 py-1 rounded border border-slate-200 block w-fit">
-                          {job.plantillaItemNumber || job.itemNo}
+                          {itemNo}
                         </span>
                         <span className="text-[10px] text-slate-400 block mt-0.5">
                           Permanent Plantilla Item
                         </span>
                       </td>
 
-                      {/* Posting Date */}
                       <td className="py-3 px-4 text-slate-600 whitespace-nowrap text-xs">
-                        {job.datePosted || job.postingDate}
+                        {postedDate}
                       </td>
 
-                      {/* Closing Date & Expiry Badge */}
                       <td className="py-3 px-4 whitespace-nowrap">
                         <span
                           className={`px-2.5 py-1 rounded border text-xs inline-flex items-center gap-1 font-bold ${
@@ -426,8 +481,10 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                               : 'bg-amber-50 text-amber-800 border-amber-200'
                           }`}
                         >
-                          <Clock className={`w-3 h-3 ${isExpired ? 'text-rose-600' : 'text-amber-600'}`} />
-                          {job.applicationDeadline || job.closingDate}
+                          <Clock
+                            className={`w-3 h-3 ${isExpired ? 'text-rose-600' : 'text-amber-600'}`}
+                          />
+                          {deadline}
                         </span>
                         {isExpired ? (
                           <span className="block text-[10px] text-rose-600 font-bold mt-0.5">
@@ -440,12 +497,13 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                         )}
                       </td>
 
-                      {/* Official Notice & Actions */}
                       <td className="py-3 px-4 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center space-x-1.5">
-                          {/* Official Announcement Link */}
                           <a
-                            href={job.officialSourceUrl || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/'}
+                            href={
+                              job.officialSourceUrl ||
+                              'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/'
+                            }
                             target="_blank"
                             rel="noreferrer"
                             className="bg-white hover:bg-slate-100 text-[#024794] border border-[#024794]/40 px-2.5 py-1.5 rounded text-xs font-semibold shadow-xs flex items-center gap-1 transition-all"
@@ -456,6 +514,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                           </a>
 
                           <button
+                            type="button"
                             onClick={() => setSelectedJobForModal(job)}
                             className="bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 px-2.5 py-1.5 rounded text-xs font-semibold shadow-xs flex items-center gap-1 transition-all"
                             title="View Qualification Standards and Details"
@@ -464,9 +523,9 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                             <span>Details</span>
                           </button>
 
-                          {/* Apply Button - Disabled if expired */}
                           {isExpired ? (
                             <button
+                              type="button"
                               disabled
                               className="bg-slate-200 text-slate-400 px-3 py-1.5 rounded text-xs font-bold cursor-not-allowed shadow-none"
                               title="The application deadline for this position has passed"
@@ -475,6 +534,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                             </button>
                           ) : (
                             <button
+                              type="button"
                               onClick={() => onSelectJobForApply(job)}
                               className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all active:scale-95"
                               title="Apply for this Plantilla Vacancy"
@@ -503,6 +563,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
 
           <div className="flex items-center space-x-1">
             <button
+              type="button"
               onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
               disabled={currentPage === 1}
               className="px-3 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 text-xs font-medium"
@@ -512,6 +573,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
             {Array.from({ length: totalPages }, (_, i) => i + 1).map((pg) => (
               <button
                 key={pg}
+                type="button"
                 onClick={() => setCurrentPage(pg)}
                 className={`px-3 py-1 rounded text-xs font-semibold ${
                   currentPage === pg
@@ -523,6 +585,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
               </button>
             ))}
             <button
+              type="button"
               onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
               disabled={currentPage === totalPages || totalPages === 0}
               className="px-3 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50 text-xs font-medium"
@@ -537,7 +600,6 @@ export const JobsTable: React.FC<JobsTableProps> = ({
       {selectedJobForModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-200">
-            {/* Modal Header */}
             <div className="bg-[#024794] text-white p-6 sticky top-0 z-10 flex items-start justify-between gap-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2 mb-1.5">
@@ -545,7 +607,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                     SALARY GRADE {selectedJobForModal.salaryGrade}
                   </span>
                   <span className="bg-blue-800 text-sky-200 font-mono text-xs px-2 py-0.5 rounded">
-                    {selectedJobForModal.itemNo}
+                    {getItemNumber(selectedJobForModal)}
                   </span>
                   <span className="bg-emerald-500/20 text-emerald-300 text-xs px-2 py-0.5 rounded font-semibold border border-emerald-400/30">
                     {selectedJobForModal.plantillaType}
@@ -558,16 +620,16 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                 </p>
               </div>
               <button
+                type="button"
                 onClick={() => setSelectedJobForModal(null)}
                 className="text-white/80 hover:text-white p-1 rounded-full hover:bg-white/10 text-lg"
+                aria-label="Close modal"
               >
                 ✕
               </button>
             </div>
 
-            {/* Modal Body */}
             <div className="p-6 space-y-6 text-xs text-slate-700">
-              {/* Highlighted Official Salary Grade Card & Official Source Link */}
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-[#024794] text-white flex items-center justify-center font-black text-lg shadow-xs">
@@ -578,40 +640,50 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                       Civil Service Position Level
                     </span>
                     <h4 className="text-sm font-bold text-slate-900">
-                      Official Salary Grade {selectedJobForModal.salaryGrade} ({getSgLevelLabel(selectedJobForModal.salaryGrade)})
+                      Official Salary Grade {selectedJobForModal.salaryGrade} (
+                      {getSgLevelLabel(selectedJobForModal.salaryGrade)})
                     </h4>
                     <p className="text-[11px] text-slate-600">
-                      Standard CSC compensation scale applies (monthly monetary rates strictly masked for privacy).
+                      Standard CSC compensation scale applies (monthly monetary rates strictly masked
+                      for privacy).
                     </p>
                   </div>
                 </div>
                 <div className="sm:text-right text-xs space-y-1">
                   <div>
-                    <span className="text-[10px] text-slate-500 uppercase font-bold block">Application Deadline</span>
+                    <span className="text-[10px] text-slate-500 uppercase font-bold block">
+                      Application Deadline
+                    </span>
                     <span className="font-bold text-amber-900 bg-amber-100/90 px-2.5 py-0.5 rounded border border-amber-300 inline-block">
-                      {selectedJobForModal.applicationDeadline || selectedJobForModal.closingDate}
+                      {getClosingDate(selectedJobForModal)}
                     </span>
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-400 block">
-                      Posted: {selectedJobForModal.datePosted || selectedJobForModal.postingDate}
+                      Posted: {getPostingDate(selectedJobForModal)}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Official Source Announcement & Documents Card */}
               <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                   <div className="text-[11px]">
-                    <span className="font-bold text-slate-800 block">Verified Official Publication</span>
-                    <span className="text-slate-500">Source: DA-BFAR Official Job Opportunities &amp; Careers Portal</span>
+                    <span className="font-bold text-slate-800 block">
+                      Verified Official Publication
+                    </span>
+                    <span className="text-slate-500">
+                      Source: DA-BFAR Official Job Opportunities &amp; Careers Portal
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <a
-                    href={selectedJobForModal.officialSourceUrl || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/'}
+                    href={
+                      selectedJobForModal.officialSourceUrl ||
+                      'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/'
+                    }
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-[#024794] border border-blue-300 font-bold text-xs shadow-2xs transition-colors"
@@ -622,34 +694,33 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                 </div>
               </div>
 
-              {/* Attached Official Vacancy Documents */}
-              {selectedJobForModal.attachedDocuments && selectedJobForModal.attachedDocuments.length > 0 && (
-                <div className="bg-sky-50/60 p-3 rounded-lg border border-sky-200">
-                  <span className="text-[10px] font-bold text-[#024794] uppercase tracking-wider block mb-1.5 flex items-center gap-1">
-                    <FileText className="w-3.5 h-3.5 text-[#024794]" />
-                    <span>Official Attached Vacancy Notice Documents</span>
-                  </span>
-                  <div className="space-y-1">
-                    {selectedJobForModal.attachedDocuments.map((doc, dIdx) => (
-                      <a
-                        key={dIdx}
-                        href={doc.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center justify-between bg-white p-2 rounded border border-sky-100 hover:border-blue-300 text-xs transition-colors"
-                      >
-                        <span className="font-medium text-slate-800 truncate">{doc.name}</span>
-                        <span className="text-[10px] font-bold text-[#024794] flex items-center gap-1 shrink-0 ml-2">
-                          <span>View Announcement</span>
-                          <ExternalLink className="w-3 h-3 text-[#024794]" />
-                        </span>
-                      </a>
-                    ))}
+              {selectedJobForModal.attachedDocuments &&
+                selectedJobForModal.attachedDocuments.length > 0 && (
+                  <div className="bg-sky-50/60 p-3 rounded-lg border border-sky-200">
+                    <span className="text-[10px] font-bold text-[#024794] uppercase tracking-wider block mb-1.5 flex items-center gap-1">
+                      <FileText className="w-3.5 h-3.5 text-[#024794]" />
+                      <span>Official Attached Vacancy Notice Documents</span>
+                    </span>
+                    <div className="space-y-1">
+                      {selectedJobForModal.attachedDocuments.map((doc, dIdx) => (
+                        <a
+                          key={dIdx}
+                          href={doc.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="flex items-center justify-between bg-white p-2 rounded border border-sky-100 hover:border-blue-300 text-xs transition-colors"
+                        >
+                          <span className="font-medium text-slate-800 truncate">{doc.name}</span>
+                          <span className="text-[10px] font-bold text-[#024794] flex items-center gap-1 shrink-0 ml-2">
+                            <span>View Announcement</span>
+                            <ExternalLink className="w-3 h-3 text-[#024794]" />
+                          </span>
+                        </a>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Civil Service Qualification Standards (QS) */}
               <div>
                 <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <BadgeCheck className="w-4 h-4 text-[#024794]" />
@@ -658,27 +729,35 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
                     <span className="font-bold text-[#024794] block mb-1">Education</span>
-                    <p className="text-slate-700">{selectedJobForModal.qualificationStandards.education}</p>
+                    <p className="text-slate-700">
+                      {selectedJobForModal.qualificationStandards.education}
+                    </p>
                   </div>
                   <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
                     <span className="font-bold text-[#024794] block mb-1">Experience</span>
-                    <p className="text-slate-700">{selectedJobForModal.qualificationStandards.experience}</p>
+                    <p className="text-slate-700">
+                      {selectedJobForModal.qualificationStandards.experience}
+                    </p>
                   </div>
                   <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
                     <span className="font-bold text-[#024794] block mb-1">Training</span>
-                    <p className="text-slate-700">{selectedJobForModal.qualificationStandards.training}</p>
+                    <p className="text-slate-700">
+                      {selectedJobForModal.qualificationStandards.training}
+                    </p>
                     <span className="text-[10px] text-amber-700 block mt-1">
-                      *Note: Only formal learning &amp; development counts. Facilitator/RP roles excluded.
+                      *Note: Only formal learning &amp; development counts. Facilitator/RP roles
+                      excluded.
                     </span>
                   </div>
                   <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
                     <span className="font-bold text-[#024794] block mb-1">Eligibility</span>
-                    <p className="text-slate-700">{selectedJobForModal.qualificationStandards.eligibility}</p>
+                    <p className="text-slate-700">
+                      {selectedJobForModal.qualificationStandards.eligibility}
+                    </p>
                   </div>
                 </div>
               </div>
 
-              {/* Duties and Responsibilities */}
               <div>
                 <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
                   Key Duties and Responsibilities
@@ -692,7 +771,6 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                 </ul>
               </div>
 
-              {/* Competencies */}
               <div>
                 <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
                   Required Competencies
@@ -710,20 +788,20 @@ export const JobsTable: React.FC<JobsTableProps> = ({
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
               <button
+                type="button"
                 onClick={() => setSelectedJobForModal(null)}
                 className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-100 font-semibold"
               >
                 Close
               </button>
               {(() => {
-                const deadline = selectedJobForModal.applicationDeadline || selectedJobForModal.closingDate;
+                const deadline = getClosingDate(selectedJobForModal);
                 const isExpired =
                   selectedJobForModal.status === 'Expired' ||
                   selectedJobForModal.status === 'Closed' ||
-                  (deadline ? new Date(deadline).getTime() < Date.now() : false);
+                  isDeadlinePassed(deadline, now);
 
                 if (isExpired) {
                   return (
@@ -732,6 +810,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
                         Notice: Application deadline has passed.
                       </span>
                       <button
+                        type="button"
                         disabled
                         className="bg-slate-200 text-slate-400 px-5 py-2 rounded-lg font-bold shadow-none cursor-not-allowed text-xs"
                       >
@@ -743,6 +822,7 @@ export const JobsTable: React.FC<JobsTableProps> = ({
 
                 return (
                   <button
+                    type="button"
                     onClick={() => {
                       const job = selectedJobForModal;
                       setSelectedJobForModal(null);

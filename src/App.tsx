@@ -49,7 +49,6 @@ export default function App() {
   const isExternalApplicantSession = !isAdminAuthenticated && effectiveRole === 'external_applicant';
   const isAdminView = !isExternalApplicantSession && activeTab === 'admin';
 
-  // External applicants may only access Plantilla Vacancies ('jobs') and the Application Form ('apply')
   useEffect(() => {
     if (isExternalApplicantSession && activeTab !== 'jobs' && activeTab !== 'apply') {
       setActiveTab('jobs');
@@ -197,6 +196,10 @@ export default function App() {
     );
   };
 
+  const handleDeleteJob = (jobId: string) => {
+    setJobs((prev) => prev.filter((j) => j.id !== jobId));
+  };
+
   const visibleJobs = jobs.filter((job) =>
     isVacancyVisibleForRole(job, effectiveRole, isAdminAuthenticated)
   );
@@ -267,6 +270,7 @@ export default function App() {
             onUpdateApplication={handleUpdateApplication}
             onAddJob={handleAddJob}
             onUpdateJob={handleUpdateJob}
+            onDeleteJob={handleDeleteJob}
             onAuthChange={(authenticated) => {
               if (authenticated) {
                 setPortalUser(null);

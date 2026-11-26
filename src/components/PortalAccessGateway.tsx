@@ -35,6 +35,7 @@ interface PortalAccessGatewayProps {
 }
 
 type SelectedOption = 'bfar_employee' | 'external_applicant' | 'admin';
+type EmployeeStatus = 'Permanent' | 'Casual' | 'Contractual' | 'Job Order / COS';
 
 export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
   portalUser,
@@ -48,23 +49,20 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  // BFAR Employee Form States
   const [empEmail, setEmpEmail] = useState('');
   const [empPassword, setEmpPassword] = useState('');
   const [empConfirmPassword, setEmpConfirmPassword] = useState('');
   const [empFullName, setEmpFullName] = useState('');
   const [empDivision, setEmpDivision] = useState('');
   const [empPosition, setEmpPosition] = useState('');
-  const [empStatus, setEmpStatus] = useState<'Permanent' | 'Casual' | 'Contractual' | 'Job Order / COS'>('Permanent');
+  const [empStatus, setEmpStatus] = useState<EmployeeStatus>('Permanent');
 
-  // External Applicant Form States
   const [extIdentifier, setExtIdentifier] = useState('');
   const [extUsername, setExtUsername] = useState('');
   const [extEmail, setExtEmail] = useState('');
   const [extPassword, setExtPassword] = useState('');
   const [extConfirmPassword, setExtConfirmPassword] = useState('');
 
-  // 6-Digit Gmail OTP Modal State
   const [otpModalData, setOtpModalData] = useState<{
     uid: string;
     email: string;
@@ -134,8 +132,9 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
         onPortalUserChange(profile);
         onNavigateTab('jobs');
       }
-    } catch (err: any) {
-      setErrorMsg(err?.message || 'Sign in failed. Please check your credentials.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Sign in failed. Please check your credentials.';
+      setErrorMsg(message);
     } finally {
       setLoading(false);
     }
@@ -152,8 +151,9 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
       });
       onPortalUserChange(profile);
       onNavigateTab('jobs');
-    } catch (err: any) {
-      setErrorMsg(err?.message || BFAR_DOMAIN_ERROR);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : BFAR_DOMAIN_ERROR;
+      setErrorMsg(message);
     } finally {
       setLoading(false);
     }
@@ -163,26 +163,28 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
     e.preventDefault();
     setErrorMsg('');
 
+    if (authMode === 'register') {
+      if (!extUsername.trim() || extUsername.trim().length < 3) {
+        setErrorMsg('Username must be at least 3 characters.');
+        return;
+      }
+      if (!extEmail.trim().includes('@')) {
+        setErrorMsg('Please enter a valid Gmail or personal email address.');
+        return;
+      }
+      if (extPassword.length < 6) {
+        setErrorMsg('Password must be at least 6 characters.');
+        return;
+      }
+      if (extPassword !== extConfirmPassword) {
+        setErrorMsg('Passwords do not match.');
+        return;
+      }
+    }
+
     try {
       setLoading(true);
       if (authMode === 'register') {
-        if (!extUsername.trim() || extUsername.trim().length < 3) {
-          setErrorMsg('Username must be at least 3 characters.');
-          return;
-        }
-        if (!extEmail.trim().includes('@')) {
-          setErrorMsg('Please enter a valid Gmail or personal email address.');
-          return;
-        }
-        if (extPassword.length < 6) {
-          setErrorMsg('Password must be at least 6 characters.');
-          return;
-        }
-        if (extPassword !== extConfirmPassword) {
-          setErrorMsg('Passwords do not match.');
-          return;
-        }
-
         const pending = await registerExternalApplicant({
           username: extUsername,
           email: extEmail,
@@ -196,7 +198,9 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
           uid: pending.uid,
           email: pending.email,
           username: pending.username,
-          generatedCode: (pending as any)?.code,
+          generatedCode: typeof (pending as { code?: unknown }).code === 'string'
+            ? String((pending as { code?: unknown }).code)
+            : undefined,
         });
       } else {
         const { profile, requiresOtp } = await loginExternalApplicant(extIdentifier, extPassword);
@@ -220,8 +224,10 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
           onNavigateTab('jobs');
         }
       }
-    } catch (err: any) {
-      setErrorMsg(err?.message || 'Unable to process applicant authentication.');
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Unable to process applicant authentication.';
+      setErrorMsg(message);
     } finally {
       setLoading(false);
     }
@@ -243,8 +249,9 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
       setOtpModalData(null);
       onPortalUserChange(verifiedProfile);
       onNavigateTab('jobs');
-    } catch (err: any) {
-      setOtpError(err?.message || 'OTP verification failed.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'OTP verification failed.';
+      setOtpError(message);
     } finally {
       setOtpLoading(false);
     }
@@ -266,14 +273,14 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
           ? { ...prev, generatedCode: typeof nextCode === 'string' ? nextCode : prev.generatedCode }
           : prev
       );
-    } catch (err: any) {
-      setOtpError(err?.message || 'Failed to resend OTP.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to resend OTP.';
+      setOtpError(message);
     } finally {
       setOtpLoading(false);
     }
   };
 
-  // Compact top bar once inside Plantilla Vacancies after login/signup
   if (portalUser) {
     const isEmployee = portalUser.role === 'bfar_employee';
     return (
@@ -281,9 +288,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
         <div className="flex items-center gap-2 text-xs">
           <span
             className={`px-2 py-0.5 rounded-full font-bold text-[10px] uppercase ${
-              isEmployee
-                ? 'bg-emerald-100 text-emerald-800'
-                : 'bg-blue-100 text-[#024794]'
+              isEmployee ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-[#024794]'
             }`}
           >
             {isEmployee ? 'BFAR Employee' : 'External Applicant'}
@@ -307,7 +312,6 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
   return (
     <div className="py-6 sm:py-10 flex items-center justify-center">
       <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-        {/* Compact Header */}
         <div className="bg-[#0b2447] px-6 py-4 text-white">
           <p className="text-[10px] font-extrabold uppercase tracking-widest text-amber-300">
             DA-BFAR Careers Portal
@@ -318,7 +322,6 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
         </div>
 
         <div className="p-6">
-          {/* Compact 3-Option Segmented Selector */}
           <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1 rounded-xl border border-slate-200 mb-5">
             <button
               type="button"
@@ -356,7 +359,6 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
             </button>
           </div>
 
-          {/* Login / Sign Up Tabs */}
           <div className="flex border-b border-slate-200 mb-4">
             <button
               type="button"
@@ -395,13 +397,14 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
             </div>
           )}
 
-          {/* OPTION 1: BFAR EMPLOYEE FORM */}
           {selectedOption === 'bfar_employee' && (
             <form onSubmit={handleEmployeeSubmit} className="space-y-3">
               {authMode === 'register' && (
                 <>
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Full Name</label>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Full Name
+                    </label>
                     <div className="relative">
                       <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                       <input
@@ -417,7 +420,9 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
 
                   <div className="grid grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Division / Office</label>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Division / Office
+                      </label>
                       <div className="relative">
                         <Building2 className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                         <input
@@ -432,7 +437,9 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Current Position</label>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Current Position
+                      </label>
                       <input
                         type="text"
                         required
@@ -445,10 +452,12 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Employment Status</label>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Employment Status
+                    </label>
                     <select
                       value={empStatus}
-                      onChange={(e) => setEmpStatus(e.target.value as any)}
+                      onChange={(e) => setEmpStatus(e.target.value as EmployeeStatus)}
                       className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600 bg-white"
                     >
                       <option value="Permanent">Permanent</option>
@@ -494,7 +503,9 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
 
               {authMode === 'register' && (
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">Confirm Password</label>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Confirm Password
+                  </label>
                   <div className="relative">
                     <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                     <input
@@ -532,7 +543,6 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
             </form>
           )}
 
-          {/* OPTION 2: EXTERNAL APPLICANT FORM */}
           {selectedOption === 'external_applicant' && (
             <form onSubmit={handleExternalSubmit} className="space-y-3">
               {authMode === 'login' ? (
@@ -555,7 +565,9 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Password</label>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Password
+                    </label>
                     <div className="relative">
                       <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                       <input
@@ -572,7 +584,9 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
               ) : (
                 <>
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Username</label>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Username
+                    </label>
                     <div className="relative">
                       <User className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                       <input
@@ -587,7 +601,9 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-700 mb-1">Gmail Address</label>
+                    <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                      Gmail Address
+                    </label>
                     <div className="relative">
                       <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                       <input
@@ -603,7 +619,9 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
 
                   <div className="grid grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Password</label>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Password
+                      </label>
                       <div className="relative">
                         <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                         <input
@@ -618,7 +636,9 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">Confirm</label>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                        Confirm
+                      </label>
                       <div className="relative">
                         <Lock className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
                         <input
@@ -651,7 +671,6 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
         </div>
       </div>
 
-      {/* 6-DIGIT VERIFICATION MODAL */}
       {otpModalData && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl max-w-sm w-full border border-slate-200 shadow-xl overflow-hidden">
@@ -671,7 +690,8 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
 
             <form onSubmit={handleVerifyOtp} className="p-4 space-y-3">
               <p className="text-xs text-slate-600">
-                Verification code for <strong>{otpModalData.email}</strong> (expires in 5 mins). The portal does not access applicant Gmail accounts.
+                Verification code for <strong>{otpModalData.email}</strong> (expires in 5 mins). The
+                portal does not access applicant Gmail accounts.
               </p>
 
               {otpModalData.generatedCode && (

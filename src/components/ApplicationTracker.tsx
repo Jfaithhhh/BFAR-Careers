@@ -7,23 +7,16 @@ import {
   Clock,
   AlertCircle,
   FileText,
-  User,
   GraduationCap,
   Briefcase,
   Award,
   Sparkles,
-  MapPin,
-  Calendar,
-  ChevronRight,
-  ShieldAlert,
-  Printer,
   Copy,
   Check,
   AlertTriangle,
   BadgeCheck,
   Radio,
   UserCheck,
-  TrendingUp,
   FileCheck2,
   ShieldCheck,
 } from 'lucide-react';
@@ -45,72 +38,134 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
   const [isLiveConnected, setIsLiveConnected] = useState(false);
 
   const unsubscribeRef = useRef<(() => void) | null>(null);
+  const requestIdRef = useRef(0);
+  const copyTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const codeToTrack = initialTrackingCode || (recentApplications.length > 0 ? recentApplications[0].trackingCode : '');
+    const codeToTrack =
+      initialTrackingCode ||
+      (recentApplications.length > 0 ? recentApplications[0].trackingCode : '');
     if (codeToTrack) {
       setTrackingInput(codeToTrack);
       trackApplicationWithRealtime(codeToTrack);
     }
 
     return () => {
+      requestIdRef.current += 1;
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
+        unsubscribeRef.current = null;
+      }
+      if (copyTimerRef.current !== null) {
+        window.clearTimeout(copyTimerRef.current);
+        copyTimerRef.current = null;
       }
     };
   }, [initialTrackingCode]);
 
   const trackApplicationWithRealtime = async (code: string) => {
-    if (!code.trim()) return;
-    setIsLoading(true);
-    setErrorMessage(null);
+    const cleanCode = code.trim().toUpperCase();
+    if (!cleanCode) return;
 
-    // Clean up previous subscription
+    const currentRequestId = ++requestIdRef.current;
+
+    // Clean up previous subscription before starting a new lookup
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
       unsubscribeRef.current = null;
     }
 
-    const cleanCode = code.trim().toUpperCase();
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    let matchedInitialApp: ApplicationRecord | null = null;
 
     // 1. Initial HTTP fetch from server API
     try {
-      const res = await fetch(`/api/applications/track/${encodeURIComponent(cleanCode)}`);
+      const res = await fetch(
+        `/api/applications/track/${encodeURIComponent(cleanCode)}`
+      );
       const json = await res.json();
+
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
+
       if (json.success && json.data) {
+        matchedInitialApp = json.data;
         setCurrentApp(json.data);
       } else {
         // Fallback: check recentApplications in memory
         const found = recentApplications.find(
-          (a) => a.trackingCode.toUpperCase() === cleanCode || a.id.toUpperCase() === cleanCode
+          (a) =>
+            a.trackingCode.toUpperCase() === cleanCode ||
+            a.id.toUpperCase() === cleanCode
         );
         if (found) {
+          matchedInitialApp = found;
           setCurrentApp(found);
         } else {
           setCurrentApp(null);
-          setErrorMessage(json.error || 'No application record found for this tracking number.');
+          setErrorMessage(
+            json.error ||
+              'No application record found for this tracking number.'
+          );
         }
       }
     } catch (err) {
+      if (currentRequestId !== requestIdRef.current) {
+        return;
+      }
       console.warn('API lookup error, checking local and Firestore:', err);
+      const found = recentApplications.find(
+        (a) =>
+          a.trackingCode.toUpperCase() === cleanCode ||
+          a.id.toUpperCase() === cleanCode
+      );
+      if (found) {
+        matchedInitialApp = found;
+        setCurrentApp(found);
+      }
     } finally {
-      setIsLoading(false);
+      if (currentRequestId === requestIdRef.current) {
+        setIsLoading(false);
+      }
+    }
+
+    if (currentRequestId !== requestIdRef.current) {
+      return;
     }
 
     // 2. Attach live Firestore subscription for real-time instant status updates
     try {
       const unsub = subscribeToSingleApplication(cleanCode, (updatedApp) => {
+        if (currentRequestId !== requestIdRef.current) {
+          return;
+        }
         if (updatedApp) {
-          setCurrentApp(updatedApp);
+          setCurrentApp((prev) => ({
+            ...(prev || matchedInitialApp || ({} as ApplicationRecord)),
+            ...updatedApp,
+          }));
           setIsLiveConnected(true);
           setErrorMessage(null);
         }
       });
-      unsubscribeRef.current = unsub;
+
+      if (currentRequestId !== requestIdRef.current) {
+        if (typeof unsub === 'function') {
+          unsub();
+        }
+        return;
+      }
+
+      unsubscribeRef.current = typeof unsub === 'function' ? unsub : null;
       setIsLiveConnected(true);
     } catch (err) {
-      console.warn('Could not connect real-time Firestore listener:', err);
-      setIsLiveConnected(false);
+      if (currentRequestId === requestIdRef.current) {
+        console.warn('Could not connect real-time Firestore listener:', err);
+        setIsLiveConnected(false);
+      }
     }
   };
 
@@ -119,11 +174,48 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
     trackApplicationWithRealtime(trackingInput);
   };
 
-  const handleCopyCode = () => {
-    if (!currentApp) return;
-    navigator.clipboard.writeText(currentApp.trackingCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyCode = async () => {
+    if (!currentApp?.trackingCode) return;
+
+    const triggerCopiedFeedback = () => {
+      setCopied(true);
+      if (copyTimerRef.current !== null) {
+        window.clearTimeout(copyTimerRef.current);
+      }
+      copyTimerRef.current = window.setTimeout(() => {
+        setCopied(false);
+        copyTimerRef.current = null;
+      }, 2000);
+    };
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(currentApp.trackingCode);
+        triggerCopiedFeedback();
+        return;
+      }
+    } catch {
+      // Fallback to execCommand if Clipboard API is restricted
+    }
+
+    try {
+      const textArea = document.createElement('textarea');
+      textArea.value = currentApp.trackingCode;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      if (successful) {
+        triggerCopiedFeedback();
+      } else {
+        setErrorMessage('Unable to copy reference number automatically.');
+      }
+    } catch {
+      setErrorMessage('Unable to copy reference number automatically.');
+    }
   };
 
   return (
@@ -239,6 +331,7 @@ export const ApplicationTracker: React.FC<ApplicationTrackerProps> = ({
                     {currentApp.trackingCode}
                   </span>
                   <button
+                    type="button"
                     onClick={handleCopyCode}
                     className="text-slate-300 hover:text-white p-1 rounded hover:bg-white/10 transition-colors"
                     title="Copy Reference Number"

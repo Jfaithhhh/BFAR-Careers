@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   PlantillaJob,
   ApplicationRecord,
@@ -78,6 +78,12 @@ const ZERO_STORAGE_FALLBACK_EMPLOYEES: Record<string, InternalEmployeeProfile> =
   }),
 };
 
+const normalizePlantillaItemNo = (job: PlantillaJob): string =>
+  (job.plantillaItemNumber || job.itemNo || '').trim();
+
+const normalizeDeadline = (job: PlantillaJob): string =>
+  (job.applicationDeadline || job.closingDate || '').trim();
+
 export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps> = ({
   jobs,
   applications,
@@ -89,45 +95,69 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);
 
+  const employeeIdInputRef = useRef(employeeIdInput);
+  const authCheckIdRef = useRef(0);
+
+  useEffect(() => {
+    employeeIdInputRef.current = employeeIdInput;
+  }, [employeeIdInput]);
+
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      if (user && user.email) {
-        try {
-          const record = await lookupInternalEmployee(user.email);
-          if (record) {
-            setActiveEmployee(record);
-            setVerificationError(null);
-            return;
-          }
+      const checkId = ++authCheckIdRef.current;
 
-          if (user.email.endsWith('@bfar.da.gov.ph')) {
-            const derivedId =
-              employeeIdInput.trim().toUpperCase() || user.email.split('@')[0].toUpperCase();
-            setActiveEmployee(
-              createZeroStorageProfile({
-                employeeId: derivedId,
-                fullName: user.displayName || user.email.split('@')[0],
-                division: 'BFAR Central Office',
-                currentPositionTitle: 'DA-BFAR Personnel (@bfar.da.gov.ph)',
-                currentPlantillaItem: 'VERIFIED-BFAR-DOMAIN',
-                salaryGrade: 11,
-                yearsInBfar: 1,
-                eligibility: 'Official @bfar.da.gov.ph Account',
-                ipcrPeriod: 'Verified via Workspace Domain',
-                latestIpcrRating: 4.5,
-                trainingHours: 8,
-                email: user.email,
-              })
-            );
-            setVerificationError(null);
-          }
-        } catch (err) {
-          console.warn('Error checking authenticated employee:', err);
+      if (!user) {
+        return;
+      }
+
+      const email = user.email || '';
+      if (!email) {
+        return;
+      }
+
+      try {
+        const record = await lookupInternalEmployee(email);
+        if (checkId !== authCheckIdRef.current) return;
+
+        if (record) {
+          setActiveEmployee(record);
+          setVerificationError(null);
+          return;
         }
+
+        if (email.endsWith('@bfar.da.gov.ph')) {
+          const derivedId =
+            employeeIdInputRef.current.trim().toUpperCase() ||
+            email.split('@')[0].toUpperCase();
+          setActiveEmployee(
+            createZeroStorageProfile({
+              employeeId: derivedId,
+              fullName: user.displayName || email.split('@')[0],
+              division: 'BFAR Central Office',
+              currentPositionTitle: 'DA-BFAR Personnel (@bfar.da.gov.ph)',
+              currentPlantillaItem: 'VERIFIED-BFAR-DOMAIN',
+              salaryGrade: 11,
+              yearsInBfar: 1,
+              eligibility: 'Official @bfar.da.gov.ph Account',
+              ipcrPeriod: 'Verified via Workspace Domain',
+              latestIpcrRating: 4.5,
+              trainingHours: 8,
+              email,
+            })
+          );
+          setVerificationError(null);
+        }
+      } catch (err) {
+        if (checkId !== authCheckIdRef.current) return;
+        console.warn('Error checking authenticated employee:', err);
       }
     });
-    return () => unsubscribe();
-  }, [employeeIdInput]);
+
+    return () => {
+      authCheckIdRef.current += 1;
+      unsubscribe();
+    };
+  }, []);
 
   const handleVerifyEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,7 +232,9 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
         return;
       }
 
-      const derivedId = employeeIdInput.trim().toUpperCase() || email.split('@')[0].toUpperCase();
+      const derivedId =
+        employeeIdInputRef.current.trim().toUpperCase() ||
+        email.split('@')[0].toUpperCase();
       setActiveEmployee(
         createZeroStorageProfile({
           employeeId: derivedId,
@@ -227,6 +259,7 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
   };
 
   const handleClearVerification = () => {
+    authCheckIdRef.current += 1;
     setActiveEmployee(null);
     setEmployeeIdInput('');
     setVerificationError(null);
@@ -570,6 +603,8 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {promotionalVacancies.map((job) => {
               const sgDiff = job.salaryGrade - activeEmployee.salaryGrade;
+              const plantillaCode = normalizePlantillaItemNo(job);
+              const deadlineText = normalizeDeadline(job);
 
               return (
                 <div
@@ -579,7 +614,7 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-mono text-slate-500 font-semibold">
-                        {job.plantillaItemNumber || job.itemNo}
+                        {plantillaCode}
                       </span>
                       <span
                         className={`text-[10px] font-extrabold px-2 py-0.5 rounded ${
@@ -626,7 +661,7 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
 
                   <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between gap-2">
                     <span className="text-[10px] text-slate-500">
-                      Deadline: <strong>{job.applicationDeadline || job.closingDate}</strong>
+                      Deadline: <strong>{deadlineText}</strong>
                     </span>
                     <button
                       type="button"

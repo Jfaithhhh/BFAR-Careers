@@ -206,6 +206,12 @@ const OTHER_CATEGORIES: CategoryConfig[] = [
   },
 ];
 
+const getJobItemNo = (job: PlantillaJob): string =>
+  (job.plantillaItemNumber || job.itemNo || '').trim();
+
+const getJobClosingDate = (job: PlantillaJob): string =>
+  (job.applicationDeadline || job.closingDate || '').trim();
+
 export const ApplicationForm: React.FC<ApplicationFormProps> = ({
   jobs,
   selectedJobId,
@@ -216,21 +222,17 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
   onNavigateToTrack,
 }) => {
   const [currentJobId, setCurrentJobId] = useState<string>(selectedJobId || jobs[0]?.id || '');
-  const activeJob = jobs.find((j) => j.id === currentJobId) || jobs[0];
+  const activeJob = useMemo(
+    () => jobs.find((j) => j.id === currentJobId) || jobs[0],
+    [jobs, currentJobId]
+  );
 
-  // Wizard Section Step State (6-Step Sequence)
   const [activeSection, setActiveSection] = useState<FormSection>('letter');
 
-  // ==========================================
-  // SECTION 1: APPLICATION LETTER STATE
-  // ==========================================
   const [applicationLetterText, setApplicationLetterText] = useState<string>('');
   const [letterUploadedFileName, setLetterUploadedFileName] = useState<string>('');
   const [letterSuccessNotice, setLetterSuccessNotice] = useState<string | null>(null);
 
-  // ==========================================
-  // SECTION 2: PERSONAL DATA SHEET (CS FORM 212)
-  // ==========================================
   const [pdsActiveTab, setPdsActiveTab] = useState<
     | 'personal'
     | 'family'
@@ -243,7 +245,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     | 'declaration'
   >('personal');
 
-  // 1. Personal Information
   const [personalInfo, setPersonalInfo] = useState({
     surname: '',
     firstName: '',
@@ -275,7 +276,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     telephoneNumber: '',
   });
 
-  // 2. Family Background
   const [familyBackground, setFamilyBackground] = useState({
     spouseSurname: '',
     spouseFirstName: '',
@@ -295,29 +295,17 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     children: [] as { fullName: string; birthDate: string }[],
   });
 
-  // 3. Educational Background
   const [education, setEducation] = useState<EducationEntry[]>([]);
-
-  // 4. Civil Service Eligibility
   const [eligibility, setEligibility] = useState<EligibilityEntry[]>([]);
-
-  // 5. Work Experience
   const [workExperience, setWorkExperience] = useState<WorkExperienceEntry[]>([]);
-
-  // 6. Voluntary Work
   const [voluntaryWork, setVoluntaryWork] = useState<VoluntaryWorkEntry[]>([]);
-
-  // 7. Learning and Development / Trainings
   const [training, setTraining] = useState<TrainingEntry[]>([]);
-
-  // 8. Other Information
   const [otherInformation, setOtherInformation] = useState({
     specialSkills: [] as string[],
     nonAcademicDistinctions: [] as string[],
     memberships: [] as string[],
   });
 
-  // 9. Declarations & Questions
   const [declaration, setDeclaration] = useState({
     q34_relatedConsanguinity: false,
     q34_details: '',
@@ -342,21 +330,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     q40_soloParent: false,
     q40_soloParentDetails: '',
     references: [
-      {
-        name: '',
-        address: '',
-        telNo: '',
-      },
-      {
-        name: '',
-        address: '',
-        telNo: '',
-      },
-      {
-        name: '',
-        address: '',
-        telNo: '',
-      },
+      { name: '', address: '', telNo: '' },
+      { name: '', address: '', telNo: '' },
+      { name: '', address: '', telNo: '' },
     ],
     govIssuedId: {
       idType: '',
@@ -368,14 +344,10 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     dateSigned: new Date().toISOString().split('T')[0],
   });
 
-  // Fast-Fill Raw Resume State
   const [rawResumeText, setRawResumeText] = useState('');
   const [isParsingAi, setIsParsingAi] = useState(false);
   const [aiParseStatus, setAiParseStatus] = useState<string | null>(null);
 
-  // ==========================================
-  // SECTION 3: AI QUALIFICATION FIT CHECK
-  // ==========================================
   const [aiFitAssessment, setAiFitAssessment] = useState<{
     score: number;
     educationPass: boolean;
@@ -389,12 +361,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
   } | null>(null);
   const [isEvaluatingFit, setIsEvaluatingFit] = useState(false);
 
-  // ==========================================
-  // SECTION 4 & 5: FILE UPLOADS & OTHER DOCUMENTS
-  // ==========================================
   const [documentsUploaded, setDocumentsUploaded] = useState<ApplicantDocument[]>([]);
-
-  // Real-time Auto-Correction Alert Toast
   const [autoCorrectionAlert, setAutoCorrectionAlert] = useState<{
     fileName: string;
     targetSlot: string;
@@ -402,12 +369,10 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     reason: string;
   } | null>(null);
 
-  // General Form States
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionSuccess, setSubmissionSuccess] = useState<ApplicationRecord | null>(null);
 
-  // Internal Recruitment System States (Strictly restricted to verified internal employees)
   const [applicantType] = useState<'internal'>('internal');
   const [internalVerificationError, setInternalVerificationError] = useState<string | null>(null);
   const [isVerifyingStaff, setIsVerifyingStaff] = useState(false);
@@ -422,35 +387,45 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     initialInternalProfile?.currentPlantillaItem || ''
   );
   const [currentSalaryGrade, setCurrentSalaryGrade] = useState<number | string>(
-    initialInternalProfile?.salaryGrade || ''
+    initialInternalProfile?.salaryGrade ?? ''
   );
   const [yearsInBfar, setYearsInBfar] = useState<number | string>(
-    initialInternalProfile?.yearsInBfar || ''
+    initialInternalProfile?.yearsInBfar ?? ''
   );
   const [latestIpcrRating, setLatestIpcrRating] = useState<number | string>(
-    initialInternalProfile?.latestIpcrRating || ''
+    initialInternalProfile?.latestIpcrRating ?? ''
   );
   const [ipcrPeriod, setIpcrPeriod] = useState<string>(
     initialInternalProfile?.ipcrPeriod || ''
   );
-  const [promotionTrack, setPromotionTrack] = useState<'Promotion' | 'Lateral Transfer' | 'Reassignment'>('Promotion');
+  const [promotionTrack, setPromotionTrack] = useState<
+    'Promotion' | 'Lateral Transfer' | 'Reassignment'
+  >('Promotion');
 
-  // Input refs
   const universalInputRef = useRef<HTMLInputElement | null>(null);
   const letterFileInputRef = useRef<HTMLInputElement | null>(null);
   const slotInputRefs = useRef<{ [key in DocumentCategory]?: HTMLInputElement | null }>({});
+  const fitTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (fitTimeoutRef.current !== null) {
+        window.clearTimeout(fitTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const applyInternalProfileData = (profile: InternalEmployeeProfile) => {
     setBfarEmployeeId(profile.employeeId);
     setCurrentDivision(profile.division || '');
     setCurrentPlantillaItem(profile.currentPlantillaItem || '');
-    setCurrentSalaryGrade(profile.salaryGrade || '');
-    setYearsInBfar(profile.yearsInBfar || '');
-    setLatestIpcrRating(profile.latestIpcrRating || '');
+    setCurrentSalaryGrade(profile.salaryGrade ?? '');
+    setYearsInBfar(profile.yearsInBfar ?? '');
+    setLatestIpcrRating(profile.latestIpcrRating ?? '');
     setIpcrPeriod(profile.ipcrPeriod || '');
     setInternalVerificationError(null);
 
-    const parts = profile.fullName ? profile.fullName.trim().split(' ') : [''];
+    const parts = profile.fullName ? profile.fullName.trim().split(/\s+/) : [''];
     const surname = parts[parts.length - 1] || '';
     const firstName = parts.length > 1 ? parts.slice(0, -1).join(' ') : parts[0] || '';
 
@@ -476,10 +451,14 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
           agencyOrCompany: 'Bureau of Fisheries and Aquatic Resources (DA-BFAR)',
           salaryGrade: `SG-${profile.salaryGrade}`,
           statusOfAppointment: 'Permanent',
-          fromDate: profile.yearsInBfar ? `${new Date().getFullYear() - profile.yearsInBfar}-01-01` : 'Present',
+          fromDate: profile.yearsInBfar
+            ? `${new Date().getFullYear() - profile.yearsInBfar}-01-01`
+            : 'Present',
           toDate: 'Present',
           isGovService: true,
-          description: `Discharging statutory duties as ${profile.currentPositionTitle} in ${profile.division || 'BFAR'}.`,
+          description: `Discharging statutory duties as ${profile.currentPositionTitle} in ${
+            profile.division || 'BFAR'
+          }.`,
         };
         const filtered = prev.filter((w) => !w.agencyOrCompany.includes('BFAR'));
         return [bfarExp, ...filtered];
@@ -502,10 +481,14 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
     setDocumentsUploaded((prev) => {
       const candidateName = profile.fullName.replace(/\s+/g, '_');
+      const ratingValue =
+        typeof profile.latestIpcrRating === 'number'
+          ? profile.latestIpcrRating.toFixed(2)
+          : 'Verified';
       const internalDocs: ApplicantDocument[] = [
         {
-          id: `int-ipcr-${Date.now()}`,
-          name: `IPCR_${candidateName}_Rating_${profile.latestIpcrRating.toFixed(2)}_Compliant.pdf`,
+          id: `int-ipcr-${Date.now()}-1`,
+          name: `IPCR_${candidateName}_Rating_${ratingValue}_Compliant.pdf`,
           type: 'PDF',
           status: 'Verified',
           fileSize: '1.9 MB',
@@ -514,7 +497,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
           uploadedAt: 'Verified via HRMIS',
         },
         {
-          id: `int-service-${Date.now()}`,
+          id: `int-service-${Date.now()}-2`,
           name: `BFAR_Official_Service_Record_${candidateName}_Authenticated.pdf`,
           type: 'PDF',
           status: 'Verified',
@@ -559,10 +542,11 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     }
   };
 
-  // AI Fast-Fill Parser
   const handleParsePdsWithAI = async () => {
     if (!rawResumeText || rawResumeText.trim().length < 20) {
-      setAiParseStatus('Please paste your resume, CV, or credentials text first (at least 20 characters).');
+      setAiParseStatus(
+        'Please paste your resume, CV, or credentials text first (at least 20 characters).'
+      );
       return;
     }
 
@@ -610,9 +594,13 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
           setTraining(parsed.training);
         }
 
-        setAiParseStatus('Successfully extracted credentials! Personal info, education, eligibility, work experience, and trainings have been populated into CS Form 212.');
+        setAiParseStatus(
+          'Successfully extracted credentials! Personal info, education, eligibility, work experience, and trainings have been populated into CS Form 212.'
+        );
       } else {
-        setAiParseStatus(json.error || 'Failed to parse resume text. Please check your text and try again.');
+        setAiParseStatus(
+          json.error || 'Failed to parse resume text. Please check your text and try again.'
+        );
       }
     } catch {
       setAiParseStatus('Network error during AI parsing. Please try again.');
@@ -639,7 +627,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     }
   }, [selectedJobId]);
 
-  // LIVE CSC TRAINING AUDIT
   const trainingAudit = useMemo(() => {
     let qualifying = 0;
     let excluded = 0;
@@ -690,24 +677,20 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     return { qualifying, excluded, flagged };
   }, [training]);
 
-  // Run AI Qualification Assessment
   const handleRunAiFitAssessment = () => {
+    if (fitTimeoutRef.current !== null) {
+      window.clearTimeout(fitTimeoutRef.current);
+    }
     setIsEvaluatingFit(true);
-    setTimeout(() => {
+    fitTimeoutRef.current = window.setTimeout(() => {
       const hasDegree = education.some((e) =>
-        e.degree.toLowerCase().includes('fish') ||
-        e.degree.toLowerCase().includes('aqua') ||
-        e.degree.toLowerCase().includes('marine') ||
-        e.degree.toLowerCase().includes('bio') ||
-        e.degree.toLowerCase().includes('scien')
+        /\b(fish|aqua|marine|bio|scien)\b/i.test(e.degree || '')
       );
 
       const expYears = workExperience.length * 1.5;
       const qualifyingHrs = trainingAudit.qualifying;
       const hasElig = eligibility.some((el) =>
-        el.type.toLowerCase().includes('1080') ||
-        el.type.toLowerCase().includes('prof') ||
-        el.type.toLowerCase().includes('csc')
+        /\b(1080|prof|csc)\b/i.test(el.type || '')
       );
 
       const missing: string[] = [];
@@ -736,7 +719,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     }, 600);
   };
 
-  // AUTOMATIC DOCUMENT CLASSIFIER & CORRECTION ENGINE
   const classifyAndAutoCorrect = (
     fileName: string,
     slotTargetCategory?: DocumentCategory
@@ -843,7 +825,12 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
   const processFiles = (files: FileList | File[], targetSlot?: DocumentCategory) => {
     const newDocs: ApplicantDocument[] = [];
-    let lastCorrection: any = null;
+    let lastCorrection: {
+      fileName: string;
+      targetSlot: string;
+      detectedCategory: string;
+      reason: string;
+    } | null = null;
 
     Array.from(files).forEach((file) => {
       const { category, autoCorrected, originalCategory, correctionReason, sectionGroup } =
@@ -852,10 +839,10 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       const sizeStr =
         file.size > 1024 * 1024
           ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
-          : `${Math.round(file.size / 1024)} KB`;
+          : `${Math.max(1, Math.round(file.size / 1024))} KB`;
 
       const doc: ApplicantDocument = {
-        id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         name: file.name,
         type: file.name.split('.').pop()?.toUpperCase() || 'PDF',
         status: 'Uploaded',
@@ -885,14 +872,19 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     }
 
     if (lastCorrection) {
-      setAutoCorrectionAlert(lastCorrection);
-      setTimeout(() => {
-        setAutoCorrectionAlert((cur) => (cur?.fileName === lastCorrection.fileName ? null : cur));
+      const alertData = lastCorrection as {
+        fileName: string;
+        targetSlot: string;
+        detectedCategory: string;
+        reason: string;
+      };
+      setAutoCorrectionAlert(alertData);
+      window.setTimeout(() => {
+        setAutoCorrectionAlert((cur) => (cur?.fileName === alertData.fileName ? null : cur));
       }, 7000);
     }
   };
 
-  // Upload handler specifically for Section 1 (Application Letter PDF)
   const handleUploadLetterPdf = (file: File) => {
     setLetterUploadedFileName(file.name);
     setLetterSuccessNotice(`Attached PDF Application Letter: "${file.name}"`);
@@ -902,7 +894,10 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       name: file.name,
       type: 'PDF',
       status: 'Uploaded',
-      fileSize: file.size > 1024 * 1024 ? `${(file.size / (1024 * 1024)).toFixed(1)} MB` : '1.4 MB',
+      fileSize:
+        file.size > 1024 * 1024
+          ? `${(file.size / (1024 * 1024)).toFixed(1)} MB`
+          : '1.4 MB',
       category: 'PL',
       sectionGroup: 'file_uploads',
       uploadedAt: 'Just now',
@@ -913,8 +908,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     ]);
   };
 
-  // Test Auto-Correction Simulation
-  const handleTestAutoCorrection = (testType: 'ipcr-in-pl' | 'eligibility-in-trainings' | 'tor-in-we') => {
+  const handleTestAutoCorrection = (
+    testType: 'ipcr-in-pl' | 'eligibility-in-trainings' | 'tor-in-we'
+  ) => {
     let mockFile: { name: string; size: number };
     let wrongSlot: DocumentCategory;
 
@@ -929,7 +925,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       wrongSlot = 'WE';
     }
 
-    processFiles([mockFile as any], wrongSlot);
+    processFiles([mockFile as unknown as File], wrongSlot);
   };
 
   const handleRemoveDoc = (id?: string) => {
@@ -937,11 +933,14 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     setDocumentsUploaded((prev) => prev.filter((d) => d.id !== id));
   };
 
-  // Final Submit Handler
   const handleSubmitApplication = async () => {
     setFormError(null);
 
-    if (!personalInfo.fullName.trim() || !personalInfo.email.trim()) {
+    const resolvedFullName = (
+      personalInfo.fullName || `${personalInfo.firstName} ${personalInfo.surname}`
+    ).trim();
+
+    if (!resolvedFullName || !personalInfo.email.trim()) {
       setFormError('Please ensure Full Name and Email Address are completed in Section 2 (PDS).');
       setActiveSection('pds');
       return;
@@ -970,6 +969,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       const fullPdsPayload: PdsData = {
         personalInfo: {
           ...personalInfo,
+          fullName: resolvedFullName,
           civilStatus: personalInfo.civilStatus || 'Single',
         },
         familyBackground,
@@ -983,18 +983,25 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       };
 
       const payload = {
-        jobId: currentJobId,
+        jobId: activeJob?.id || currentJobId,
         applicantType,
-        bfarEmployeeId: !isExternalApplicant && applicantType === 'internal' ? bfarEmployeeId : undefined,
-        currentDivision: !isExternalApplicant && applicantType === 'internal' ? currentDivision : undefined,
-        currentPlantillaItem: !isExternalApplicant && applicantType === 'internal' ? currentPlantillaItem : undefined,
-        currentSalaryGrade: !isExternalApplicant && applicantType === 'internal' ? Number(currentSalaryGrade) : undefined,
-        yearsInBfar: !isExternalApplicant && applicantType === 'internal' ? Number(yearsInBfar) : undefined,
-        latestIpcrRating: !isExternalApplicant && applicantType === 'internal' ? Number(latestIpcrRating) : undefined,
-        ipcrPeriod: !isExternalApplicant && applicantType === 'internal' ? ipcrPeriod : undefined,
-        promotionTrack: !isExternalApplicant && applicantType === 'internal' ? promotionTrack : undefined,
-        personalInfo: {
-          fullName: personalInfo.fullName || `${personalInfo.firstName} ${personalInfo.surname}`,
+        bfarEmployeeId: !isExternalApplicant ? bfarEmployeeId : undefined,
+        currentDivision: !isExternalApplicant ? currentDivision : undefined,
+        currentPlantillaItem: !isExternalApplicant ? currentPlantillaItem : undefined,
+        currentSalaryGrade:
+          !isExternalApplicant && currentSalaryGrade !== ''
+            ? Number(currentSalaryGrade)
+            : undefined,
+        yearsInBfar:
+          !isExternalApplicant && yearsInBfar !== '' ? Number(yearsInBfar) : undefined,
+        latestIpcrRating:
+          !isExternalApplicant && latestIpcrRating !== ''
+            ? Number(latestIpcrRating)
+            : undefined,
+        ipcrPeriod: !isExternalApplicant ? ipcrPeriod : undefined,
+        promotionTrack: !isExternalApplicant ? promotionTrack : undefined,
+        applicantSummary: {
+          fullName: resolvedFullName,
           email: personalInfo.email,
           phone: personalInfo.phone,
           birthDate: personalInfo.birthDate,
@@ -1002,7 +1009,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
           residentialAddress: personalInfo.residentialAddress,
         },
         pdsData: fullPdsPayload,
-        applicationLetterText: applicationLetterText,
+        applicationLetterText,
         applicationLetterUploadedFile: letterUploadedFileName,
         education,
         eligibility,
@@ -1047,7 +1054,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     }
   };
 
-  // Upload counts
   const primaryUploadCount = PRIMARY_CATEGORIES.filter((cat) =>
     documentsUploaded.some((d) => d.category === cat.code)
   ).length;
@@ -1056,15 +1062,16 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     documentsUploaded.some((d) => d.category === cat.code)
   ).length;
 
-  // Render Confirmation Screen upon successful submission
   if (submissionSuccess) {
     return (
       <div className="max-w-3xl mx-auto my-8 bg-white rounded-2xl shadow-xl border border-emerald-200 overflow-hidden">
-        <div className={`p-6 sm:p-8 text-center space-y-3 ${
-          submissionSuccess.status === 'Rejected'
-            ? 'bg-gradient-to-r from-rose-700 to-red-800'
-            : 'bg-gradient-to-r from-emerald-600 to-teal-700'
-        } text-white`}>
+        <div
+          className={`p-6 sm:p-8 text-center space-y-3 ${
+            submissionSuccess.status === 'Rejected'
+              ? 'bg-gradient-to-r from-rose-700 to-red-800'
+              : 'bg-gradient-to-r from-emerald-600 to-teal-700'
+          } text-white`}
+        >
           <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2 ring-4 ring-white/30">
             {submissionSuccess.status === 'Rejected' ? (
               <AlertCircle className="w-10 h-10 text-white" />
@@ -1072,11 +1079,13 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               <CheckCircle2 className="w-10 h-10 text-white" />
             )}
           </div>
-          <span className={`font-black text-xs px-3.5 py-1 rounded-full uppercase tracking-wider inline-block ${
-            submissionSuccess.status === 'Rejected'
-              ? 'bg-white text-rose-900 shadow-sm'
-              : 'bg-amber-300 text-slate-950 shadow-sm'
-          }`}>
+          <span
+            className={`font-black text-xs px-3.5 py-1 rounded-full uppercase tracking-wider inline-block ${
+              submissionSuccess.status === 'Rejected'
+                ? 'bg-white text-rose-900 shadow-sm'
+                : 'bg-amber-300 text-slate-950 shadow-sm'
+            }`}
+          >
             Status: {submissionSuccess.status}
           </span>
           <h2 className="text-2xl sm:text-3xl font-black">
@@ -1085,8 +1094,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               : 'Application Successfully Logged'}
           </h2>
           <p className="text-white/90 text-xs sm:text-sm max-w-lg mx-auto">
-            Your application for <strong>{submissionSuccess.positionTitle}</strong> has been
-            logged in the DA-BFAR Recruitment &amp; HRMIS portal under Plantilla Item No. {submissionSuccess.plantillaItemNo}.
+            Your application for <strong>{submissionSuccess.positionTitle}</strong> has been logged in
+            the DA-BFAR Recruitment &amp; HRMIS portal under Plantilla Item No.{' '}
+            {submissionSuccess.plantillaItemNo}.
           </p>
         </div>
 
@@ -1099,16 +1109,19 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               {submissionSuccess.trackingCode}
             </div>
             <div className="inline-flex items-center gap-2 mt-1">
-              <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-                submissionSuccess.status === 'Rejected'
-                  ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                  : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-              }`}>
+              <span
+                className={`text-xs font-bold px-3 py-1 rounded-full ${
+                  submissionSuccess.status === 'Rejected'
+                    ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                    : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                }`}
+              >
                 Initial Status: {submissionSuccess.status}
               </span>
             </div>
             <p className="text-xs text-slate-500">
-              Please retain this tracking reference code to check real-time evaluation and deliberation updates.
+              Please retain this tracking reference code to check real-time evaluation and
+              deliberation updates.
             </p>
           </div>
 
@@ -1118,9 +1131,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                 <span>Notice of Disqualification / Minimum QS Non-Compliance</span>
               </div>
-              <p className="text-rose-800 leading-relaxed">
-                {submissionSuccess.adminRemarks}
-              </p>
+              <p className="text-rose-800 leading-relaxed">{submissionSuccess.adminRemarks}</p>
             </div>
           )}
 
@@ -1137,20 +1148,20 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   QS Score: {submissionSuccess.aiScreening.overallScore} / 100
                 </span>
               </div>
-              <p className="text-slate-700">
-                {submissionSuccess.aiScreening.summaryRecommendation}
-              </p>
+              <p className="text-slate-700">{submissionSuccess.aiScreening.summaryRecommendation}</p>
             </div>
           )}
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <button
+              type="button"
               onClick={() => onNavigateToTrack(submissionSuccess.trackingCode)}
               className="w-full sm:w-auto bg-[#024794] hover:bg-[#033b7a] text-white px-6 py-2.5 rounded-lg text-xs font-bold shadow-md transition-all active:scale-95 text-center"
             >
               Track Application Status Now
             </button>
             <button
+              type="button"
               onClick={() => {
                 setSubmissionSuccess(null);
                 setActiveSection('letter');
@@ -1165,7 +1176,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     );
   }
 
-  // Official Empty State
   if (jobs.length === 0 || !activeJob) {
     return (
       <div className="max-w-3xl mx-auto my-8 bg-white rounded-2xl shadow-sm border border-slate-200 p-8 sm:p-12 text-center space-y-4">
@@ -1177,7 +1187,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             No official job vacancies are currently available.
           </h3>
           <p className="text-xs text-slate-500 leading-relaxed">
-            All plantilla vacancy postings are synchronized directly with the official DA-BFAR Careers directory (https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/). Applications can only be lodged against published and authorized Plantilla Item Numbers.
+            All plantilla vacancy postings are synchronized directly with the official DA-BFAR
+            Careers directory (https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/).
+            Applications can only be lodged against published and authorized Plantilla Item Numbers.
           </p>
         </div>
         <div className="pt-2 flex flex-wrap justify-center gap-3">
@@ -1195,9 +1207,11 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     );
   }
 
+  const jobItemNo = getJobItemNo(activeJob);
+  const jobClosingDate = getJobClosingDate(activeJob);
+
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* RESTRICTED ACCESS: Internal DA-BFAR Employees and Personnel Only (Hidden for External Applicants) */}
       {!isExternalApplicant && (
         <div className="bg-white rounded-xl shadow-xs border border-purple-200 p-4 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-purple-100 pb-3">
@@ -1221,7 +1235,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           </div>
 
-          {/* Internal Employee Merit Verification & Fast-Fill Panel */}
           <div className="bg-gradient-to-r from-purple-50 via-blue-50/50 to-indigo-50/60 rounded-xl p-4 border border-purple-200 space-y-3">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
@@ -1238,18 +1251,20 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     </span>
                   </div>
                   <p className="text-[11px] text-purple-800">
-                    Auto-populates service record, civil service eligibility, and verified IPCR performance rating for promotion.
+                    Auto-populates service record, civil service eligibility, and verified IPCR
+                    performance rating for promotion.
                   </p>
                 </div>
               </div>
 
-              {/* Real Employee ID Verification */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs">
-                <span className="font-bold text-purple-900 text-[11px] whitespace-nowrap">Employee ID:</span>
+                <span className="font-bold text-purple-900 text-[11px] whitespace-nowrap">
+                  Employee ID:
+                </span>
                 <div className="flex items-center gap-1.5 flex-1">
                   <input
                     type="text"
-                    placeholder="e.g. BFAR-EMP-2024-001"
+                    placeholder="e.g. COS4513"
                     value={bfarEmployeeId}
                     onChange={(e) => setBfarEmployeeId(e.target.value)}
                     className="bg-white border border-purple-300 rounded-lg px-2.5 py-1.5 text-xs font-mono font-bold text-purple-950 shadow-2xs focus:ring-2 focus:ring-purple-600 w-full sm:w-48"
@@ -1273,32 +1288,57 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </div>
             )}
 
-            {/* Verified Credentials Pills */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
               <div className="bg-white/80 p-2 rounded-lg border border-purple-100">
-                <span className="text-[9px] uppercase font-bold text-purple-600 block">Current Plantilla Item:</span>
-                <span className="font-bold text-slate-800 truncate block">{currentPlantillaItem || 'Unverified'}</span>
-                <span className="text-[10px] text-purple-700">{currentSalaryGrade ? `Salary Grade ${currentSalaryGrade}` : 'SG Pending'}</span>
+                <span className="text-[9px] uppercase font-bold text-purple-600 block">
+                  Current Plantilla Item:
+                </span>
+                <span className="font-bold text-slate-800 truncate block">
+                  {currentPlantillaItem || 'Unverified'}
+                </span>
+                <span className="text-[10px] text-purple-700">
+                  {currentSalaryGrade !== ''
+                    ? `Salary Grade ${currentSalaryGrade}`
+                    : 'SG Pending'}
+                </span>
               </div>
               <div className="bg-white/80 p-2 rounded-lg border border-purple-100">
-                <span className="text-[9px] uppercase font-bold text-purple-600 block">Years in Bureau:</span>
-                <span className="font-bold text-slate-800 block">{yearsInBfar !== '' ? `${yearsInBfar} Years of Service` : 'Pending Verification'}</span>
+                <span className="text-[9px] uppercase font-bold text-purple-600 block">
+                  Years in Bureau:
+                </span>
+                <span className="font-bold text-slate-800 block">
+                  {yearsInBfar !== '' ? `${yearsInBfar} Years of Service` : 'Pending Verification'}
+                </span>
                 <span className="text-[10px] text-slate-500">Service Record</span>
               </div>
               <div className="bg-white/80 p-2 rounded-lg border border-purple-100">
-                <span className="text-[9px] uppercase font-bold text-emerald-700 block">Latest IPCR Rating:</span>
+                <span className="text-[9px] uppercase font-bold text-emerald-700 block">
+                  Latest IPCR Rating:
+                </span>
                 <span className="font-black text-emerald-700 text-xs block">
-                  {latestIpcrRating ? `${Number(latestIpcrRating).toFixed(2)} / 5.00` : 'Pending'}
+                  {latestIpcrRating !== ''
+                    ? `${Number(latestIpcrRating).toFixed(2)} / 5.00`
+                    : 'Pending'}
                 </span>
                 <span className="text-[10px] text-emerald-800 font-semibold">
-                  {latestIpcrRating ? (Number(latestIpcrRating) >= 4.5 ? 'Outstanding' : 'Very Satisfactory') : 'CSC Standard: Min 4.00'}
+                  {latestIpcrRating !== ''
+                    ? Number(latestIpcrRating) >= 4.5
+                      ? 'Outstanding'
+                      : 'Very Satisfactory'
+                    : 'CSC Standard: Min 4.00'}
                 </span>
               </div>
               <div className="bg-white/80 p-2 rounded-lg border border-purple-100">
-                <span className="text-[9px] uppercase font-bold text-purple-600 block">Promotion Track:</span>
+                <span className="text-[9px] uppercase font-bold text-purple-600 block">
+                  Promotion Track:
+                </span>
                 <select
                   value={promotionTrack}
-                  onChange={(e: any) => setPromotionTrack(e.target.value)}
+                  onChange={(e) =>
+                    setPromotionTrack(
+                      e.target.value as 'Promotion' | 'Lateral Transfer' | 'Reassignment'
+                    )
+                  }
                   className="bg-transparent font-bold text-purple-900 text-xs w-full focus:outline-hidden"
                 >
                   <option value="Promotion">Promotion (Higher SG)</option>
@@ -1314,7 +1354,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       {/* 6-SECTION TOP STEPPER NAVIGATION */}
       <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-2 sm:p-3">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-          {/* Step 1: Application Letter */}
           <button
             type="button"
             onClick={() => setActiveSection('letter')}
@@ -1351,7 +1390,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           </button>
 
-          {/* Step 2: Personal Data Sheet (PDS) */}
           <button
             type="button"
             onClick={() => setActiveSection('pds')}
@@ -1388,7 +1426,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           </button>
 
-          {/* Step 3: Position Description & Requirements */}
           <button
             type="button"
             onClick={() => setActiveSection('position_qs')}
@@ -1419,7 +1456,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           </button>
 
-          {/* Step 4: File Uploads */}
           <button
             type="button"
             onClick={() => setActiveSection('file_uploads')}
@@ -1456,7 +1492,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           </button>
 
-          {/* Step 5: Other Documents */}
           <button
             type="button"
             onClick={() => setActiveSection('other_documents')}
@@ -1493,7 +1528,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           </button>
 
-          {/* Step 6: Review & Submit */}
           <button
             type="button"
             onClick={() => setActiveSection('review_submit')}
@@ -1526,9 +1560,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
         </div>
       </div>
 
-      {/* AUTO-CORRECTION REAL-TIME NOTIFICATION BANNER */}
       {autoCorrectionAlert && (
-        <div className="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-r-xl text-xs text-emerald-900 shadow-sm flex items-start justify-between gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+        <div className="bg-emerald-50 border-l-4 border-emerald-500 p-4 rounded-r-xl text-xs text-emerald-900 shadow-sm flex items-start justify-between gap-3">
           <div className="flex items-start gap-2.5">
             <Sparkles className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
             <div>
@@ -1539,8 +1572,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 </span>
               </div>
               <p className="text-emerald-700 text-[11px] mt-0.5">
-                File <strong>"{autoCorrectionAlert.fileName}"</strong> was automatically organized into
-                its designated category based on document contents.
+                File <strong>&quot;{autoCorrectionAlert.fileName}&quot;</strong> was automatically
+                organized into its designated category based on document contents.
               </p>
               <p className="text-emerald-600 text-[10px] mt-0.5 italic">
                 {autoCorrectionAlert.reason}
@@ -1557,22 +1590,23 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
         </div>
       )}
 
-      {/* Form Error Banner */}
       {formError && (
         <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-xl text-xs text-red-700 flex items-center justify-between gap-2 shadow-xs">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
             <span>{formError}</span>
           </div>
-          <button onClick={() => setFormError(null)} className="text-red-400 hover:text-red-600">
+          <button
+            type="button"
+            onClick={() => setFormError(null)}
+            className="text-red-400 hover:text-red-600"
+          >
             <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* SECTION 1: APPLICATION LETTER (ADDRESSED TO HRMS) */}
-      {/* ========================================================================= */}
+      {/* SECTION 1: APPLICATION LETTER */}
       {activeSection === 'letter' && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-6 space-y-4">
@@ -1585,11 +1619,15 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   Application Letter addressed to the Chief, Human Resource Management Section (HRMS)
                 </h2>
                 <p className="text-xs text-slate-600 mt-1 max-w-2xl">
-                  <strong>Mandatory Requirement:</strong> The Formal Application Letter (AL) must be written and submitted directly by the applicant (no pre-drafted template provided by the system). Must be addressed to the <strong>Chief, Human Resource Management Section (HRMS)</strong> through the Chairperson of the HRMPSB, citing the target position title and plantilla item number.
+                  <strong>Mandatory Requirement:</strong> The Formal Application Letter (AL) must be
+                  written and submitted directly by the applicant (no pre-drafted template provided by
+                  the system). Must be addressed to the{' '}
+                  <strong>Chief, Human Resource Management Section (HRMS)</strong> through the
+                  Chairperson of the HRMPSB, citing the target position title and plantilla item
+                  number.
                 </p>
               </div>
 
-              {/* Position Quick Info */}
               <div className="bg-slate-50 border border-slate-200 p-3 rounded-lg text-xs space-y-1 shrink-0 w-full md:w-64">
                 <span className="text-[10px] uppercase font-bold text-slate-500 block">
                   Target Plantilla Vacancy:
@@ -1598,26 +1636,33 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   {activeJob.positionTitle}
                 </span>
                 <span className="text-[11px] text-slate-500 block">
-                  SG-{activeJob.salaryGrade} • Item No: {activeJob.itemNo}
+                  SG-{activeJob.salaryGrade} • Item No: {jobItemNo}
                 </span>
               </div>
             </div>
 
-            {/* Mandatory Guidelines Box */}
             <div className="bg-amber-50/80 border border-amber-300 rounded-xl p-3.5 text-xs text-amber-900 space-y-1.5">
               <div className="flex items-center gap-2 font-bold text-amber-950">
                 <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
                 <span>Mandatory Civil Service Application Letter Guidelines</span>
               </div>
               <ul className="grid grid-cols-1 md:grid-cols-2 gap-1 text-[11px] pl-6 list-disc text-amber-800">
-                <li>Must be addressed to: <strong>Chief, Human Resource Management Section (HRMS), DA-BFAR</strong></li>
-                <li>Thru: <strong>The Chairperson, HRMPSB</strong></li>
-                <li>Must cite target position: <strong>{activeJob.positionTitle}</strong></li>
-                <li>Must cite Plantilla Item No: <strong>{activeJob.itemNo}</strong></li>
+                <li>
+                  Must be addressed to:{' '}
+                  <strong>Chief, Human Resource Management Section (HRMS), DA-BFAR</strong>
+                </li>
+                <li>
+                  Thru: <strong>The Chairperson, HRMPSB</strong>
+                </li>
+                <li>
+                  Must cite target position: <strong>{activeJob.positionTitle}</strong>
+                </li>
+                <li>
+                  Must cite Plantilla Item No: <strong>{jobItemNo}</strong>
+                </li>
               </ul>
             </div>
 
-            {/* Letter Action Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
               <div className="flex items-center gap-2">
                 <input
@@ -1671,7 +1716,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </div>
             )}
 
-            {/* Formal Government Letterhead Preview & Editor */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -1713,14 +1757,16 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       BUREAU OF FISHERIES AND AQUATIC RESOURCES
                     </span>
                     <span className="text-[9px] text-slate-500 block">
-                      PCA Building, Elliptical Road, Diliman, Quezon City • Human Resource Management Section (HRMS)
+                      PCA Building, Elliptical Road, Diliman, Quezon City • Human Resource
+                      Management Section (HRMS)
                     </span>
                   </div>
 
                   <div className="whitespace-pre-line text-[11px] leading-relaxed font-sans text-slate-800 pt-1">
                     {applicationLetterText || (
                       <span className="text-slate-400 italic font-sans">
-                        Write or paste your formal application letter addressed to the Chief, Human Resource Management Section (HRMS), DA-BFAR...
+                        Write or paste your formal application letter addressed to the Chief, Human
+                        Resource Management Section (HRMS), DA-BFAR...
                       </span>
                     )}
                   </div>
@@ -1742,9 +1788,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* SECTION 2: PERSONAL DATA SHEET (CS FORM 212 REVISED 2017) */}
-      {/* ========================================================================= */}
+      {/* SECTION 2: PERSONAL DATA SHEET */}
       {activeSection === 'pds' && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
@@ -1762,7 +1806,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </div>
             </div>
 
-            {/* AI Fast-Fill PDS Tool */}
             <div className="bg-gradient-to-r from-blue-50/70 via-indigo-50/60 to-slate-50 border border-blue-200 rounded-xl p-4 space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
@@ -1777,7 +1820,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       </span>
                     </h4>
                     <p className="text-[11px] text-slate-500">
-                      Paste your actual resume, CV, or service record text below to auto-populate PDS tables in one click.
+                      Paste your actual resume, CV, or service record text below to auto-populate PDS
+                      tables in one click.
                     </p>
                   </div>
                 </div>
@@ -1794,7 +1838,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-[10px] text-slate-500">
-                    Input is processed securely against CSC Form 212 standard schema. No demo or sample profiles are inserted.
+                    Input is processed securely against CSC Form 212 standard schema. No demo or
+                    sample profiles are inserted.
                   </span>
                   <div className="flex items-center gap-2">
                     {rawResumeText && (
@@ -1837,27 +1882,29 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             )}
 
             <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg text-[11px] text-amber-900 leading-relaxed">
-              <strong>WARNING:</strong> Any misrepresentation made in the Personal Data Sheet and the Work
-              Experience Sheet shall cause the filing of administrative/criminal case/s against the person
-              concerned pursuant to CSC and Ombudsman rules.
+              <strong>WARNING:</strong> Any misrepresentation made in the Personal Data Sheet and the
+              Work Experience Sheet shall cause the filing of administrative/criminal case/s against
+              the person concerned pursuant to CSC and Ombudsman rules.
             </div>
 
             <div className="flex flex-wrap gap-1.5 border-b border-slate-200 pb-2 text-xs font-semibold">
-              {[
-                { id: 'personal', label: 'I. Personal Info' },
-                { id: 'family', label: 'II. Family Background' },
-                { id: 'education', label: 'III. Educational Background' },
-                { id: 'eligibility', label: 'IV. Civil Service Eligibility' },
-                { id: 'experience', label: 'V. Work Experience' },
-                { id: 'voluntary', label: 'VI. Voluntary Work' },
-                { id: 'training', label: 'VII. Trainings & L&D' },
-                { id: 'other', label: 'VIII. Other Info' },
-                { id: 'declaration', label: 'IX. Declarations & Oath' },
-              ].map((tab) => (
+              {(
+                [
+                  { id: 'personal', label: 'I. Personal Info' },
+                  { id: 'family', label: 'II. Family Background' },
+                  { id: 'education', label: 'III. Educational Background' },
+                  { id: 'eligibility', label: 'IV. Civil Service Eligibility' },
+                  { id: 'experience', label: 'V. Work Experience' },
+                  { id: 'voluntary', label: 'VI. Voluntary Work' },
+                  { id: 'training', label: 'VII. Trainings & L&D' },
+                  { id: 'other', label: 'VIII. Other Info' },
+                  { id: 'declaration', label: 'IX. Declarations & Oath' },
+                ] as const
+              ).map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setPdsActiveTab(tab.id as any)}
+                  onClick={() => setPdsActiveTab(tab.id)}
                   className={`px-3 py-1.5 rounded-lg text-[11px] transition-colors ${
                     pdsActiveTab === tab.id
                       ? 'bg-[#024794] text-white font-bold shadow-xs'
@@ -1870,7 +1917,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           </div>
 
-          {/* 1. PERSONAL INFORMATION */}
           {pdsActiveTab === 'personal' && (
             <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
               <h3 className="font-bold text-slate-900 text-sm pb-2 border-b border-slate-200 flex items-center gap-2">
@@ -1886,7 +1932,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     value={personalInfo.surname}
                     onChange={(e) => {
                       const updated = { ...personalInfo, surname: e.target.value };
-                      updated.fullName = `${updated.firstName} ${updated.middleName} ${updated.surname} ${updated.nameExtension}`.trim();
+                      updated.fullName = `${updated.firstName} ${updated.middleName} ${updated.surname} ${updated.nameExtension}`
+                        .replace(/\s+/g, ' ')
+                        .trim();
                       setPersonalInfo(updated);
                     }}
                     className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
@@ -1899,7 +1947,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     value={personalInfo.firstName}
                     onChange={(e) => {
                       const updated = { ...personalInfo, firstName: e.target.value };
-                      updated.fullName = `${updated.firstName} ${updated.middleName} ${updated.surname} ${updated.nameExtension}`.trim();
+                      updated.fullName = `${updated.firstName} ${updated.middleName} ${updated.surname} ${updated.nameExtension}`
+                        .replace(/\s+/g, ' ')
+                        .trim();
                       setPersonalInfo(updated);
                     }}
                     className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
@@ -1912,7 +1962,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     value={personalInfo.middleName}
                     onChange={(e) => {
                       const updated = { ...personalInfo, middleName: e.target.value };
-                      updated.fullName = `${updated.firstName} ${updated.middleName} ${updated.surname} ${updated.nameExtension}`.trim();
+                      updated.fullName = `${updated.firstName} ${updated.middleName} ${updated.surname} ${updated.nameExtension}`
+                        .replace(/\s+/g, ' ')
+                        .trim();
                       setPersonalInfo(updated);
                     }}
                     className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
@@ -1926,7 +1978,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     value={personalInfo.nameExtension}
                     onChange={(e) => {
                       const updated = { ...personalInfo, nameExtension: e.target.value };
-                      updated.fullName = `${updated.firstName} ${updated.middleName} ${updated.surname} ${updated.nameExtension}`.trim();
+                      updated.fullName = `${updated.firstName} ${updated.middleName} ${updated.surname} ${updated.nameExtension}`
+                        .replace(/\s+/g, ' ')
+                        .trim();
                       setPersonalInfo(updated);
                     }}
                     className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
@@ -1955,7 +2009,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   <label className="font-semibold text-slate-700 block mb-1">Sex</label>
                   <select
                     value={personalInfo.sex}
-                    onChange={(e: any) => setPersonalInfo({ ...personalInfo, sex: e.target.value })}
+                    onChange={(e) =>
+                      setPersonalInfo({ ...personalInfo, sex: e.target.value as 'Male' | 'Female' | '' })
+                    }
                     className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
                   >
                     <option value="">Select</option>
@@ -1967,7 +2023,17 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   <label className="font-semibold text-slate-700 block mb-1">Civil Status</label>
                   <select
                     value={personalInfo.civilStatus}
-                    onChange={(e: any) => setPersonalInfo({ ...personalInfo, civilStatus: e.target.value })}
+                    onChange={(e) =>
+                      setPersonalInfo({
+                        ...personalInfo,
+                        civilStatus: e.target.value as
+                          | 'Single'
+                          | 'Married'
+                          | 'Widowed'
+                          | 'Separated'
+                          | 'Other',
+                      })
+                    }
                     className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
                   >
                     <option value="Single">Single</option>
@@ -1982,7 +2048,12 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   <label className="font-semibold text-slate-700 block mb-1">Citizenship</label>
                   <select
                     value={personalInfo.citizenship}
-                    onChange={(e: any) => setPersonalInfo({ ...personalInfo, citizenship: e.target.value })}
+                    onChange={(e) =>
+                      setPersonalInfo({
+                        ...personalInfo,
+                        citizenship: e.target.value as 'Filipino' | 'Dual Citizenship' | '',
+                      })
+                    }
                     className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
                   >
                     <option value="Filipino">Filipino</option>
@@ -1995,7 +2066,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     type="text"
                     placeholder="e.g. 1.65"
                     value={personalInfo.heightMeters}
-                    onChange={(e) => setPersonalInfo({ ...personalInfo, heightMeters: e.target.value })}
+                    onChange={(e) =>
+                      setPersonalInfo({ ...personalInfo, heightMeters: e.target.value })
+                    }
                     className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
                   />
                 </div>
@@ -2043,7 +2116,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   <input
                     type="text"
                     value={personalInfo.philhealthNo}
-                    onChange={(e) => setPersonalInfo({ ...personalInfo, philhealthNo: e.target.value })}
+                    onChange={(e) =>
+                      setPersonalInfo({ ...personalInfo, philhealthNo: e.target.value })
+                    }
                     className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
                   />
                 </div>
@@ -2067,21 +2142,29 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   />
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="font-semibold text-slate-700 block mb-1">Agency Employee No.</label>
+                  <label className="font-semibold text-slate-700 block mb-1">
+                    Agency Employee No.
+                  </label>
                   <input
                     type="text"
                     value={personalInfo.agencyEmployeeNo}
-                    onChange={(e) => setPersonalInfo({ ...personalInfo, agencyEmployeeNo: e.target.value })}
+                    onChange={(e) =>
+                      setPersonalInfo({ ...personalInfo, agencyEmployeeNo: e.target.value })
+                    }
                     className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
                   />
                 </div>
 
                 <div className="sm:col-span-3">
-                  <label className="font-semibold text-slate-700 block mb-1">Residential Address</label>
+                  <label className="font-semibold text-slate-700 block mb-1">
+                    Residential Address
+                  </label>
                   <input
                     type="text"
                     value={personalInfo.residentialAddress}
-                    onChange={(e) => setPersonalInfo({ ...personalInfo, residentialAddress: e.target.value })}
+                    onChange={(e) =>
+                      setPersonalInfo({ ...personalInfo, residentialAddress: e.target.value })
+                    }
                     placeholder="House/Block/Lot No., Street, Subdivision/Village, Barangay, City/Municipality, Province"
                     className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
                   />
@@ -2091,17 +2174,23 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   <input
                     type="text"
                     value={personalInfo.residentialZip}
-                    onChange={(e) => setPersonalInfo({ ...personalInfo, residentialZip: e.target.value })}
+                    onChange={(e) =>
+                      setPersonalInfo({ ...personalInfo, residentialZip: e.target.value })
+                    }
                     className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
                   />
                 </div>
 
                 <div className="sm:col-span-3">
-                  <label className="font-semibold text-slate-700 block mb-1">Permanent Address</label>
+                  <label className="font-semibold text-slate-700 block mb-1">
+                    Permanent Address
+                  </label>
                   <input
                     type="text"
                     value={personalInfo.permanentAddress}
-                    onChange={(e) => setPersonalInfo({ ...personalInfo, permanentAddress: e.target.value })}
+                    onChange={(e) =>
+                      setPersonalInfo({ ...personalInfo, permanentAddress: e.target.value })
+                    }
                     className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
                   />
                 </div>
@@ -2110,7 +2199,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   <input
                     type="text"
                     value={personalInfo.permanentZip}
-                    onChange={(e) => setPersonalInfo({ ...personalInfo, permanentZip: e.target.value })}
+                    onChange={(e) =>
+                      setPersonalInfo({ ...personalInfo, permanentZip: e.target.value })
+                    }
                     className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
                   />
                 </div>
@@ -2125,7 +2216,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">Mobile Contact No.</label>
+                  <label className="font-semibold text-slate-700 block mb-1">
+                    Mobile Contact No.
+                  </label>
                   <input
                     type="tel"
                     value={personalInfo.phone}
@@ -2138,7 +2231,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   <input
                     type="text"
                     value={personalInfo.telephoneNumber}
-                    onChange={(e) => setPersonalInfo({ ...personalInfo, telephoneNumber: e.target.value })}
+                    onChange={(e) =>
+                      setPersonalInfo({ ...personalInfo, telephoneNumber: e.target.value })
+                    }
                     className="w-full bg-slate-50 border border-slate-300 rounded p-2 focus:ring-1 focus:ring-[#024794]"
                   />
                 </div>
@@ -2146,7 +2241,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           )}
 
-          {/* 2. FAMILY BACKGROUND */}
           {pdsActiveTab === 'family' && (
             <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
               <h3 className="font-bold text-slate-900 text-sm pb-2 border-b border-slate-200 flex items-center gap-2">
@@ -2156,14 +2250,21 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
               <div className="space-y-4 text-xs">
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                  <span className="font-bold text-slate-800 block text-xs">Spouse's Information (if applicable)</span>
+                  <span className="font-bold text-slate-800 block text-xs">
+                    Spouse&apos;s Information (if applicable)
+                  </span>
                   <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                     <div>
                       <label className="font-semibold text-slate-700 block mb-1">Surname</label>
                       <input
                         type="text"
                         value={familyBackground.spouseSurname}
-                        onChange={(e) => setFamilyBackground({ ...familyBackground, spouseSurname: e.target.value })}
+                        onChange={(e) =>
+                          setFamilyBackground({
+                            ...familyBackground,
+                            spouseSurname: e.target.value,
+                          })
+                        }
                         className="w-full bg-white border border-slate-300 rounded p-2"
                       />
                     </div>
@@ -2172,7 +2273,12 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       <input
                         type="text"
                         value={familyBackground.spouseFirstName}
-                        onChange={(e) => setFamilyBackground({ ...familyBackground, spouseFirstName: e.target.value })}
+                        onChange={(e) =>
+                          setFamilyBackground({
+                            ...familyBackground,
+                            spouseFirstName: e.target.value,
+                          })
+                        }
                         className="w-full bg-white border border-slate-300 rounded p-2"
                       />
                     </div>
@@ -2181,7 +2287,12 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       <input
                         type="text"
                         value={familyBackground.spouseMiddleName}
-                        onChange={(e) => setFamilyBackground({ ...familyBackground, spouseMiddleName: e.target.value })}
+                        onChange={(e) =>
+                          setFamilyBackground({
+                            ...familyBackground,
+                            spouseMiddleName: e.target.value,
+                          })
+                        }
                         className="w-full bg-white border border-slate-300 rounded p-2"
                       />
                     </div>
@@ -2190,7 +2301,12 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       <input
                         type="text"
                         value={familyBackground.spouseOccupation}
-                        onChange={(e) => setFamilyBackground({ ...familyBackground, spouseOccupation: e.target.value })}
+                        onChange={(e) =>
+                          setFamilyBackground({
+                            ...familyBackground,
+                            spouseOccupation: e.target.value,
+                          })
+                        }
                         className="w-full bg-white border border-slate-300 rounded p-2"
                       />
                     </div>
@@ -2198,60 +2314,104 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 </div>
 
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                  <span className="font-bold text-slate-800 block text-xs">Parents' Information</span>
+                  <span className="font-bold text-slate-800 block text-xs">
+                    Parents&apos; Information
+                  </span>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <label className="font-semibold text-slate-700 block mb-1">Father's Surname</label>
+                      <label className="font-semibold text-slate-700 block mb-1">
+                        Father&apos;s Surname
+                      </label>
                       <input
                         type="text"
                         value={familyBackground.fatherSurname}
-                        onChange={(e) => setFamilyBackground({ ...familyBackground, fatherSurname: e.target.value })}
+                        onChange={(e) =>
+                          setFamilyBackground({
+                            ...familyBackground,
+                            fatherSurname: e.target.value,
+                          })
+                        }
                         className="w-full bg-white border border-slate-300 rounded p-2"
                       />
                     </div>
                     <div>
-                      <label className="font-semibold text-slate-700 block mb-1">Father's First Name</label>
+                      <label className="font-semibold text-slate-700 block mb-1">
+                        Father&apos;s First Name
+                      </label>
                       <input
                         type="text"
                         value={familyBackground.fatherFirstName}
-                        onChange={(e) => setFamilyBackground({ ...familyBackground, fatherFirstName: e.target.value })}
+                        onChange={(e) =>
+                          setFamilyBackground({
+                            ...familyBackground,
+                            fatherFirstName: e.target.value,
+                          })
+                        }
                         className="w-full bg-white border border-slate-300 rounded p-2"
                       />
                     </div>
                     <div>
-                      <label className="font-semibold text-slate-700 block mb-1">Father's Middle Name</label>
+                      <label className="font-semibold text-slate-700 block mb-1">
+                        Father&apos;s Middle Name
+                      </label>
                       <input
                         type="text"
                         value={familyBackground.fatherMiddleName}
-                        onChange={(e) => setFamilyBackground({ ...familyBackground, fatherMiddleName: e.target.value })}
+                        onChange={(e) =>
+                          setFamilyBackground({
+                            ...familyBackground,
+                            fatherMiddleName: e.target.value,
+                          })
+                        }
                         className="w-full bg-white border border-slate-300 rounded p-2"
                       />
                     </div>
 
                     <div>
-                      <label className="font-semibold text-slate-700 block mb-1">Mother's Maiden Surname</label>
+                      <label className="font-semibold text-slate-700 block mb-1">
+                        Mother&apos;s Maiden Surname
+                      </label>
                       <input
                         type="text"
                         value={familyBackground.motherMaidenSurname}
-                        onChange={(e) => setFamilyBackground({ ...familyBackground, motherMaidenSurname: e.target.value })}
+                        onChange={(e) =>
+                          setFamilyBackground({
+                            ...familyBackground,
+                            motherMaidenSurname: e.target.value,
+                          })
+                        }
                         className="w-full bg-white border border-slate-300 rounded p-2"
                       />
                     </div>
                     <div>
-                      <label className="font-semibold text-slate-700 block mb-1">Mother's First Name</label>
+                      <label className="font-semibold text-slate-700 block mb-1">
+                        Mother&apos;s First Name
+                      </label>
                       <input
                         type="text"
                         value={familyBackground.motherFirstName}
-                        onChange={(e) => setFamilyBackground({ ...familyBackground, motherFirstName: e.target.value })}
+                        onChange={(e) =>
+                          setFamilyBackground({
+                            ...familyBackground,
+                            motherFirstName: e.target.value,
+                          })
+                        }
                         className="w-full bg-white border border-slate-300 rounded p-2"
                       />
                     </div>
                     <div>
-                      <label className="font-semibold text-slate-700 block mb-1">Mother's Middle Name</label>
+                      <label className="font-semibold text-slate-700 block mb-1">
+                        Mother&apos;s Middle Name
+                      </label>
                       <input
                         type="text"
                         value={familyBackground.motherMiddleName}
-                        onChange={(e) => setFamilyBackground({ ...familyBackground, motherMiddleName: e.target.value })}
+                        onChange={(e) =>
+                          setFamilyBackground({
+                            ...familyBackground,
+                            motherMiddleName: e.target.value,
+                          })
+                        }
                         className="w-full bg-white border border-slate-300 rounded p-2"
                       />
                     </div>
@@ -2260,7 +2420,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-800 text-xs">Children Information (if applicable)</span>
+                    <span className="font-bold text-slate-800 text-xs">
+                      Children Information (if applicable)
+                    </span>
                     <button
                       type="button"
                       onClick={() =>
@@ -2281,7 +2443,10 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   ) : (
                     <div className="space-y-2">
                       {familyBackground.children.map((child, idx) => (
-                        <div key={idx} className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+                        <div
+                          key={idx}
+                          className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center"
+                        >
                           <input
                             type="text"
                             placeholder="Full Name of Child"
@@ -2326,7 +2491,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           )}
 
-          {/* 3. EDUCATIONAL BACKGROUND */}
           {pdsActiveTab === 'education' && (
             <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-200">
@@ -2374,7 +2538,10 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   </thead>
                   <tbody>
                     {education.map((item, idx) => (
-                      <tr key={idx} className="border-b border-slate-200 bg-slate-50/50 hover:bg-slate-50">
+                      <tr
+                        key={idx}
+                        className="border-b border-slate-200 bg-slate-50/50 hover:bg-slate-50"
+                      >
                         <td className="p-2">
                           <select
                             value={item.level}
@@ -2485,15 +2652,13 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           />
                         </td>
                         <td className="p-2 text-center">
-                          {education.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => setEducation(education.filter((_, i) => i !== idx))}
-                              className="text-red-500 hover:text-red-700 p-1"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setEducation(education.filter((_, i) => i !== idx))}
+                            className="text-red-500 hover:text-red-700 p-1"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -2503,7 +2668,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           )}
 
-          {/* 4. CIVIL SERVICE ELIGIBILITY */}
           {pdsActiveTab === 'eligibility' && (
             <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-200">
@@ -2548,7 +2712,10 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   </thead>
                   <tbody>
                     {eligibility.map((item, idx) => (
-                      <tr key={idx} className="border-b border-slate-200 bg-slate-50/50 hover:bg-slate-50">
+                      <tr
+                        key={idx}
+                        className="border-b border-slate-200 bg-slate-50/50 hover:bg-slate-50"
+                      >
                         <td className="p-2">
                           <input
                             type="text"
@@ -2628,15 +2795,13 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           />
                         </td>
                         <td className="p-2 text-center">
-                          {eligibility.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => setEligibility(eligibility.filter((_, i) => i !== idx))}
-                              className="text-red-500 hover:text-red-700 p-1"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setEligibility(eligibility.filter((_, i) => i !== idx))}
+                            className="text-red-500 hover:text-red-700 p-1"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -2646,7 +2811,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           )}
 
-          {/* 5. WORK EXPERIENCE TABLE */}
           {pdsActiveTab === 'experience' && (
             <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-200">
@@ -2693,7 +2857,10 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   </thead>
                   <tbody>
                     {workExperience.map((item, idx) => (
-                      <tr key={idx} className="border-b border-slate-200 bg-slate-50/50 hover:bg-slate-50">
+                      <tr
+                        key={idx}
+                        className="border-b border-slate-200 bg-slate-50/50 hover:bg-slate-50"
+                      >
                         <td className="p-2">
                           <input
                             type="text"
@@ -2788,15 +2955,15 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           </select>
                         </td>
                         <td className="p-2 text-center">
-                          {workExperience.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => setWorkExperience(workExperience.filter((_, i) => i !== idx))}
-                              className="text-red-500 hover:text-red-700 p-1"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setWorkExperience(workExperience.filter((_, i) => i !== idx))
+                            }
+                            className="text-red-500 hover:text-red-700 p-1"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -2806,7 +2973,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           )}
 
-          {/* 6. VOLUNTARY WORK */}
           {pdsActiveTab === 'voluntary' && (
             <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-200">
@@ -2837,7 +3003,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </div>
 
               {voluntaryWork.length === 0 ? (
-                <p className="text-slate-400 italic text-xs">No voluntary work entered. Click Add above if applicable.</p>
+                <p className="text-slate-400 italic text-xs">
+                  No voluntary work entered. Click Add above if applicable.
+                </p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
@@ -2921,7 +3089,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           <td className="p-2 text-center">
                             <button
                               type="button"
-                              onClick={() => setVoluntaryWork(voluntaryWork.filter((_, i) => i !== idx))}
+                              onClick={() =>
+                                setVoluntaryWork(voluntaryWork.filter((_, i) => i !== idx))
+                              }
                               className="text-red-500 hover:text-red-700"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -2936,7 +3106,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           )}
 
-          {/* 7. LEARNING & DEVELOPMENT / TRAININGS */}
           {pdsActiveTab === 'training' && (
             <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4">
               <div className="flex items-center justify-between pb-2 border-b border-slate-200">
@@ -2946,7 +3115,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     <span>VII. Learning and Development (L&amp;D) Interventions / Trainings</span>
                   </h3>
                   <span className="text-[11px] text-slate-500">
-                    CSC Rule: Resource Person roles, Facilitator engagements, and Conferences are excluded.
+                    CSC Rule: Resource Person roles, Facilitator engagements, and Conferences are
+                    excluded.
                   </span>
                 </div>
                 <button
@@ -2973,20 +3143,30 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
               <div className="bg-sky-50 border border-sky-200 p-3 rounded-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                 <div>
-                  <span className="font-bold text-[#024794] block">Civil Service Commission (CSC) Audit</span>
+                  <span className="font-bold text-[#024794] block">
+                    Civil Service Commission (CSC) Audit
+                  </span>
                   <span className="text-slate-600 text-[11px]">
                     Structured technical courses attended count toward QS requirements.
                   </span>
                 </div>
                 <div className="flex items-center gap-4 text-xs font-mono shrink-0">
                   <div className="text-right">
-                    <span className="text-[10px] text-slate-500 uppercase block font-sans">Qualifying</span>
-                    <span className="font-extrabold text-emerald-700 text-sm">{trainingAudit.qualifying} Hours</span>
+                    <span className="text-[10px] text-slate-500 uppercase block font-sans">
+                      Qualifying
+                    </span>
+                    <span className="font-extrabold text-emerald-700 text-sm">
+                      {trainingAudit.qualifying} Hours
+                    </span>
                   </div>
                   {trainingAudit.excluded > 0 && (
                     <div className="text-right">
-                      <span className="text-[10px] text-amber-600 uppercase block font-sans font-bold">Excluded</span>
-                      <span className="font-bold text-amber-700 text-sm">-{trainingAudit.excluded} Hours</span>
+                      <span className="text-[10px] text-amber-600 uppercase block font-sans font-bold">
+                        Excluded
+                      </span>
+                      <span className="font-bold text-amber-700 text-sm">
+                        -{trainingAudit.excluded} Hours
+                      </span>
                     </div>
                   )}
                 </div>
@@ -2998,7 +3178,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-800">
                     {trainingAudit.flagged.map((f, i) => (
                       <li key={i}>
-                        "{f.title}" ({f.hours} hrs) — {f.reason}
+                        &quot;{f.title}&quot; ({f.hours} hrs) — {f.reason}
                       </li>
                     ))}
                   </ul>
@@ -3099,15 +3279,13 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           />
                         </td>
                         <td className="p-2 text-center">
-                          {training.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => setTraining(training.filter((_, i) => i !== idx))}
-                              className="text-red-500 hover:text-red-700"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setTraining(training.filter((_, i) => i !== idx))}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -3117,7 +3295,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           )}
 
-          {/* 8. OTHER INFORMATION */}
           {pdsActiveTab === 'other' && (
             <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-4 text-xs">
               <h3 className="font-bold text-slate-900 text-sm pb-2 border-b border-slate-200 flex items-center gap-2">
@@ -3127,7 +3304,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
-                  <span className="font-bold text-slate-800 block text-xs">Special Skills &amp; Hobbies</span>
+                  <span className="font-bold text-slate-800 block text-xs">
+                    Special Skills &amp; Hobbies
+                  </span>
                   <textarea
                     rows={4}
                     value={otherInformation.specialSkills.join('\n')}
@@ -3143,7 +3322,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 </div>
 
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
-                  <span className="font-bold text-slate-800 block text-xs">Non-Academic Distinctions</span>
+                  <span className="font-bold text-slate-800 block text-xs">
+                    Non-Academic Distinctions
+                  </span>
                   <textarea
                     rows={4}
                     value={otherInformation.nonAcademicDistinctions.join('\n')}
@@ -3159,7 +3340,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 </div>
 
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
-                  <span className="font-bold text-slate-800 block text-xs">Membership in Association / Org</span>
+                  <span className="font-bold text-slate-800 block text-xs">
+                    Membership in Association / Org
+                  </span>
                   <textarea
                     rows={4}
                     value={otherInformation.memberships.join('\n')}
@@ -3177,7 +3360,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           )}
 
-          {/* 9. DECLARATIONS & OATH */}
           {pdsActiveTab === 'declaration' && (
             <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-5 space-y-5 text-xs">
               <h3 className="font-bold text-slate-900 text-sm pb-2 border-b border-slate-200 flex items-center gap-2">
@@ -3189,8 +3371,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
                   <div className="flex items-start justify-between gap-4">
                     <span className="font-semibold text-slate-800">
-                      34. Are you related by consanguinity or affinity to the appointing or recommending authority,
-                      or to the chief of bureau or office (3rd degree for National Gov / 4th degree for Local)?
+                      34. Are you related by consanguinity or affinity to the appointing or
+                      recommending authority, or to the chief of bureau or office (3rd degree for
+                      National Gov / 4th degree for Local)?
                     </span>
                     <div className="flex items-center gap-3 shrink-0">
                       <label className="flex items-center gap-1 font-bold">
@@ -3198,7 +3381,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           type="radio"
                           name="q34"
                           checked={declaration.q34_relatedConsanguinity === true}
-                          onChange={() => setDeclaration({ ...declaration, q34_relatedConsanguinity: true })}
+                          onChange={() =>
+                            setDeclaration({ ...declaration, q34_relatedConsanguinity: true })
+                          }
                         />
                         <span>Yes</span>
                       </label>
@@ -3207,7 +3392,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           type="radio"
                           name="q34"
                           checked={declaration.q34_relatedConsanguinity === false}
-                          onChange={() => setDeclaration({ ...declaration, q34_relatedConsanguinity: false })}
+                          onChange={() =>
+                            setDeclaration({ ...declaration, q34_relatedConsanguinity: false })
+                          }
                         />
                         <span>No</span>
                       </label>
@@ -3218,7 +3405,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
                   <div className="flex items-start justify-between gap-4">
                     <span className="font-semibold text-slate-800">
-                      35. Have you ever been found guilty of any administrative offense or formally charged with a crime?
+                      35. Have you ever been found guilty of any administrative offense or formally
+                      charged with a crime?
                     </span>
                     <div className="flex items-center gap-3 shrink-0">
                       <label className="flex items-center gap-1 font-bold">
@@ -3235,7 +3423,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           type="radio"
                           name="q35"
                           checked={declaration.q35_adminOffense === false}
-                          onChange={() => setDeclaration({ ...declaration, q35_adminOffense: false })}
+                          onChange={() =>
+                            setDeclaration({ ...declaration, q35_adminOffense: false })
+                          }
                         />
                         <span>No</span>
                       </label>
@@ -3246,7 +3436,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
                   <div className="flex items-start justify-between gap-4">
                     <span className="font-semibold text-slate-800">
-                      36. Have you ever been convicted of any crime or violation of any law, decree, or ordinance?
+                      36. Have you ever been convicted of any crime or violation of any law, decree,
+                      or ordinance?
                     </span>
                     <div className="flex items-center gap-3 shrink-0">
                       <label className="flex items-center gap-1 font-bold">
@@ -3254,7 +3445,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           type="radio"
                           name="q36"
                           checked={declaration.q36_convictedCrime === true}
-                          onChange={() => setDeclaration({ ...declaration, q36_convictedCrime: true })}
+                          onChange={() =>
+                            setDeclaration({ ...declaration, q36_convictedCrime: true })
+                          }
                         />
                         <span>Yes</span>
                       </label>
@@ -3263,7 +3456,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           type="radio"
                           name="q36"
                           checked={declaration.q36_convictedCrime === false}
-                          onChange={() => setDeclaration({ ...declaration, q36_convictedCrime: false })}
+                          onChange={() =>
+                            setDeclaration({ ...declaration, q36_convictedCrime: false })
+                          }
                         />
                         <span>No</span>
                       </label>
@@ -3274,7 +3469,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2">
                   <div className="flex items-start justify-between gap-4">
                     <span className="font-semibold text-slate-800">
-                      37. Have you ever been separated from the service in any mode (resignation, dismissal, dropped)?
+                      37. Have you ever been separated from the service in any mode (resignation,
+                      dismissal, dropped)?
                     </span>
                     <div className="flex items-center gap-3 shrink-0">
                       <label className="flex items-center gap-1 font-bold">
@@ -3282,7 +3478,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           type="radio"
                           name="q37"
                           checked={declaration.q37_separatedFromService === true}
-                          onChange={() => setDeclaration({ ...declaration, q37_separatedFromService: true })}
+                          onChange={() =>
+                            setDeclaration({ ...declaration, q37_separatedFromService: true })
+                          }
                         />
                         <span>Yes</span>
                       </label>
@@ -3291,7 +3489,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                           type="radio"
                           name="q37"
                           checked={declaration.q37_separatedFromService === false}
-                          onChange={() => setDeclaration({ ...declaration, q37_separatedFromService: false })}
+                          onChange={() =>
+                            setDeclaration({ ...declaration, q37_separatedFromService: false })
+                          }
                         />
                         <span>No</span>
                       </label>
@@ -3306,8 +3506,13 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {declaration.references.map((ref, idx) => (
-                    <div key={idx} className="bg-white p-3 rounded-lg border border-slate-200 space-y-1.5">
-                      <span className="font-bold text-slate-700 block text-[11px]">Reference {idx + 1}</span>
+                    <div
+                      key={idx}
+                      className="bg-white p-3 rounded-lg border border-slate-200 space-y-1.5"
+                    >
+                      <span className="font-bold text-slate-700 block text-[11px]">
+                        Reference {idx + 1}
+                      </span>
                       <input
                         type="text"
                         placeholder="Full Legal Name"
@@ -3348,7 +3553,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
               <div className="bg-sky-50 border border-sky-200 p-4 rounded-xl space-y-3">
                 <span className="font-bold text-[#024794] block text-xs">
-                  Government Issued ID Presented (Passport, GSIS, SSS, PRC, Driver's License)
+                  Government Issued ID Presented (Passport, GSIS, SSS, PRC, Driver&apos;s License)
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <input
@@ -3382,7 +3587,10 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     onChange={(e) =>
                       setDeclaration({
                         ...declaration,
-                        govIssuedId: { ...declaration.govIssuedId, datePlaceIssuance: e.target.value },
+                        govIssuedId: {
+                          ...declaration.govIssuedId,
+                          datePlaceIssuance: e.target.value,
+                        },
                       })
                     }
                     className="bg-white border border-slate-300 rounded p-2 text-xs"
@@ -3399,9 +3607,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     className="mt-0.5 rounded text-[#024794]"
                   />
                   <span className="text-[11px] text-slate-800 font-semibold leading-relaxed">
-                    I declare under oath that I have personally accomplished this Personal Data Sheet which is a true,
-                    correct and complete statement pursuant to the provisions of pertinent laws, rules and regulations
-                    of the Republic of the Philippines.
+                    I declare under oath that I have personally accomplished this Personal Data Sheet
+                    which is a true, correct and complete statement pursuant to the provisions of
+                    pertinent laws, rules and regulations of the Republic of the Philippines.
                   </span>
                 </label>
               </div>
@@ -3429,9 +3637,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* SECTION 3: POSITION DESCRIPTION & REQUIREMENTS */}
-      {/* ========================================================================= */}
       {activeSection === 'position_qs' && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-6 space-y-4">
@@ -3444,7 +3650,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   {activeJob.positionTitle}
                 </h2>
                 <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-slate-600">
-                  <span className="font-mono font-bold text-[#024794]">{activeJob.itemNo}</span>
+                  <span className="font-mono font-bold text-[#024794]">{jobItemNo}</span>
                   <span>•</span>
                   <span>{activeJob.division}</span>
                   <span>•</span>
@@ -3460,7 +3666,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   Salary Grade {activeJob.salaryGrade}
                 </span>
                 <span className="text-[10px] text-amber-700 block font-semibold">
-                  Closes: {activeJob.closingDate}
+                  Closes: {jobClosingDate}
                 </span>
               </div>
             </div>
@@ -3473,19 +3679,19 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
                   <strong className="text-slate-800 block text-[11px]">1. Education:</strong>
                   <p className="text-slate-600 leading-relaxed">
-                    {activeJob.qualificationStandards.education}
+                    {activeJob.qualificationStandards?.education}
                   </p>
                 </div>
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
                   <strong className="text-slate-800 block text-[11px]">2. Experience:</strong>
                   <p className="text-slate-600 leading-relaxed">
-                    {activeJob.qualificationStandards.experience}
+                    {activeJob.qualificationStandards?.experience}
                   </p>
                 </div>
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
                   <strong className="text-slate-800 block text-[11px]">3. Training:</strong>
                   <p className="text-slate-600 leading-relaxed">
-                    {activeJob.qualificationStandards.training}
+                    {activeJob.qualificationStandards?.training}
                   </p>
                   <span className="text-[10px] text-amber-700 block font-medium">
                     *Excludes RP/Facilitators/Conferences
@@ -3494,7 +3700,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
                   <strong className="text-slate-800 block text-[11px]">4. Eligibility:</strong>
                   <p className="text-slate-600 leading-relaxed">
-                    {activeJob.qualificationStandards.eligibility}
+                    {activeJob.qualificationStandards?.eligibility}
                   </p>
                 </div>
               </div>
@@ -3502,9 +3708,11 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
-                <span className="font-bold text-slate-800 block text-xs">Duties &amp; Responsibilities:</span>
+                <span className="font-bold text-slate-800 block text-xs">
+                  Duties &amp; Responsibilities:
+                </span>
                 <ul className="space-y-1.5 text-[11px] text-slate-700">
-                  {activeJob.dutiesAndResponsibilities.map((d, i) => (
+                  {(activeJob.dutiesAndResponsibilities || []).map((d, i) => (
                     <li key={i} className="flex items-start gap-1.5">
                       <span className="w-4 h-4 rounded-full bg-[#024794] text-white flex items-center justify-center text-[9px] font-bold shrink-0 mt-0.5">
                         {i + 1}
@@ -3516,9 +3724,11 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </div>
 
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                <span className="font-bold text-slate-800 block text-xs">Required Competencies:</span>
+                <span className="font-bold text-slate-800 block text-xs">
+                  Required Competencies:
+                </span>
                 <div className="flex flex-wrap gap-1.5">
-                  {activeJob.competencies.map((c, i) => (
+                  {(activeJob.competencies || []).map((c, i) => (
                     <span
                       key={i}
                       className="bg-blue-50 text-[#024794] border border-blue-200 px-2.5 py-1 rounded text-[11px] font-semibold"
@@ -3542,7 +3752,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
             </div>
           </div>
 
-          {/* GEMINI AI QUALIFICATION ASSESSMENT MODULE */}
           <div className="bg-gradient-to-br from-[#024794] to-[#04336b] rounded-xl text-white p-6 shadow-md space-y-4 border border-blue-900">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
@@ -3554,7 +3763,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     Gemini AI-Assisted Qualification Assessment
                   </h3>
                   <p className="text-xs text-sky-200">
-                    Automated pre-screening comparing your PDS credentials against the vacancy's official QS.
+                    Automated pre-screening comparing your PDS credentials against the vacancy&apos;s
+                    official QS.
                   </p>
                 </div>
               </div>
@@ -3579,7 +3789,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                       {aiFitAssessment.score} / 100
                     </span>
                   </div>
-                  <span className="text-[10px] text-sky-200">Evaluated at {aiFitAssessment.evaluatedAt}</span>
+                  <span className="text-[10px] text-sky-200">
+                    Evaluated at {aiFitAssessment.evaluatedAt}
+                  </span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] pt-1">
@@ -3615,8 +3827,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
               </div>
             ) : (
               <div className="bg-white/10 border border-white/20 rounded-xl p-4 text-center text-xs text-sky-200">
-                Click <strong>"Run / Re-evaluate AI Fit"</strong> to audit your credentials against Civil
-                Service qualification standards.
+                Click <strong>&quot;Run / Re-evaluate AI Fit&quot;</strong> to audit your credentials
+                against Civil Service qualification standards.
               </div>
             )}
           </div>
@@ -3642,9 +3854,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* SECTION 4: FILE UPLOADS (PRIMARY PLANTILLA DOCUMENTS) */}
-      {/* ========================================================================= */}
+      {/* SECTION 4: FILE UPLOADS */}
       {activeSection === 'file_uploads' && (
         <div className="space-y-6">
           <div className="bg-gradient-to-r from-blue-900 to-[#024794] rounded-2xl p-6 text-white shadow-md space-y-4">
@@ -3657,8 +3867,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   Upload Plantilla (PL), Eligibility, Trainings, and Work Experience (WE)
                 </h3>
                 <p className="text-xs text-sky-100 mt-0.5 max-w-2xl">
-                  Drag and drop files into their slots, or use the universal classifier. Misplaced files are{' '}
-                  <strong>automatically organized and corrected</strong> into their proper category.
+                  Drag and drop files into their slots, or use the universal classifier. Misplaced
+                  files are <strong>automatically organized and corrected</strong> into their proper
+                  category.
                 </p>
               </div>
             </div>
@@ -3689,9 +3900,12 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <Upload className="w-5 h-5 text-amber-300" />
               </div>
               <div className="text-xs">
-                <span className="font-bold text-white">Click or drag &amp; drop files here to auto-classify</span>
+                <span className="font-bold text-white">
+                  Click or drag &amp; drop files here to auto-classify
+                </span>
                 <p className="text-[11px] text-sky-200 mt-0.5">
-                  Universal scanner: automatically identifies Plantilla, Eligibility, Trainings, or Work Experience.
+                  Universal scanner: automatically identifies Plantilla, Eligibility, Trainings, or
+                  Work Experience.
                 </p>
               </div>
             </div>
@@ -3736,7 +3950,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <div
                   key={cat.code}
                   className={`bg-white rounded-xl border p-5 space-y-3 transition-all flex flex-col justify-between ${
-                    isFilled ? 'border-emerald-300 shadow-xs ring-1 ring-emerald-200' : 'border-slate-200 shadow-xs'
+                    isFilled
+                      ? 'border-emerald-300 shadow-xs ring-1 ring-emerald-200'
+                      : 'border-slate-200 shadow-xs'
                   }`}
                 >
                   <div className="space-y-2">
@@ -3747,7 +3963,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                         </span>
                         <div>
                           <h4 className="font-extrabold text-xs text-slate-900">{cat.title}</h4>
-                          <span className="text-[10px] text-slate-500 font-semibold">{cat.acceptedFormats}</span>
+                          <span className="text-[10px] text-slate-500 font-semibold">
+                            {cat.acceptedFormats}
+                          </span>
                         </div>
                       </div>
 
@@ -3856,9 +4074,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* SECTION 5: OTHER DOCUMENTS */}
-      {/* ========================================================================= */}
       {activeSection === 'other_documents' && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-6 space-y-4">
@@ -3871,8 +4087,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   Other Documents &amp; Compliance Attachments
                 </h3>
                 <p className="text-xs text-slate-600 mt-0.5">
-                  Upload your Transcript of Records (TOR), Diploma, Registration (REG), Certificates (CERT),
-                  Sworn Statements (SWORNS), Performance Commitment and Review (PCR), and Potential documents.
+                  Upload your Transcript of Records (TOR), Diploma, Registration (REG), Certificates
+                  (CERT), Sworn Statements (SWORNS), Performance Commitment and Review (PCR), and
+                  Potential documents.
                 </p>
               </div>
             </div>
@@ -3894,7 +4111,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <div
                   key={cat.code}
                   className={`bg-white rounded-xl border p-4 space-y-3 transition-all flex flex-col justify-between ${
-                    isFilled ? 'border-emerald-300 shadow-xs ring-1 ring-emerald-200' : 'border-slate-200 shadow-xs'
+                    isFilled
+                      ? 'border-emerald-300 shadow-xs ring-1 ring-emerald-200'
+                      : 'border-slate-200 shadow-xs'
                   }`}
                 >
                   <div className="space-y-2">
@@ -4008,9 +4227,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
         </div>
       )}
 
-      {/* ========================================================================= */}
       {/* SECTION 6: REVIEW & SUBMIT */}
-      {/* ========================================================================= */}
       {activeSection === 'review_submit' && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl shadow-xs border border-slate-200 p-6 space-y-4">
@@ -4022,8 +4239,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 Consolidated Application Review &amp; Official Submission
               </h3>
               <p className="text-xs text-slate-600 mt-0.5">
-                Carefully review all six sections before submitting. Once submitted, your docket is forwarded
-                to the DA-BFAR Human Resource Merit Promotion and Selection Board (HRMPSB).
+                Carefully review all six sections before submitting. Once submitted, your docket is
+                forwarded to the DA-BFAR Human Resource Merit Promotion and Selection Board
+                (HRMPSB).
               </p>
             </div>
 
@@ -4034,7 +4252,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                     <FileText className="w-4 h-4 text-[#024794]" />
                     <span>1. Application Letter</span>
                   </span>
-                  {applicationLetterText ? (
+                  {applicationLetterText || letterUploadedFileName ? (
                     <span className="bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-0.5 rounded">
                       Complete
                     </span>
@@ -4047,6 +4265,8 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <p className="text-[11px] text-slate-600 line-clamp-3">
                   {applicationLetterText
                     ? applicationLetterText.substring(0, 180) + '...'
+                    : letterUploadedFileName
+                    ? `Uploaded PDF: ${letterUploadedFileName}`
                     : 'No letter text recorded.'}
                 </p>
                 <button
@@ -4069,10 +4289,18 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-600">
-                  <span>Name: <strong>{personalInfo.fullName}</strong></span>
-                  <span>Education: <strong>{education.length} entries</strong></span>
-                  <span>Eligibility: <strong>{eligibility.length} entries</strong></span>
-                  <span>Experience: <strong>{workExperience.length} entries</strong></span>
+                  <span>
+                    Name: <strong>{personalInfo.fullName}</strong>
+                  </span>
+                  <span>
+                    Education: <strong>{education.length} entries</strong>
+                  </span>
+                  <span>
+                    Eligibility: <strong>{eligibility.length} entries</strong>
+                  </span>
+                  <span>
+                    Experience: <strong>{workExperience.length} entries</strong>
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -4094,7 +4322,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   </span>
                 </div>
                 <p className="font-bold text-slate-900 text-xs">{activeJob.positionTitle}</p>
-                <p className="text-[11px] text-slate-500 font-mono">{activeJob.itemNo}</p>
+                <p className="text-[11px] text-slate-500 font-mono">{jobItemNo}</p>
                 <div className="flex items-center gap-2 text-[11px] text-emerald-700 font-semibold">
                   <Check className="w-3.5 h-3.5" />
                   <span>{trainingAudit.qualifying} qualifying training hours verified</span>
@@ -4141,13 +4369,15 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                 <span>Applicant Affirmation and Digital Certification</span>
               </span>
               <p className="text-amber-800 leading-relaxed text-[11px]">
-                I hereby declare under the penalties of perjury that all answers and declarations made in this
-                application, including my Personal Data Sheet (CS Form 212) and all attached documents, are true,
-                correct, and authentic. I authorize the DA-BFAR HRMPSB to verify the authenticity of all credentials.
+                I hereby declare under the penalties of perjury that all answers and declarations
+                made in this application, including my Personal Data Sheet (CS Form 212) and all
+                attached documents, are true, correct, and authentic. I authorize the DA-BFAR
+                HRMPSB to verify the authenticity of all credentials.
               </p>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-amber-200/60">
                 <div className="text-[11px] text-slate-700">
-                  Applicant: <strong>{personalInfo.fullName}</strong> • Date: {new Date().toLocaleDateString('en-PH')}
+                  Applicant: <strong>{personalInfo.fullName}</strong> • Date:{' '}
+                  {new Date().toLocaleDateString('en-PH')}
                 </div>
                 <span className="inline-flex items-center gap-1 bg-white border border-amber-300 text-amber-900 px-3 py-1 rounded font-bold text-[11px]">
                   <BadgeCheck className="w-3.5 h-3.5 text-emerald-600" />
@@ -4163,7 +4393,7 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
                   <span>Ready to Transmit Application to DA-BFAR</span>
                 </h4>
                 <p className="text-xs text-slate-400 mt-1">
-                  Target Plantilla Item: <strong>{activeJob.itemNo}</strong> ({activeJob.positionTitle})
+                  Target Plantilla Item: <strong>{jobItemNo}</strong> ({activeJob.positionTitle})
                 </p>
               </div>
 

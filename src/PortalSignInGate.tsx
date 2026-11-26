@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   Building2,
@@ -127,8 +128,12 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
         } as Parameters<typeof registerBfarEmployee>[0]);
         onAuthenticatedUser(profile);
       }
-    } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'BFAR Employee authentication failed.');
+    } catch (caughtError: unknown) {
+      setErrorMessage(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'BFAR Employee authentication failed.'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -174,8 +179,10 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
           ? `A 6-digit verification code was sent to ${normalizedEmail}.`
           : `6-digit OTP generated for ${normalizedEmail}.`
       );
-    } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Unable to send 6-digit OTP.');
+    } catch (caughtError: unknown) {
+      setErrorMessage(
+        caughtError instanceof Error ? caughtError.message : 'Unable to send 6-digit OTP.'
+      );
     } finally {
       setIsSendingOtp(false);
     }
@@ -220,8 +227,12 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
         setOtpVerified(true);
         onAuthenticatedUser(extractPortalProfile(regResult));
       }
-    } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'External Applicant sign-up failed.');
+    } catch (caughtError: unknown) {
+      setErrorMessage(
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'External Applicant sign-up failed.'
+      );
     } finally {
       setIsSubmitting(false);
     }
