@@ -750,4 +750,4 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
       )}
     </div>
   );
-};
+}; 

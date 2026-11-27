@@ -1,4 +1,5 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
     function isSignedIn() {
@@ -29,6 +30,10 @@ service cloud.firestore {
           userRole() == 'hr_admin'
           || authEmail() == 'jaiciervo7@gmail.com'
         );
+    }
+
+    function isValidAppSize() {
+      return request.resource.size() < 250000;
     }
 
     match /users/{uid} {
@@ -65,29 +70,73 @@ service cloud.firestore {
       allow delete: if isHrAdmin();
     }
 
+    // OTP records should normally be written via backend/Cloud Functions; HR admin can manage
     match /email_otps/{emailKey} {
-      allow read, create, update: if true;
+      allow read, create, update: if isHrAdmin();
       allow delete: if isHrAdmin();
     }
 
+    // Job vacancies: public read for careers portal; write restricted to HR Admin
     match /job_vacancies/{jobId} {
       allow read: if true;
-      allow create, update, delete: if true;
+      allow create, update, delete: if isHrAdmin();
     }
 
+    // Applications: signed-in users can create/read/update own application; HR Admin has full access
     match /applications/{appId} {
-      allow read, create, update: if true;
-      allow delete: if true;
-    }
+      allow create: if isSignedIn()
+        && isValidAppSize()
+        && (
+          isHrAdmin()
+          || request.resource.data.applicantUid == request.auth.uid
+          || (
+            authEmail() != ''
+            && request.resource.data.pdsData.personalInfo.email == authEmail()
+          )
+        );
 
-    match /internal_employees/{empId} {
-      allow read, create, update: if true;
+      allow read: if isHrAdmin()
+        || (
+          isSignedIn()
+          && (
+            resource.data.applicantUid == request.auth.uid
+            || (
+              authEmail() != ''
+              && resource.data.pdsData.personalInfo.email == authEmail()
+            )
+          )
+        );
+
+      allow update: if isHrAdmin()
+        || (
+          isSignedIn()
+          && isValidAppSize()
+          && (
+            resource.data.applicantUid == request.auth.uid
+            || (
+              authEmail() != ''
+              && resource.data.pdsData.personalInfo.email == authEmail()
+            )
+          )
+        );
+
       allow delete: if isHrAdmin();
     }
 
+    // Internal employees: signed-in users can read; write/delete restricted to HR Admin
+    match /internal_employees/{empId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isHrAdmin();
+    }
+
+    // Authorized staff: signed-in users can read; write restricted to HR Admin
     match /authorized_staff/{staffId} {
-      allow read: if true;
+      allow read: if isSignedIn();
       allow write: if isHrAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

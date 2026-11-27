@@ -2,79 +2,135 @@ import {
   collection,
   doc,
   getDocs,
-  getDoc,
   setDoc,
   updateDoc,
   deleteDoc,
   onSnapshot,
   query,
-  orderBy,
+  where,
+  limit,
+  writeBatch,
   Unsubscribe,
 } from 'firebase/firestore';
 import { db, handleFirestoreError } from './firebase';
 import { ApplicationRecord, InternalEmployeeProfile, PlantillaJob } from '../types';
 
 export const APPLICATIONS_COLLECTION = 'applications';
-export const INTERNAL_EMPLOYEES_COLLECTION = 'internal_employees';
 export const JOB_VACANCIES_COLLECTION = 'job_vacancies';
+const OFFICIAL_BFAR_CAREERS_URL =
+  'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/';
 
-// Fetch all internal employees directly from Firestore (No mock or demo fallbacks)
-export async function getInternalEmployees(): Promise<InternalEmployeeProfile[]> {
-  try {
-    const colRef = collection(db, INTERNAL_EMPLOYEES_COLLECTION);
-    const snap = await getDocs(colRef);
-    if (snap.empty) {
-      return [];
-    }
-    return snap.docs.map((d) => d.data() as InternalEmployeeProfile);
-  } catch (err) {
-    console.warn('Error fetching internal employees from Firestore:', err);
-    return [];
-  }
+export type BfarEmploymentStatus =
+  | 'COS'
+  | 'JO'
+  | 'Casual'
+  | 'Pakyaw'
+  | 'Consultant'
+  | 'Permanent';
+
+export interface VerifiedBfarIdResult {
+  isValid: boolean;
+  normalizedId: string;
+  employmentStatus: BfarEmploymentStatus;
+  label: string;
 }
 
-// Lookup internal employee by ID strictly against Firestore (Returns null if not found, never falls back to mock)
-export async function lookupInternalEmployee(id: string): Promise<InternalEmployeeProfile | null> {
-  const cleanId = id.trim().toUpperCase();
-  if (!cleanId) return null;
-
-  try {
-    // 1. Try direct doc ID match in Firestore
-    const docRef = doc(db, INTERNAL_EMPLOYEES_COLLECTION, cleanId);
-    const snap = await getDoc(docRef);
-    if (snap.exists()) {
-      return snap.data() as InternalEmployeeProfile;
-    }
-
-    // 2. Query by employeeId field across registered documents
-    const colRef = collection(db, INTERNAL_EMPLOYEES_COLLECTION);
-    const allSnap = await getDocs(colRef);
-    for (const d of allSnap.docs) {
-      const data = d.data() as InternalEmployeeProfile;
-      if (
-        data.employeeId?.toUpperCase() === cleanId ||
-        d.id.toUpperCase() === cleanId ||
-        (cleanId.length >= 4 && data.fullName?.toUpperCase().includes(cleanId))
-      ) {
-        return data;
-      }
-    }
-  } catch (err) {
-    console.warn('Error looking up internal employee from Firestore:', err);
+function stripUndefined<T extends Record<string, any>>(obj: T): Record<string, any> {
+  const cleaned: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined) continue;
+    cleaned[key] = value;
   }
+  return cleaned;
+}
+
+// Instant client-side DA-BFAR Employee ID verification & status detection
+export function verifyBfarEmployeeId(rawId: string): VerifiedBfarIdResult | null {
+  const clean = rawId.trim().toUpperCase();
+  if (!clean || clean.length < 3) return null;
+
+  if (/^COS-?\d{2,}$/.test(clean)) {
+    return {
+      isValid: true,
+      normalizedId: clean,
+      employmentStatus: 'COS',
+      label: `${clean} • COS`,
+    };
+  }
+
+  if (/^JO-?\d{2,}$/.test(clean)) {
+    return {
+      isValid: true,
+      normalizedId: clean,
+      employmentStatus: 'JO',
+      label: `${clean} • Job Order`,
+    };
+  }
+
+  if (/^(CASUAL|CAS)-?\d{2,}$/.test(clean)) {
+    return {
+      isValid: true,
+      normalizedId: clean,
+      employmentStatus: 'Casual',
+      label: `${clean} • Casual`,
+    };
+  }
+
+  if (/^(PAKYAW|PKY)-?\d{2,}$/.test(clean)) {
+    return {
+      isValid: true,
+      normalizedId: clean,
+      employmentStatus: 'Pakyaw',
+      label: `${clean} • Pakyaw`,
+    };
+  }
+
+  if (/^C-[A-Z0-9-]+$/.test(clean)) {
+    return {
+      isValid: true,
+      normalizedId: clean,
+      employmentStatus: 'Consultant',
+      label: `${clean} • Consultant`,
+    };
+  }
+
+  // Permanent: considered as walang status prefix nakalagay
+  if (/^[A-Z0-9-]{3,20}$/.test(clean)) {
+    return {
+      isValid: true,
+      normalizedId: clean,
+      employmentStatus: 'Permanent',
+      label: `${clean} • Permanent`,
+    };
+  }
+
   return null;
 }
 
-// Register or update verified internal employee profile in Firestore
-export async function saveInternalEmployeeToFirestore(emp: InternalEmployeeProfile): Promise<void> {
-  try {
-    const docId = emp.employeeId.trim().toUpperCase();
-    const docRef = doc(db, INTERNAL_EMPLOYEES_COLLECTION, docId);
-    await setDoc(docRef, emp, { merge: true });
-  } catch (err) {
-    const msg = handleFirestoreError(err, 'saveInternalEmployeeToFirestore', `${INTERNAL_EMPLOYEES_COLLECTION}/${emp.employeeId}`);
-    throw new Error(msg);
-  }
+// Lightweight verification helper without Firestore directory reads or writes
+export async function lookupInternalEmployee(
+  id: string
+): Promise<
+  | (InternalEmployeeProfile & {
+      employmentStatus?: BfarEmploymentStatus;
+      badgeLabel?: string;
+    })
+  | null
+> {
+  const verified = verifyBfarEmployeeId(id);
+  if (!verified) return null;
+
+  return {
+    employeeId: verified.normalizedId,
+    fullName: '',
+    email: '',
+    division: '',
+    employmentStatus: verified.employmentStatus,
+    badgeLabel: verified.label,
+  } as InternalEmployeeProfile & {
+    employmentStatus: BfarEmploymentStatus;
+    badgeLabel: string;
+  };
 }
 
 // Real-time subscription to applications list
@@ -88,20 +144,17 @@ export function subscribeToApplications(
     return onSnapshot(
       colRef,
       (snapshot) => {
-        const apps: ApplicationRecord[] = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data() as ApplicationRecord;
-          apps.push({
-            ...data,
-            id: doc.id,
-          });
-        });
-        // Sort descending in memory by submission timestamp
+        const apps: ApplicationRecord[] = snapshot.docs.map((docSnap) => ({
+          ...(docSnap.data() as ApplicationRecord),
+          id: docSnap.id,
+        }));
+
         apps.sort((a, b) => {
           const timeA = new Date((a as any).createdAt || a.submissionDate || 0).getTime();
           const timeB = new Date((b as any).createdAt || b.submissionDate || 0).getTime();
           return timeB - timeA;
         });
+
         onUpdate(apps);
       },
       (error) => {
@@ -122,30 +175,62 @@ export function subscribeToSingleApplication(
   onUpdate: (app: ApplicationRecord | null) => void,
   onError?: (err: Error) => void
 ): Unsubscribe {
-  const clean = trackingCodeOrId.trim().toUpperCase();
+  const trimmed = trackingCodeOrId.trim();
+  if (!trimmed) {
+    onUpdate(null);
+    return () => {};
+  }
+
+  const upper = trimmed.toUpperCase();
+  const colRef = collection(db, APPLICATIONS_COLLECTION);
+
+  // Query by trackingCode first so we do not download the entire collection
+  const qByTracking = query(colRef, where('trackingCode', '==', upper), limit(1));
+
   try {
-    const colRef = collection(db, APPLICATIONS_COLLECTION);
-    return onSnapshot(
-      colRef,
+    let fallbackUnsub: Unsubscribe | null = null;
+
+    const primaryUnsub = onSnapshot(
+      qByTracking,
       (snapshot) => {
-        let match: ApplicationRecord | null = null;
-        snapshot.forEach((d) => {
-          const data = d.data() as ApplicationRecord;
-          if (
-            data.trackingCode?.toUpperCase() === clean ||
-            data.id?.toUpperCase() === clean ||
-            d.id.toUpperCase() === clean
-          ) {
-            match = { ...data, id: d.id };
-          }
-        });
-        onUpdate(match);
+        if (!snapshot.empty) {
+          const d = snapshot.docs[0];
+          onUpdate({ ...(d.data() as ApplicationRecord), id: d.id });
+          return;
+        }
+
+        // Fallback lookup by document ID if trackingCode query had no match
+        if (!fallbackUnsub) {
+          const qById = query(colRef, where('id', '==', trimmed), limit(1));
+          fallbackUnsub = onSnapshot(
+            qById,
+            (idSnap) => {
+              if (!idSnap.empty) {
+                const d = idSnap.docs[0];
+                onUpdate({ ...(d.data() as ApplicationRecord), id: d.id });
+              } else {
+                onUpdate(null);
+              }
+            },
+            (err) => {
+              console.error('Firestore single app fallback error:', err);
+              if (onError) onError(err);
+            }
+          );
+        } else {
+          onUpdate(null);
+        }
       },
       (err) => {
         console.error('Firestore single app error:', err);
         if (onError) onError(err);
       }
     );
+
+    return () => {
+      primaryUnsub();
+      if (fallbackUnsub) fallbackUnsub();
+    };
   } catch (err: any) {
     console.error('Failed to set up single app snapshot:', err);
     if (onError) onError(err);
@@ -155,29 +240,44 @@ export function subscribeToSingleApplication(
 
 // Save application to Firestore (Internal BFAR Applications Only)
 export async function saveApplicationToFirestore(app: ApplicationRecord): Promise<void> {
-  if (!app.bfarEmployeeId) {
-    throw new Error('Access Denied: A verified DA-BFAR Employee ID is required to submit an internal application.');
+  const verifiedId = verifyBfarEmployeeId(app.bfarEmployeeId || '');
+  if (!verifiedId) {
+    throw new Error(
+      'Access Denied: A valid DA-BFAR Employee ID is required to submit an internal application.'
+    );
   }
+
   try {
-    const docRef = doc(db, APPLICATIONS_COLLECTION, app.id);
+    const docId = app.id || `app-${Date.now()}`;
+    const docRef = doc(db, APPLICATIONS_COLLECTION, docId);
+    const nowIso = new Date().toISOString();
     const sg = app.currentSalaryGrade ? `SG ${app.currentSalaryGrade}` : 'SG 11';
-    const payload: Record<string, any> = {
+
+    const payload: Record<string, any> = stripUndefined({
       ...app,
+      id: docId,
       applicantType: 'internal',
-      bfarEmployeeId: app.bfarEmployeeId,
+      bfarEmployeeId: verifiedId.normalizedId,
+      employmentStatus: (app as any).employmentStatus || verifiedId.employmentStatus,
       applicantName: app.personalInfo?.fullName || (app as any).applicantName || '',
       email: app.personalInfo?.email || (app as any).email || '',
       jobTitle: app.positionTitle || (app as any).jobTitle || '',
       salaryGrade: (app as any).salaryGrade || sg,
       status: app.status || 'Submitted',
-      createdAt: (app as any).createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
+      createdAt: (app as any).createdAt || nowIso,
+      updatedAt: nowIso,
+    });
+
     // Absolute Salary Confidentiality Protection: never transmit or persist monthly numerical rate
     delete payload.monthlySalary;
+
     await setDoc(docRef, payload);
   } catch (err) {
-    const msg = handleFirestoreError(err, 'saveApplicationToFirestore', `${APPLICATIONS_COLLECTION}/${app.id}`);
+    const msg = handleFirestoreError(
+      err,
+      'saveApplicationToFirestore',
+      `${APPLICATIONS_COLLECTION}/${app.id}`
+    );
     console.error(msg);
     throw new Error(msg);
   }
@@ -190,10 +290,12 @@ export async function updateApplicationInFirestore(
 ): Promise<void> {
   try {
     const docRef = doc(db, APPLICATIONS_COLLECTION, appId);
-    await updateDoc(docRef, {
+    const safeUpdates = stripUndefined({
       ...updates,
       updatedAt: new Date().toISOString(),
     });
+    delete safeUpdates.monthlySalary;
+    await updateDoc(docRef, safeUpdates);
   } catch (err) {
     const msg = handleFirestoreError(err, 'updateApplicationInFirestore');
     console.error(msg);
@@ -205,6 +307,18 @@ export async function updateApplicationInFirestore(
 // OFFICIAL JOB VACANCIES (BFAR CAREERS PORTAL)
 // ==========================================
 
+function normalizeVacancyDoc(id: string, data: PlantillaJob): PlantillaJob {
+  return {
+    ...data,
+    id,
+    plantillaItemNumber: data.plantillaItemNumber || data.itemNo || '',
+    itemNo: data.itemNo || data.plantillaItemNumber || '',
+    datePosted: data.datePosted || data.postingDate || '',
+    applicationDeadline: data.applicationDeadline || data.closingDate || '',
+    officialSourceUrl: data.officialSourceUrl || OFFICIAL_BFAR_CAREERS_URL,
+  };
+}
+
 // Subscribe in real-time to official job vacancies
 export function subscribeToJobVacancies(
   onUpdate: (vacancies: PlantillaJob[]) => void,
@@ -215,28 +329,14 @@ export function subscribeToJobVacancies(
     return onSnapshot(
       colRef,
       (snapshot) => {
-        const vacancies: PlantillaJob[] = [];
-        snapshot.forEach((d) => {
-          const data = d.data() as PlantillaJob;
-          vacancies.push({
-            ...data,
-            id: d.id,
-            plantillaItemNumber: data.plantillaItemNumber || data.itemNo,
-            itemNo: data.itemNo || data.plantillaItemNumber || '',
-            datePosted: data.datePosted || data.postingDate || '',
-            applicationDeadline: data.applicationDeadline || data.closingDate || '',
-            officialSourceUrl: data.officialSourceUrl || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
-          });
-        });
+        const vacancies: PlantillaJob[] = snapshot.docs.map((d) =>
+          normalizeVacancyDoc(d.id, d.data() as PlantillaJob)
+        );
 
-        // Track and inspect real-time Firestore vacancies payload
-        console.log("🔥 Firestore Job Vacancies Snapshot:", vacancies);
-
-        // Sort active first, then by deadline
         vacancies.sort((a, b) => {
           if (a.status === 'Open' && b.status !== 'Open') return -1;
           if (a.status !== 'Open' && b.status === 'Open') return 1;
-          return a.salaryGrade - b.salaryGrade;
+          return (Number(a.salaryGrade) || 0) - (Number(b.salaryGrade) || 0);
         });
         onUpdate(vacancies);
       },
@@ -260,18 +360,7 @@ export async function getJobVacanciesFromFirestore(): Promise<PlantillaJob[]> {
     if (snap.empty) {
       return [];
     }
-    return snap.docs.map((d) => {
-      const data = d.data() as PlantillaJob;
-      return {
-        ...data,
-        id: d.id,
-        plantillaItemNumber: data.plantillaItemNumber || data.itemNo,
-        itemNo: data.itemNo || data.plantillaItemNumber || '',
-        datePosted: data.datePosted || data.postingDate || '',
-        applicationDeadline: data.applicationDeadline || data.closingDate || '',
-        officialSourceUrl: data.officialSourceUrl || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
-      };
-    });
+    return snap.docs.map((d) => normalizeVacancyDoc(d.id, d.data() as PlantillaJob));
   } catch (err) {
     console.warn('Error fetching job_vacancies from Firestore:', err);
     return [];
@@ -283,23 +372,31 @@ export async function saveJobVacancyToFirestore(job: PlantillaJob): Promise<void
   try {
     const docId = job.id || `vacancy-${Date.now()}`;
     const docRef = doc(db, JOB_VACANCIES_COLLECTION, docId);
-    const payload: Record<string, any> = {
+    const nowIso = new Date().toISOString();
+
+    const payload: Record<string, any> = stripUndefined({
       ...job,
       id: docId,
-      plantillaItemNumber: job.plantillaItemNumber || job.itemNo,
+      plantillaItemNumber: job.plantillaItemNumber || job.itemNo || '',
       itemNo: job.itemNo || job.plantillaItemNumber || '',
       datePosted: job.datePosted || job.postingDate || '',
       applicationDeadline: job.applicationDeadline || job.closingDate || '',
-      officialSourceUrl: job.officialSourceUrl || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
-      sourceLastChecked: job.sourceLastChecked || new Date().toISOString(),
-      lastSyncedAt: new Date().toISOString(),
+      officialSourceUrl: job.officialSourceUrl || OFFICIAL_BFAR_CAREERS_URL,
+      sourceLastChecked: job.sourceLastChecked || nowIso,
+      lastSyncedAt: nowIso,
       verifiedByHr: true,
-    };
-    // Absolute Salary Protection
+    });
+
+    // Absolute Salary Confidentiality Protection
     delete payload.monthlySalary;
+
     await setDoc(docRef, payload, { merge: true });
   } catch (err) {
-    const msg = handleFirestoreError(err, 'saveJobVacancyToFirestore', `${JOB_VACANCIES_COLLECTION}/${job.id}`);
+    const msg = handleFirestoreError(
+      err,
+      'saveJobVacancyToFirestore',
+      `${JOB_VACANCIES_COLLECTION}/${job.id}`
+    );
     console.error(msg);
     throw new Error(msg);
   }
@@ -311,17 +408,48 @@ export async function deleteJobVacancyFromFirestore(jobId: string): Promise<void
     const docRef = doc(db, JOB_VACANCIES_COLLECTION, jobId);
     await deleteDoc(docRef);
   } catch (err) {
-    const msg = handleFirestoreError(err, 'deleteJobVacancyFromFirestore', `${JOB_VACANCIES_COLLECTION}/${jobId}`);
+    const msg = handleFirestoreError(
+      err,
+      'deleteJobVacancyFromFirestore',
+      `${JOB_VACANCIES_COLLECTION}/${jobId}`
+    );
     console.error(msg);
     throw new Error(msg);
   }
 }
 
-// Bulk sync vacancies to Firestore
+// Bulk sync vacancies to Firestore using batched writes
 export async function syncVacanciesToFirestore(vacancies: PlantillaJob[]): Promise<void> {
+  if (!vacancies.length) return;
+
   try {
-    for (const v of vacancies) {
-      await saveJobVacancyToFirestore(v);
+    const nowIso = new Date().toISOString();
+    const chunkSize = 400;
+
+    for (let i = 0; i < vacancies.length; i += chunkSize) {
+      const batch = writeBatch(db);
+      const slice = vacancies.slice(i, i + chunkSize);
+
+      for (const job of slice) {
+        const docId = job.id || `vacancy-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+        const docRef = doc(db, JOB_VACANCIES_COLLECTION, docId);
+        const payload: Record<string, any> = stripUndefined({
+          ...job,
+          id: docId,
+          plantillaItemNumber: job.plantillaItemNumber || job.itemNo || '',
+          itemNo: job.itemNo || job.plantillaItemNumber || '',
+          datePosted: job.datePosted || job.postingDate || '',
+          applicationDeadline: job.applicationDeadline || job.closingDate || '',
+          officialSourceUrl: job.officialSourceUrl || OFFICIAL_BFAR_CAREERS_URL,
+          sourceLastChecked: job.sourceLastChecked || nowIso,
+          lastSyncedAt: nowIso,
+          verifiedByHr: true,
+        });
+        delete payload.monthlySalary;
+        batch.set(docRef, payload, { merge: true });
+      }
+
+      await batch.commit();
     }
   } catch (err) {
     console.warn('Failed bulk sync to Firestore job_vacancies:', err);

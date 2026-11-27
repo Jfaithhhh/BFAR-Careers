@@ -4,6 +4,7 @@ import {
   updateApplicationInFirestore,
   deleteJobVacancyFromFirestore,
   saveJobVacancyToFirestore,
+  getJobVacanciesFromFirestore,
 } from '../lib/firestoreService';
 import { auth, db, signInWithGoogle } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
@@ -214,17 +215,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
 
   const filteredApps = applications.filter((app) => {
     const s = searchTerm.toLowerCase();
+    const fullName = app.personalInfo?.fullName || (app as any).applicantName || '';
     const matchesSearch =
-      app.personalInfo.fullName.toLowerCase().includes(s) ||
-      app.trackingCode.toLowerCase().includes(s) ||
-      app.positionTitle.toLowerCase().includes(s);
+      fullName.toLowerCase().includes(s) ||
+      (app.trackingCode || '').toLowerCase().includes(s) ||
+      (app.positionTitle || (app as any).jobTitle || '').toLowerCase().includes(s);
     const matchesStatus = statusFilter === 'All' || app.status === statusFilter;
     const matchesJob = jobFilter === 'All' || app.jobId === jobFilter;
-    const matchesType =
-      applicantTypeFilter === 'All' ||
-      (applicantTypeFilter === 'internal'
-        ? app.applicantType === 'internal'
-        : app.applicantType !== 'internal');
+    const matchesType = applicantTypeFilter === 'All' || app.applicantType === 'internal';
     return matchesSearch && matchesStatus && matchesJob && matchesType;
   });
 
@@ -248,27 +246,29 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
     };
 
     try {
-      const res = await fetch(`/api/applications/${selectedApp.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        try {
-          await updateApplicationInFirestore(selectedApp.id, updates);
-        } catch (fErr) {
-          console.warn('Firestore update sync error handled:', fErr);
+      await updateApplicationInFirestore(selectedApp.id, updates);
+      let nextRecord: ApplicationRecord = { ...selectedApp, ...updates };
+
+      try {
+        const res = await fetch(`/api/applications/${selectedApp.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json?.success && json?.data) {
+            nextRecord = { ...nextRecord, ...json.data };
+          }
         }
-        onUpdateApplication(selectedApp.id, json.data);
-        setSelectedApp(json.data);
-      } else {
-        await updateApplicationInFirestore(selectedApp.id, updates);
-        onUpdateApplication(selectedApp.id, updates);
-        setSelectedApp({ ...selectedApp, ...updates });
+      } catch {
+        // Optional API route on static hosting; Firestore update already succeeded
       }
+
+      onUpdateApplication(selectedApp.id, nextRecord);
+      setSelectedApp(nextRecord);
     } catch (err) {
-      console.error(err);
+      console.error('Failed to save HRMPSB evaluation:', err);
     } finally {
       setIsUpdating(false);
     }
@@ -277,31 +277,59 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
   const handleRunSync = async () => {
     setIsSyncing(true);
     setSyncFeedback(null);
+
     try {
       const res = await fetch('/api/vacancies/sync', { method: 'POST' });
-      const json = await res.json();
-      if (json.success) {
-        setSyncStatus(json.data);
-        if (json.vacancies && Array.isArray(json.vacancies)) {
-          json.vacancies.forEach((v: PlantillaJob) => {
-            onUpdateJob(v.id, v);
+      if (res.ok) {
+        const json = await res.json();
+        if (json?.success) {
+          setSyncStatus(json.data);
+          if (json.vacancies && Array.isArray(json.vacancies)) {
+            json.vacancies.forEach((v: PlantillaJob) => {
+              onUpdateJob(v.id, v);
+            });
+          }
+          setSyncFeedback({
+            type: 'success',
+            message: `Synchronized with official BFAR announcements. Total: ${json.data.totalVacancies} (${json.data.activeVacancies} Active, ${json.data.expiredVacancies} Expired).`,
           });
+          return;
         }
+      }
+      throw new Error('Backend sync route unavailable');
+    } catch {
+      try {
+        const latestVacancies = await getJobVacanciesFromFirestore();
+        latestVacancies.forEach((v) => onUpdateJob(v.id, v));
+        const nowIso = new Date().toISOString();
+        const openCount = latestVacancies.filter((j) => j.status === 'Open').length;
+        const closedCount = latestVacancies.filter((j) => j.status !== 'Open').length;
+
+        setSyncStatus({
+          status: 'idle',
+          lastSuccessfulSync: nowIso,
+          totalVacancies: latestVacancies.length,
+          activeVacancies: openCount,
+          expiredVacancies: closedCount,
+          auditLogs: [
+            {
+              timestamp: nowIso,
+              action: 'FIRESTORE_REGISTRY_REFRESH',
+              details: `Refreshed ${latestVacancies.length} plantilla items from Firestore (${openCount} Open, ${closedCount} Closed).`,
+            },
+          ],
+        } as VacancySyncStatus);
+
         setSyncFeedback({
           type: 'success',
-          message: `Synchronized with official BFAR announcements. Total: ${json.data.totalVacancies} (${json.data.activeVacancies} Active, ${json.data.expiredVacancies} Expired).`,
+          message: `Refreshed ${latestVacancies.length} plantilla vacancies from Firestore (${openCount} Active, ${closedCount} Closed).`,
         });
-      } else {
+      } catch {
         setSyncFeedback({
           type: 'error',
-          message: json.error || 'Failed to synchronize with BFAR portal.',
+          message: 'Unable to refresh plantilla vacancies from Firestore.',
         });
       }
-    } catch {
-      setSyncFeedback({
-        type: 'error',
-        message: 'Network error communicating with vacancy synchronization engine.',
-      });
     } finally {
       setIsSyncing(false);
     }
@@ -374,7 +402,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
         'BFAR Central Office, PCA Building, Elliptical Road, Diliman, Quezon City',
       salaryGrade: Number(job.salaryGrade) || 15,
       plantillaType: resolvedPlantillaType,
-      datePosted: job.datePosted || job.postingDate || new Date().toISOString().split('T')[0],
+      datePosted: job.datePosted || job.postingDate || getTodayDateString(),
       applicationDeadline: job.applicationDeadline || job.closingDate || getTodayDateString(),
       officialSourceUrl:
         job.officialSourceUrl || 'https://www.bfar.da.gov.ph/opportunities/job-vacancies-careers/',
@@ -1147,20 +1175,30 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       </td>
                       <td className="py-3 px-3">
                         <div className="font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
-                          <span>{app.personalInfo.fullName}</span>
+                          <span>{app.personalInfo?.fullName || (app as any).applicantName}</span>
                           {app.applicantType === 'internal' && (
                             <span className="bg-amber-50 text-amber-950 text-[9px] font-bold px-1.5 py-0.5 rounded inline-flex items-center gap-1 border border-amber-200">
                               <UserCheck className="w-2.5 h-2.5 text-emerald-700" />
-                              <span>BFAR Staff (SG {app.currentSalaryGrade || 11})</span>
+                              <span>
+                                BFAR Staff
+                                {(app as any).employmentStatus
+                                  ? ` • ${(app as any).employmentStatus}`
+                                  : ''}{' '}
+                                (SG {app.currentSalaryGrade || 11})
+                              </span>
                             </span>
                           )}
                         </div>
-                        <div className="text-[10px] text-slate-500">{app.personalInfo.email}</div>
+                        <div className="text-[10px] text-slate-500">
+                          {app.personalInfo?.email || (app as any).email}
+                        </div>
                       </td>
                       <td className="py-3 px-3">
-                        <div className="font-semibold text-slate-900">{app.positionTitle}</div>
+                        <div className="font-semibold text-slate-900">
+                          {app.positionTitle || (app as any).jobTitle}
+                        </div>
                         <div className="text-[10px] text-slate-500 font-mono">
-                          {app.plantillaItemNo}
+                          {app.plantillaItemNo || (app as any).itemNumber}
                         </div>
                       </td>
                       <td className="py-3 px-3">
@@ -1189,7 +1227,7 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                         ) : (
                           <span className="text-slate-500 italic">Under Deliberation</span>
                         )}
-                        {app.interviewScore && (
+                        {app.interviewScore !== undefined && (
                           <div className="text-[10px] text-slate-500 font-mono mt-0.5">
                             Interview: {app.interviewScore}/100
                           </div>
@@ -1631,9 +1669,11 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                       <tr key={app.id} className="hover:bg-blue-50/50">
                         <td className="p-2.5 font-bold text-slate-900">#{idx + 1}</td>
                         <td className="p-2.5 font-sans font-bold text-slate-900">
-                          {app.personalInfo.fullName}
+                          {app.personalInfo?.fullName || (app as any).applicantName}
                         </td>
-                        <td className="p-2.5 font-sans text-slate-600">{app.positionTitle}</td>
+                        <td className="p-2.5 font-sans text-slate-600">
+                          {app.positionTitle || (app as any).jobTitle}
+                        </td>
                         <td className="p-2.5 text-center">{edu}%</td>
                         <td className="p-2.5 text-center">{exp}%</td>
                         <td className="p-2.5 text-center">{train}%</td>
@@ -1669,10 +1709,14 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                     {selectedApp.trackingCode}
                   </span>
                 </div>
-                <h3 className="text-xl font-black">{selectedApp.personalInfo.fullName}</h3>
+                <h3 className="text-xl font-black">
+                  {selectedApp.personalInfo?.fullName || (selectedApp as any).applicantName}
+                </h3>
                 <p className="text-xs text-sky-100 mt-0.5">
-                  Applied for: <strong>{selectedApp.positionTitle}</strong> • Plantilla Item:{' '}
-                  {selectedApp.plantillaItemNo}
+                  Applied for:{' '}
+                  <strong>{selectedApp.positionTitle || (selectedApp as any).jobTitle}</strong> •
+                  Plantilla Item:{' '}
+                  {selectedApp.plantillaItemNo || (selectedApp as any).itemNumber}
                 </p>
               </div>
 
@@ -1738,7 +1782,16 @@ export const AdminPortal: React.FC<AdminPortalProps> = ({
                           ID:{' '}
                           <strong className="font-mono text-slate-900">
                             {selectedApp.bfarEmployeeId || 'BFAR-EMP-VERIFIED'}
-                          </strong>{' '}
+                          </strong>
+                          {(selectedApp as any).employmentStatus ? (
+                            <>
+                              {' '}
+                              • Status:{' '}
+                              <strong className="text-slate-900">
+                                {(selectedApp as any).employmentStatus}
+                              </strong>
+                            </>
+                          ) : null}{' '}
                           • Division: {selectedApp.currentDivision || 'Central Office'} • Track:{' '}
                           {selectedApp.promotionTrack || 'Promotion'}
                         </span>

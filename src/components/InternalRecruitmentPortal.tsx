@@ -4,7 +4,11 @@ import {
   ApplicationRecord,
   InternalEmployeeProfile,
 } from '../types';
-import { lookupInternalEmployee } from '../lib/firestoreService';
+import {
+  lookupInternalEmployee,
+  verifyBfarEmployeeId,
+  BfarEmploymentStatus,
+} from '../lib/firestoreService';
 import { auth, signInWithGoogle } from '../lib/firebase';
 import {
   UserCheck,
@@ -31,9 +35,16 @@ interface InternalRecruitmentPortalProps {
   onTrackApplication: (code: string) => void;
 }
 
+type VerifiedInternalProfile = InternalEmployeeProfile & {
+  employmentStatus?: BfarEmploymentStatus;
+  badgeLabel?: string;
+};
+
 function createZeroStorageProfile(params: {
   employeeId: string;
   fullName: string;
+  employmentStatus?: BfarEmploymentStatus;
+  badgeLabel?: string;
   division?: string;
   currentPositionTitle?: string;
   currentPlantillaItem?: string;
@@ -44,13 +55,23 @@ function createZeroStorageProfile(params: {
   latestIpcrRating?: number;
   trainingHours?: number;
   email?: string;
-}): InternalEmployeeProfile {
+}): VerifiedInternalProfile {
+  const verified = verifyBfarEmployeeId(params.employeeId);
+  const normalizedId = verified?.normalizedId || params.employeeId.trim().toUpperCase();
+  const status: BfarEmploymentStatus =
+    params.employmentStatus || verified?.employmentStatus || 'Permanent';
+  const badgeLabel = params.badgeLabel || verified?.label || `${normalizedId} • ${status}`;
+
   return {
-    employeeId: params.employeeId,
+    employeeId: normalizedId,
     fullName: params.fullName,
+    employmentStatus: status,
+    badgeLabel,
     division: params.division || 'BFAR Central Office',
-    currentPositionTitle: params.currentPositionTitle || 'DA-BFAR Personnel',
-    currentPlantillaItem: params.currentPlantillaItem || 'ZERO-STORAGE-VERIFIED',
+    currentPositionTitle:
+      params.currentPositionTitle ||
+      (status === 'Permanent' ? 'DA-BFAR Plantilla Personnel' : `DA-BFAR ${status} Personnel`),
+    currentPlantillaItem: params.currentPlantillaItem || `ZERO-STORAGE-${status.toUpperCase()}`,
     salaryGrade: params.salaryGrade ?? 11,
     yearsInBfar: params.yearsInBfar ?? 1,
     eligibility: params.eligibility || 'CSC / Agency Verified',
@@ -58,25 +79,8 @@ function createZeroStorageProfile(params: {
     latestIpcrRating: params.latestIpcrRating ?? 4.5,
     trainingHours: params.trainingHours ?? 8,
     email: params.email || '',
-  } as unknown as InternalEmployeeProfile;
+  } as unknown as VerifiedInternalProfile;
 }
-
-const ZERO_STORAGE_FALLBACK_EMPLOYEES: Record<string, InternalEmployeeProfile> = {
-  COS4513: createZeroStorageProfile({
-    employeeId: 'COS4513',
-    fullName: 'BFAR Central Office Personnel (COS4513)',
-    division: 'BFAR Central Office',
-    currentPositionTitle: 'Contract of Service Personnel',
-    currentPlantillaItem: 'COS-BFAR-CO-4513',
-    salaryGrade: 11,
-    yearsInBfar: 1,
-    eligibility: 'CSC / Agency Verified',
-    ipcrPeriod: 'Latest Evaluation Record',
-    latestIpcrRating: 4.5,
-    trainingHours: 8,
-    email: '',
-  }),
-};
 
 const normalizePlantillaItemNo = (job: PlantillaJob): string =>
   (job.plantillaItemNumber || job.itemNo || '').trim();
@@ -90,7 +94,7 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
   onSelectJobForInternalApply,
   onTrackApplication,
 }) => {
-  const [activeEmployee, setActiveEmployee] = useState<InternalEmployeeProfile | null>(null);
+  const [activeEmployee, setActiveEmployee] = useState<VerifiedInternalProfile | null>(null);
   const [employeeIdInput, setEmployeeIdInput] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationError, setVerificationError] = useState<string | null>(null);
@@ -120,7 +124,12 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
         if (checkId !== authCheckIdRef.current) return;
 
         if (record) {
-          setActiveEmployee(record);
+          setActiveEmployee(
+            createZeroStorageProfile({
+              ...record,
+              email: record.email || email,
+            })
+          );
           setVerificationError(null);
           return;
         }
@@ -161,9 +170,11 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
 
   const handleVerifyEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanId = employeeIdInput.trim().toUpperCase();
-    if (!cleanId) {
-      setVerificationError('Please enter your official DA-BFAR Employee ID (e.g. COS4513).');
+    const rawInput = employeeIdInput.trim();
+    if (!rawInput) {
+      setVerificationError(
+        'Please enter your DA-BFAR Employee ID (e.g. COS4513, JO102, CASUAL01, PAKYAW05, C-101, or Permanent ID).'
+      );
       return;
     }
 
@@ -171,43 +182,47 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
     setVerificationError(null);
 
     try {
-      const record = await lookupInternalEmployee(cleanId);
-      if (record) {
-        setActiveEmployee(record);
-        setVerificationError(null);
-        return;
-      }
+      const verified = verifyBfarEmployeeId(rawInput);
+      const record = await lookupInternalEmployee(rawInput);
 
-      if (ZERO_STORAGE_FALLBACK_EMPLOYEES[cleanId]) {
+      if (verified) {
         setActiveEmployee(
           createZeroStorageProfile({
-            ...ZERO_STORAGE_FALLBACK_EMPLOYEES[cleanId],
-            email: auth.currentUser?.email || '',
+            employeeId: verified.normalizedId,
+            fullName: record?.fullName || `DA-BFAR ${verified.employmentStatus} Personnel (${verified.normalizedId})`,
+            employmentStatus: verified.employmentStatus,
+            badgeLabel: verified.label,
+            division: record?.division || 'BFAR Central Office',
+            currentPositionTitle:
+              record?.currentPositionTitle ||
+              (verified.employmentStatus === 'Permanent'
+                ? 'DA-BFAR Plantilla Personnel'
+                : `DA-BFAR ${verified.employmentStatus} Personnel`),
+            currentPlantillaItem:
+              record?.currentPlantillaItem || `ID-${verified.normalizedId}`,
+            salaryGrade: record?.salaryGrade ?? 11,
+            yearsInBfar: record?.yearsInBfar ?? 1,
+            eligibility: record?.eligibility || 'CSC / Agency Verified',
+            ipcrPeriod: record?.ipcrPeriod || 'Latest Evaluation Record',
+            latestIpcrRating: record?.latestIpcrRating ?? 4.5,
+            trainingHours: record?.trainingHours ?? 8,
+            email: record?.email || auth.currentUser?.email || '',
           })
         );
+        setEmployeeIdInput(verified.normalizedId);
         setVerificationError(null);
         return;
       }
 
       setActiveEmployee(null);
       setVerificationError(
-        `Employee record not found for "${cleanId}". You can also verify using your official @bfar.da.gov.ph Google account or contact HRMD.`
+        `Invalid Employee ID format for "${rawInput}". Supported formats: COS, JO, CASUAL/CAS, PAKYAW/PKY, C- (Consultant), or ID without status prefix (Permanent).`
       );
     } catch {
-      if (ZERO_STORAGE_FALLBACK_EMPLOYEES[cleanId]) {
-        setActiveEmployee(
-          createZeroStorageProfile({
-            ...ZERO_STORAGE_FALLBACK_EMPLOYEES[cleanId],
-            email: auth.currentUser?.email || '',
-          })
-        );
-        setVerificationError(null);
-      } else {
-        setActiveEmployee(null);
-        setVerificationError(
-          'Employee record not found. Please contact the Human Resource Management Division for verification.'
-        );
-      }
+      setActiveEmployee(null);
+      setVerificationError(
+        'Unable to verify Employee ID right now. Please try again or contact HRMD.'
+      );
     } finally {
       setIsVerifying(false);
     }
@@ -228,7 +243,12 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
 
       const existingRecord = await lookupInternalEmployee(email);
       if (existingRecord) {
-        setActiveEmployee(existingRecord);
+        setActiveEmployee(
+          createZeroStorageProfile({
+            ...existingRecord,
+            email: existingRecord.email || email,
+          })
+        );
         return;
       }
 
@@ -286,10 +306,10 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
             Internal Recruitment &amp; Promotion Portal
           </h2>
           <p className="text-xs text-slate-600 leading-relaxed max-w-2xl">
-            Strictly restricted to authorized permanent and active personnel of the{' '}
+            Strictly restricted to authorized personnel of the{' '}
             <strong>Bureau of Fisheries and Aquatic Resources (DA-BFAR)</strong>. Uses lightweight
-            text-only ID verification and <strong>@bfar.da.gov.ph</strong> authentication to
-            conserve Firebase Storage.
+            ID verification and <strong>@bfar.da.gov.ph</strong> authentication to conserve
+            Firestore storage and writes.
           </p>
         </div>
 
@@ -305,9 +325,13 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
                   Employee Identity Verification
                 </h3>
                 <p className="text-xs text-slate-600 mt-0.5">
-                  Enter your registered DA-BFAR Employee ID (e.g.{' '}
-                  <strong className="text-slate-800">COS4513</strong>) or verify with your{' '}
-                  <strong className="text-[#024794]">@bfar.da.gov.ph</strong> Google account.
+                  Enter your DA-BFAR Employee ID (e.g.{' '}
+                  <strong className="text-slate-800">COS4513</strong>,{' '}
+                  <strong className="text-slate-800">JO...</strong>,{' '}
+                  <strong className="text-slate-800">CASUAL...</strong>,{' '}
+                  <strong className="text-slate-800">PAKYAW...</strong>,{' '}
+                  <strong className="text-slate-800">C-...</strong>, or Permanent ID) or verify with{' '}
+                  <strong className="text-[#024794]">@bfar.da.gov.ph</strong>.
                 </p>
               </div>
             </div>
@@ -343,7 +367,7 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. COS4513"
+                    placeholder="e.g. COS4513, C-101, or ID No."
                     value={employeeIdInput}
                     onChange={(e) => setEmployeeIdInput(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-xs font-mono font-bold text-slate-900 focus:outline-hidden focus:ring-2 focus:ring-[#024794] focus:bg-white"
@@ -351,8 +375,8 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                 </div>
                 <span className="text-[11px] text-slate-500 mt-1.5 block">
-                  Issued by the DA-BFAR Human Resource Management Division (HRMD). Zero file storage
-                  used.
+                  Supports COS, JO, CASUAL, PAKYAW, C- (Consultant), and IDs without status prefix
+                  as Permanent. Zero directory storage used.
                 </span>
               </div>
 
@@ -364,7 +388,7 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
                 {isVerifying ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-300" />
-                    <span>Verifying Record with HR Database...</span>
+                    <span>Verifying Employee ID...</span>
                   </>
                 ) : (
                   <>
@@ -381,9 +405,9 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
                 <span>Assistance for DA-BFAR Personnel</span>
               </div>
               <p className="text-[11px] text-slate-500 leading-relaxed">
-                If your Employee ID is newly issued or pending database synchronization, please
-                contact the <strong>HRMD Personnel Section</strong> at the BFAR Central Office, PCA
-                Building, Diliman, Quezon City or email{' '}
+                For questions on ID classification or internal applications, contact the{' '}
+                <strong>HRMD Personnel Section</strong> at the BFAR Central Office, PCA Building,
+                Diliman, Quezon City or email{' '}
                 <span className="font-mono text-slate-700 font-semibold">hrmd@bfar.da.gov.ph</span>.
               </p>
             </div>
@@ -392,6 +416,10 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
       </div>
     );
   }
+
+  const displayStatus = activeEmployee.employmentStatus || 'Permanent';
+  const displayBadge =
+    activeEmployee.badgeLabel || `${activeEmployee.employeeId} • ${displayStatus}`;
 
   const myApplications = applications.filter(
     (app) =>
@@ -417,13 +445,15 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
               <span className="bg-emerald-100 text-emerald-900 font-bold text-[10px] px-2 py-0.5 rounded uppercase">
                 Verified DA-BFAR Personnel
               </span>
+              <span className="bg-amber-100 text-amber-950 font-bold text-[10px] px-2 py-0.5 rounded uppercase">
+                {displayStatus}
+              </span>
               <span className="text-slate-300 font-mono text-xs font-semibold">
-                {activeEmployee.employeeId}
+                {displayBadge}
               </span>
             </div>
             <h3 className="text-xs sm:text-sm font-bold text-white mt-0.5">
-              {activeEmployee.fullName} •{' '}
-              {activeEmployee.currentPositionTitle || 'Plantilla Staff'} (SG{' '}
+              {activeEmployee.fullName} • {activeEmployee.currentPositionTitle} (SG{' '}
               {activeEmployee.salaryGrade})
             </h3>
           </div>
@@ -461,11 +491,16 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
             </div>
             <div>
               <span className="text-slate-400 text-[10px] uppercase font-bold block">
-                Employee ID
+                Employee ID &amp; Status
               </span>
-              <span className="font-mono font-bold text-[#024794] text-xs bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-block mt-0.5">
-                {activeEmployee.employeeId}
-              </span>
+              <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                <span className="font-mono font-bold text-[#024794] text-xs bg-blue-50 px-2 py-0.5 rounded border border-blue-200 inline-block">
+                  {activeEmployee.employeeId}
+                </span>
+                <span className="font-bold text-emerald-900 text-[11px] bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 inline-block">
+                  {displayStatus}
+                </span>
+              </div>
             </div>
             <div>
               <span className="text-slate-400 text-[10px] uppercase font-bold block">
@@ -491,7 +526,7 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
                 Current Position
               </span>
               <span className="font-bold text-slate-900 text-xs block">
-                {activeEmployee.currentPositionTitle || 'Plantilla Item Holder'}
+                {activeEmployee.currentPositionTitle || 'DA-BFAR Personnel'}
               </span>
               {activeEmployee.currentPlantillaItem && (
                 <span className="font-mono text-[11px] text-slate-500 block mt-0.5">
@@ -512,12 +547,14 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
               </div>
               <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                 <span className="text-[10px] font-bold text-slate-500 uppercase block">
-                  Bureau Service
+                  Employment Status
                 </span>
                 <span className="text-sm font-black text-slate-800 block mt-0.5">
-                  {activeEmployee.yearsInBfar || 0} Years
+                  {displayStatus}
                 </span>
-                <span className="text-[10px] text-slate-400 block">Active Service</span>
+                <span className="text-[10px] text-slate-400 block">
+                  {activeEmployee.yearsInBfar || 1} Yr(s) Service
+                </span>
               </div>
             </div>
           </div>
@@ -737,10 +774,10 @@ export const InternalRecruitmentPortal: React.FC<InternalRecruitmentPortalProps>
                       <button
                         type="button"
                         onClick={() => onSelectJobForInternalApply(job, activeEmployee)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3.5 py-1.5 rounded-lg shadow-xs transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
+                        className="bg-[#024794] hover:bg-[#033b7a] text-white text-xs font-bold px-3.5 py-1.5 rounded-lg transition-colors shadow-xs flex items-center gap-1.5 cursor-pointer shrink-0"
                       >
-                        <span>Apply for Promotion</span>
-                        <ArrowRight className="w-3.5 h-3.5 text-amber-200" />
+                        <span>Apply Now</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
