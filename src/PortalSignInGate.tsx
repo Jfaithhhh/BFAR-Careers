@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   Building2,
@@ -21,6 +20,7 @@ import {
   registerExternalApplicant,
   sendExternalApplicantOtp,
 } from './lib/portalAuthService';
+import { lookupInternalEmployee } from './lib/firestoreService';
 
 interface PortalSignInGateProps {
   selectedOption: ActivePortalPov;
@@ -73,40 +73,78 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
     return authResult as PortalUserProfile;
   };
 
-  const handleZeroStorageEmployeeIdLogin = () => {
-    resetMessages();
-    const cleaned = empIdOrEmail.trim().toUpperCase();
-    if (!cleaned || cleaned.includes('@')) {
-      setErrorMessage('Enter your Employee ID or sign in with your @bfar.da.gov.ph email.');
-      return;
-    }
-
-    const fallbackProfile = {
-      uid: `emp_${cleaned.toLowerCase()}`,
-      email: `${cleaned.toLowerCase()}@bfar.da.gov.ph`,
-      fullName: empFullName.trim() || `BFAR Personnel (${cleaned})`,
-      role: 'bfar_employee',
-      division: empDivision.trim() || 'BFAR Central Office',
-      employeeId: cleaned,
-      emailVerified: true,
-    } as unknown as PortalUserProfile;
-
-    onAuthenticatedUser(fallbackProfile);
-  };
-
   const handleEmployeeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     resetMessages();
 
     const rawInput = empIdOrEmail.trim();
-    if (!rawInput.includes('@')) {
-      handleZeroStorageEmployeeIdLogin();
+    if (!rawInput) {
+      setErrorMessage('Please enter a valid DA-BFAR Employee ID or @bfar.da.gov.ph email.');
+      return;
+    }
+
+    if (!empPassword.trim()) {
+      setErrorMessage('Password is required for BFAR Employee access.');
       return;
     }
 
     setIsSubmitting(true);
     try {
+      if (!rawInput.includes('@')) {
+        const normalizedId = rawInput.toUpperCase();
+        if (normalizedId === '1234' || normalizedId.length < 3) {
+          throw new Error('Access denied: Please enter a valid, official DA-BFAR Employee ID.');
+        }
+
+        const verifiedRecord = await lookupInternalEmployee(normalizedId);
+        if (!verifiedRecord) {
+          throw new Error(
+            'Access denied: Employee ID not found in the official DA-BFAR employee directory.'
+          );
+        }
+
+        if ((verifiedRecord as unknown as { status?: string }).status === 'Inactive') {
+          throw new Error('Access denied: This BFAR Employee ID is inactive.');
+        }
+
+        const verifiedEmail =
+          verifiedRecord.email?.trim().toLowerCase() ||
+          `${normalizedId.toLowerCase()}@bfar.da.gov.ph`;
+
+        if (empMode === 'login') {
+          const profile = await loginBfarEmployee(verifiedEmail, empPassword);
+          onAuthenticatedUser({
+            ...profile,
+            fullName: verifiedRecord.fullName || profile.fullName,
+            division: verifiedRecord.division || profile.division,
+            role: 'bfar_employee',
+          });
+        } else {
+          if (!empFullName.trim()) {
+            throw new Error('Please enter your full name.');
+          }
+          if (empPassword.length < 6) {
+            throw new Error('Password must be at least 6 characters.');
+          }
+          if (empPassword !== empConfirmPassword) {
+            throw new Error('Passwords do not match.');
+          }
+          const profile = await registerBfarEmployee({
+            email: verifiedEmail,
+            password: empPassword,
+            fullName: empFullName.trim(),
+            division: empDivision.trim() || verifiedRecord.division || '',
+          } as Parameters<typeof registerBfarEmployee>[0]);
+          onAuthenticatedUser(profile);
+        }
+        return;
+      }
+
       const normalizedEmail = rawInput.toLowerCase();
+      if (!normalizedEmail.endsWith('@bfar.da.gov.ph')) {
+        throw new Error('Access denied: Please use an official @bfar.da.gov.ph email address.');
+      }
+
       if (empMode === 'login') {
         const profile = await loginBfarEmployee(normalizedEmail, empPassword);
         onAuthenticatedUser(profile);
@@ -275,7 +313,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
               <span className="text-sm font-bold text-[#0F172A]">1. BFAR Employee</span>
             </div>
             <p className="text-[11px] text-[#475569]">
-              @bfar.da.gov.ph or Employee ID &bull; Internal Promotions
+              Verified @bfar.da.gov.ph or Employee ID &bull; Internal Promotions
             </p>
           </button>
 
@@ -341,7 +379,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
               <div>
                 <h3 className="text-sm font-bold text-[#0F172A]">BFAR Employee Internal Portal</h3>
                 <p className="text-xs text-[#475569]">
-                  Sign in with <span className="font-semibold text-[#0F3557]">@bfar.da.gov.ph</span> or enter your Employee ID.
+                  Sign in with a verified <span className="font-semibold text-[#0F3557]">@bfar.da.gov.ph</span> account or verified Employee ID.
                 </p>
               </div>
               <div className="inline-flex rounded-sm border border-[#DCE2E8] bg-white p-0.5">
@@ -417,7 +455,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                       autoComplete="off"
                       value={empIdOrEmail}
                       onChange={(e) => setEmpIdOrEmail(e.target.value)}
-                      placeholder="Enter Employee ID or @bfar.da.gov.ph email"
+                      placeholder="Enter official Employee ID or @bfar.da.gov.ph email"
                       className="w-full pl-9 pr-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
                     />
                   </div>
@@ -425,13 +463,13 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
 
                 <div>
                   <label className="block text-xs font-semibold text-[#0F172A] mb-1">
-                    Password {empIdOrEmail.includes('@') ? '*' : '(Optional for ID lookup)'}
+                    Password *
                   </label>
                   <div className="relative">
                     <Lock className="w-4 h-4 text-[#475569] absolute left-3 top-2.5" />
                     <input
                       type={showEmpPassword ? 'text' : 'password'}
-                      required={empIdOrEmail.includes('@')}
+                      required
                       autoComplete="new-password"
                       value={empPassword}
                       onChange={(e) => setEmpPassword(e.target.value)}
@@ -479,16 +517,6 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
               )}
 
               <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
-                {!empIdOrEmail.includes('@') && empIdOrEmail.trim() && (
-                  <button
-                    type="button"
-                    onClick={handleZeroStorageEmployeeIdLogin}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-sm bg-[#0D4F3C] hover:bg-[#071A2F] text-white text-xs font-bold cursor-pointer"
-                  >
-                    <UserCheck className="w-4 h-4 text-[#C69214]" />
-                    Continue with ID ({empIdOrEmail.trim().toUpperCase()})
-                  </button>
-                )}
                 <button
                   type="submit"
                   disabled={isSubmitting}
@@ -496,7 +524,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                 >
                   <UserPlus className="w-4 h-4 text-[#C69214]" />
                   {isSubmitting
-                    ? 'Please wait...'
+                    ? 'Verifying...'
                     : empMode === 'login'
                     ? 'Sign In as BFAR Employee'
                     : 'Register BFAR Employee Account'}
