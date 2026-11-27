@@ -219,7 +219,6 @@ const generateReferenceCode = (): string => {
   return `BFAR-${year}-${rand}`;
 };
 
-// Storage helper: remove empty rows to keep Firestore documents lean
 const pruneEmptyEntries = <T extends Record<string, any>>(
   rows: T[],
   requiredKeys: (keyof T)[]
@@ -245,6 +244,9 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
     () => jobs.find((j) => j.id === currentJobId) || jobs[0],
     [jobs, currentJobId]
   );
+
+  const jobItemNo = activeJob ? getJobItemNo(activeJob) : '';
+  const jobClosingDate = activeJob ? getJobClosingDate(activeJob) : '';
 
   const [activeSection, setActiveSection] = useState<FormSection>('letter');
 
@@ -1326,9 +1328,6 @@ export const ApplicationForm: React.FC<ApplicationFormProps> = ({
       </div>
     );
   }
-
-  const jobItemNo = getJobItemNo(activeJob);
-  const jobClosingDate = getJobClosingDate(activeJob);
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
