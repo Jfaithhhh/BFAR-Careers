@@ -12,8 +12,6 @@ import {
   setDoc,
   updateDoc,
   serverTimestamp,
-  collection,
-  addDoc,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { PortalUserProfile } from '../types';
@@ -21,6 +19,83 @@ import { PortalUserProfile } from '../types';
 export const BFAR_DOMAIN = '@bfar.da.gov.ph';
 export const BFAR_DOMAIN_ERROR =
   'Access restricted: Please use your official @bfar.da.gov.ph email address.';
+
+const OTP_STORAGE_PREFIX = 'bfar_otp_session:';
+const OTP_TTL_MS = 10 * 60 * 1000; // 10 minutes (matches Apps Script email notice)
+
+interface SessionOtpRecord {
+  uid: string;
+  email: string;
+  code: string;
+  expiresAt: number;
+  verified: boolean;
+}
+
+function getOtpStorageKey(email: string): string {
+  return `${OTP_STORAGE_PREFIX}${email.trim().toLowerCase()}`;
+}
+
+function readSessionOtp(email: string): SessionOtpRecord | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(getOtpStorageKey(email));
+    if (!raw) return null;
+    return JSON.parse(raw) as SessionOtpRecord;
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionOtp(record: SessionOtpRecord): void {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.setItem(getOtpStorageKey(record.email), JSON.stringify(record));
+  (window as unknown as { __bfarOtpEmail?: string; __bfarOtpUid?: string }).__bfarOtpEmail =
+    record.email;
+  (window as unknown as { __bfarOtpEmail?: string; __bfarOtpUid?: string }).__bfarOtpUid =
+    record.uid;
+}
+
+function clearSessionOtp(email: string): void {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.removeItem(getOtpStorageKey(email));
+}
+
+/**
+ * Validates the 6-digit OTP stored in `sessionStorage` BEFORE creating any
+ * Firebase Auth user or writing to Firestore (`users` / `usernames`).
+ */
+export function assertValidSessionOtp(
+  email: string,
+  enteredCode: string,
+  consume = true
+): void {
+  const cleanEmail = email.trim().toLowerCase();
+  const cleanCode = enteredCode.trim();
+
+  if (!/^\d{6}$/.test(cleanCode)) {
+    throw new Error('Please enter a valid 6-digit verification OTP code.');
+  }
+
+  const record = readSessionOtp(cleanEmail);
+  if (!record) {
+    throw new Error('No active verification code found. Please click "Send OTP" first.');
+  }
+
+  if (Date.now() > Number(record.expiresAt || 0)) {
+    clearSessionOtp(cleanEmail);
+    throw new Error('Verification code has expired (10-minute limit). Please resend OTP.');
+  }
+
+  if (String(record.code || '').trim() !== cleanCode) {
+    throw new Error('Invalid 6-digit verification code. Please check your email and try again.');
+  }
+
+  if (consume) {
+    clearSessionOtp(cleanEmail);
+  } else {
+    writeSessionOtp({ ...record, verified: true });
+  }
+}
 
 export function isValidBfarEmail(email: string): boolean {
   return email.trim().toLowerCase().endsWith(BFAR_DOMAIN);
@@ -37,8 +112,8 @@ export async function getPortalUserProfile(uid: string): Promise<PortalUserProfi
 }
 
 /**
- * Generates a 6-digit OTP (5-minute expiry) & queues a mail document in Firestore `mail`.
- * Actual email delivery to Gmail relies on a backend / Cloud Function / Firestore Mail extension.
+ * Generates a 6-digit OTP (10-minute expiry), stores it ONLY in `sessionStorage`
+ * (0 bytes in Firestore), and sends the email via Google Apps Script Web App.
  */
 export async function sendExternalApplicantOtp(
   emailOrUid: string,
@@ -64,51 +139,42 @@ export async function sendExternalApplicantOtp(
       : auth.currentUser?.uid ||
         `otp_${btoa(cleanEmail).replace(/[^a-zA-Z0-9]/g, '').slice(0, 20)}`;
 
-  if (typeof window !== 'undefined') {
-    (window as unknown as { __bfarOtpUid?: string }).__bfarOtpUid = existingUid;
-  }
-
   const code = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = Date.now() + 5 * 60 * 1000;
+  const expiresAt = Date.now() + OTP_TTL_MS;
 
-  await setDoc(doc(db, 'otp_verifications', existingUid), {
+  writeSessionOtp({
     uid: existingUid,
     email: cleanEmail,
     code,
     expiresAt,
-    attempts: 0,
     verified: false,
-    updatedAt: serverTimestamp(),
   });
 
+  const webhookUrl = String(import.meta.env.VITE_OTP_WEBHOOK_URL || '').trim();
   let deliveredViaEmail = false;
-  try {
-    await addDoc(collection(db, 'mail'), {
-      to: [cleanEmail],
-      message: {
-        subject: 'DA-BFAR Careers Portal — Your 6-Digit Verification Code',
-        text: `Hello ${displayName},\n\nYour DA-BFAR verification code is: ${code}\n\nThis code will expire in 5 minutes. If you did not request this, please ignore this email.\n\nDA-BFAR Human Resource Merit Promotion and Selection Board (HRMPSB)`,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden;">
-            <div style="background: #0b2447; color: #ffffff; padding: 16px 20px;">
-              <div style="font-size: 11px; letter-spacing: 1px; color: #7dd3fc; font-weight: bold;">REPUBLIC OF THE PHILIPPINES • DA-BFAR</div>
-              <div style="font-size: 16px; font-weight: bold; margin-top: 4px;">Portal Email Verification</div>
-            </div>
-            <div style="padding: 24px 20px; color: #1e293b;">
-              <p style="margin-top: 0;">Hello <strong>${displayName}</strong>,</p>
-              <p>Use the 6-digit One-Time Password (OTP) below to verify your email address:</p>
-              <div style="background: #f1f5f9; border: 1px dashed #024794; border-radius: 6px; padding: 14px; text-align: center; margin: 20px 0;">
-                <span style="font-size: 28px; font-weight: 800; letter-spacing: 6px; color: #024794; font-family: monospace;">${code}</span>
-              </div>
-              <p style="font-size: 13px; color: #64748b;">This code expires in <strong>5 minutes</strong>.</p>
-            </div>
-          </div>
-        `,
-      },
-    });
-    deliveredViaEmail = true;
-  } catch {
-    deliveredViaEmail = false;
+
+  if (webhookUrl) {
+    try {
+      // Use text/plain to prevent CORS preflight OPTIONS failure on Google Apps Script Web Apps
+      const res = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+        body: JSON.stringify({
+          email: cleanEmail,
+          code,
+          fullName: displayName,
+        }),
+      });
+
+      if (res.ok) {
+        const payload = await res.json().catch(() => ({ ok: true }));
+        deliveredViaEmail = payload?.ok !== false;
+      }
+    } catch {
+      deliveredViaEmail = false;
+    }
   }
 
   return {
@@ -120,36 +186,9 @@ export async function sendExternalApplicantOtp(
 }
 
 /**
- * Validates the 6-digit OTP stored in `otp_verifications/{uid}`.
- */
-async function validateOtpRecord(uid: string, enteredCode: string): Promise<void> {
-  const otpRef = doc(db, 'otp_verifications', uid);
-  const otpSnap = await getDoc(otpRef);
-
-  if (!otpSnap.exists()) {
-    throw new Error('No active verification code found. Please click "Send OTP" first.');
-  }
-
-  const data = otpSnap.data();
-  if (Date.now() > Number(data.expiresAt || 0)) {
-    throw new Error('Verification code has expired (5-minute limit). Please resend OTP.');
-  }
-
-  if (String(data.code || '').trim() !== enteredCode.trim()) {
-    throw new Error('Invalid 6-digit verification code. Please check your email and try again.');
-  }
-
-  await updateDoc(otpRef, {
-    verified: true,
-    verifiedAt: serverTimestamp(),
-  });
-}
-
-/**
  * BFAR Employee Registration:
  * - 1st Choice: Official @bfar.da.gov.ph email
- * - 2nd Option: Personal @gmail.com email (requires 6-digit OTP verification)
- * - Does NOT auto-set emailVerified: true without valid OTP verification.
+ * - 2nd Option: Personal @gmail.com email (strictly gated by 6-digit sessionStorage OTP)
  */
 export async function registerBfarEmployee(params: {
   email: string;
@@ -175,17 +214,7 @@ export async function registerBfarEmployee(params: {
   let otpPassed = false;
 
   if (requiresOtp) {
-    if (!params.code || !/^\d{6}$/.test(params.code.trim())) {
-      throw new Error('Please enter a valid 6-digit verification OTP code.');
-    }
-    const candidateUid =
-      auth.currentUser?.uid ||
-      (typeof window !== 'undefined'
-        ? (window as unknown as { __bfarOtpUid?: string }).__bfarOtpUid
-        : undefined) ||
-      `otp_${btoa(cleanEmail).replace(/[^a-zA-Z0-9]/g, '').slice(0, 20)}`;
-
-    await validateOtpRecord(candidateUid, params.code.trim());
+    assertValidSessionOtp(cleanEmail, params.code || '', true);
     otpPassed = true;
   }
 
@@ -289,7 +318,7 @@ export async function isUsernameAvailable(username: string): Promise<boolean> {
 
 /**
  * Register External Applicant.
- * `code` is optional so callers that verify via modal (`PortalAccessGateway`) can pass `{ username, email, password }`.
+ * Enforces `assertValidSessionOtp` BEFORE `createUserWithEmailAndPassword` when `code` is provided.
  */
 export async function registerExternalApplicant(params: {
   uid?: string;
@@ -315,24 +344,13 @@ export async function registerExternalApplicant(params: {
   }
 
   const hasInlineCode = Boolean(params.code && params.code.trim().length > 0);
-  if (hasInlineCode && !/^\d{6}$/.test(params.code!.trim())) {
-    throw new Error('Please enter a valid 6-digit Gmail OTP code.');
+  if (hasInlineCode) {
+    assertValidSessionOtp(cleanEmail, params.code!.trim(), true);
   }
 
   const available = await isUsernameAvailable(normalizedUsername);
   if (!available) {
     throw new Error('Username is already taken. Please choose another username.');
-  }
-
-  if (hasInlineCode) {
-    const candidateOtpUid =
-      params.uid?.trim() ||
-      (typeof window !== 'undefined'
-        ? (window as unknown as { __bfarOtpUid?: string }).__bfarOtpUid
-        : undefined) ||
-      `otp_${btoa(cleanEmail).replace(/[^a-zA-Z0-9]/g, '').slice(0, 20)}`;
-
-    await validateOtpRecord(candidateOtpUid, params.code!.trim());
   }
 
   const cred = await createUserWithEmailAndPassword(auth, cleanEmail, params.password);
@@ -357,31 +375,44 @@ export async function registerExternalApplicant(params: {
 
   await setDoc(doc(db, 'users', cred.user.uid), profile);
 
-  const otpInfo = await sendExternalApplicantOtp(cred.user.uid, cleanEmail, cleanUsername);
+  let sentCode = params.code?.trim() || '';
+  if (!hasInlineCode) {
+    const otpInfo = await sendExternalApplicantOtp(cred.user.uid, cleanEmail, cleanUsername);
+    sentCode = otpInfo.code;
+  }
 
   return {
     profile,
     uid: cred.user.uid,
     email: cleanEmail,
     username: cleanUsername,
-    code: otpInfo.code,
+    code: sentCode,
   };
 }
 
 /**
- * Verify 6-Digit OTP & Activate Account
+ * Verify 6-Digit OTP & Activate Account (for 2-step modal verification)
  */
 export async function verifyExternalApplicantOtp(
   uid: string,
   enteredCode: string
 ): Promise<PortalUserProfile> {
-  await validateOtpRecord(uid, enteredCode);
-
   const userRef = doc(db, 'users', uid);
+  const userSnap = await getDoc(userRef);
+
+  if (!userSnap.exists()) {
+    throw new Error('User profile not found. Please register again.');
+  }
+
+  const existingProfile = userSnap.data() as PortalUserProfile;
+  assertValidSessionOtp(existingProfile.email, enteredCode, true);
+
   await updateDoc(userRef, { emailVerified: true });
 
-  const updatedSnap = await getDoc(userRef);
-  return updatedSnap.data() as PortalUserProfile;
+  return {
+    ...existingProfile,
+    emailVerified: true,
+  };
 }
 
 /**

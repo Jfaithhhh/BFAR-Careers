@@ -36,10 +36,6 @@ service cloud.firestore {
       return request.resource.size() < 250000;
     }
 
-    function isValidOtpCode(code) {
-      return code is string && code.matches('^[0-9]{6}$');
-    }
-
     match /users/{uid} {
       allow read: if isSignedIn() && (request.auth.uid == uid || isHrAdmin());
 
@@ -78,38 +74,15 @@ service cloud.firestore {
       allow delete: if isHrAdmin();
     }
 
-    // Username uniqueness check and registration mapping
+    // Username uniqueness check and registration mapping (OTP lives in sessionStorage only)
     match /usernames/{usernameKey} {
       allow read: if true;
-      allow create: if request.resource.data.username is string
-        && request.resource.data.email is string
-        && request.resource.data.uid is string;
+      allow create: if isSignedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.username is string
+        && request.resource.data.email is string;
       allow update, delete: if isHrAdmin()
         || (isSignedIn() && resource.data.uid == request.auth.uid);
-    }
-
-    // OTP verification records used by sendExternalApplicantOtp & validateOtpRecord
-    match /otp_verifications/{docId} {
-      allow create, update: if request.resource.data.email is string
-        && isValidOtpCode(request.resource.data.code)
-        && request.resource.data.expiresAt is number
-        && request.resource.data.verified is bool;
-      allow read: if isHrAdmin()
-        || (isSignedIn() && resource.data.uid == request.auth.uid);
-      allow delete: if isHrAdmin();
-    }
-
-    // Queued email notifications for OTP delivery
-    match /mail/{mailId} {
-      allow create: if request.resource.data.to is list
-        && request.resource.data.to.size() > 0
-        && request.resource.data.message is map;
-      allow read, update, delete: if isHrAdmin();
-    }
-
-    // Legacy OTP collection if still referenced anywhere
-    match /email_otps/{emailKey} {
-      allow read, create, update, delete: if isHrAdmin();
     }
 
     // Job vacancies: public read for careers portal; write restricted to HR Admin
@@ -171,6 +144,7 @@ service cloud.firestore {
       allow write: if isHrAdmin();
     }
 
+    // Blocks all other collections (including any legacy/unused OTP or mail collections)
     match /{document=**} {
       allow read, write: if false;
     }
