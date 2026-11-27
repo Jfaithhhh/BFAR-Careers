@@ -29,6 +29,8 @@ interface PortalSignInGateProps {
   onProceedToHrPortal: () => void;
 }
 
+type EmployeeEmailOption = 'bfar_email' | 'personal_gmail';
+
 export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
   selectedOption,
   onSelectOption,
@@ -36,9 +38,16 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
   onProceedToHrPortal,
 }) => {
   const [empMode, setEmpMode] = useState<'login' | 'register'>('login');
+  const [empEmailOption, setEmpEmailOption] = useState<EmployeeEmailOption>('bfar_email');
   const [empFullName, setEmpFullName] = useState('');
   const [empDivision, setEmpDivision] = useState('');
   const [empIdOrEmail, setEmpIdOrEmail] = useState('');
+  const [empGmail, setEmpGmail] = useState('');
+  const [empOtpCode, setEmpOtpCode] = useState('');
+  const [empOtpSent, setEmpOtpSent] = useState(false);
+  const [empOtpVerified, setEmpOtpVerified] = useState(false);
+  const [empDevOtpPreview, setEmpDevOtpPreview] = useState<string | null>(null);
+  const [isSendingEmpOtp, setIsSendingEmpOtp] = useState(false);
   const [empPassword, setEmpPassword] = useState('');
   const [empConfirmPassword, setEmpConfirmPassword] = useState('');
   const [showEmpPassword, setShowEmpPassword] = useState(false);
@@ -73,15 +82,82 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
     return authResult as PortalUserProfile;
   };
 
+  const parseOtpResponse = (
+    otpResult: unknown
+  ): { previewCode: string | null; deliveredViaEmail: boolean } => {
+    let previewCode: string | null = null;
+    let deliveredViaEmail = false;
+
+    if (typeof otpResult === 'string' && /^\d{6}$/.test(otpResult.trim())) {
+      previewCode = otpResult.trim();
+    } else if (otpResult && typeof otpResult === 'object') {
+      const maybeObj = otpResult as { devOtpCode?: unknown; deliveredViaEmail?: unknown };
+      if (typeof maybeObj.devOtpCode === 'string' && /^\d{6}$/.test(maybeObj.devOtpCode.trim())) {
+        previewCode = maybeObj.devOtpCode.trim();
+      }
+      deliveredViaEmail = Boolean(maybeObj.deliveredViaEmail);
+    }
+
+    return { previewCode, deliveredViaEmail };
+  };
+
+  const handleSendEmployeeOtp = async () => {
+    resetMessages();
+    setIsSendingEmpOtp(true);
+    try {
+      const targetEmail =
+        empEmailOption === 'bfar_email'
+          ? empIdOrEmail.trim().toLowerCase()
+          : empGmail.trim().toLowerCase();
+
+      if (!targetEmail) {
+        throw new Error(
+          empEmailOption === 'bfar_email'
+            ? 'Please enter your @bfar.da.gov.ph email address first.'
+            : 'Please enter your Gmail address first.'
+        );
+      }
+
+      if (empEmailOption === 'bfar_email' && !targetEmail.endsWith('@bfar.da.gov.ph')) {
+        throw new Error('Option 1 requires an official @bfar.da.gov.ph email address.');
+      }
+
+      if (empEmailOption === 'personal_gmail' && !targetEmail.endsWith('@gmail.com')) {
+        throw new Error('Option 2 requires a valid @gmail.com email address.');
+      }
+
+      if (!empPassword || empPassword.length < 6) {
+        throw new Error('Please enter a password (at least 6 characters) before sending the OTP.');
+      }
+
+      const derivedUsername = empFullName.trim() || targetEmail.split('@')[0];
+      const otpResult: unknown = await sendExternalApplicantOtp(
+        targetEmail,
+        derivedUsername,
+        empPassword
+      );
+      const { previewCode, deliveredViaEmail } = parseOtpResponse(otpResult);
+
+      setEmpOtpSent(true);
+      setEmpOtpVerified(false);
+      setEmpDevOtpPreview(previewCode);
+      setInfoMessage(
+        deliveredViaEmail
+          ? `A 6-digit verification code was sent to ${targetEmail}.`
+          : `6-digit OTP generated for ${targetEmail}.`
+      );
+    } catch (caughtError: unknown) {
+      setErrorMessage(
+        caughtError instanceof Error ? caughtError.message : 'Unable to send 6-digit OTP.'
+      );
+    } finally {
+      setIsSendingEmpOtp(false);
+    }
+  };
+
   const handleEmployeeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     resetMessages();
-
-    const rawInput = empIdOrEmail.trim();
-    if (!rawInput) {
-      setErrorMessage('Please enter a valid DA-BFAR Employee ID or @bfar.da.gov.ph email.');
-      return;
-    }
 
     if (!empPassword.trim()) {
       setErrorMessage('Password is required for BFAR Employee access.');
@@ -90,6 +166,84 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
 
     setIsSubmitting(true);
     try {
+      if (empMode === 'register') {
+        if (!empFullName.trim()) {
+          throw new Error('Please enter your full name.');
+        }
+        if (empPassword.length < 6) {
+          throw new Error('Password must be at least 6 characters.');
+        }
+        if (empPassword !== empConfirmPassword) {
+          throw new Error('Passwords do not match.');
+        }
+        if (!/^\d{6}$/.test(empOtpCode.trim())) {
+          throw new Error('Please enter the 6-digit OTP code sent for verification.');
+        }
+
+        const primaryEmail =
+          empEmailOption === 'bfar_email'
+            ? empIdOrEmail.trim().toLowerCase()
+            : empGmail.trim().toLowerCase();
+
+        if (!primaryEmail) {
+          throw new Error('Please enter your email address.');
+        }
+
+        if (empEmailOption === 'bfar_email' && !primaryEmail.endsWith('@bfar.da.gov.ph')) {
+          throw new Error('1st Option requires an official @bfar.da.gov.ph email address.');
+        }
+
+        if (empEmailOption === 'personal_gmail' && !primaryEmail.endsWith('@gmail.com')) {
+          throw new Error('2nd Option requires a valid @gmail.com email address.');
+        }
+
+        if (empEmailOption === 'personal_gmail') {
+          const employeeIdInput = empIdOrEmail.trim().toUpperCase();
+          if (!employeeIdInput || employeeIdInput === '1234' || employeeIdInput.length < 3) {
+            throw new Error(
+              'Access denied: Please enter a valid, official DA-BFAR Employee ID when registering with Gmail.'
+            );
+          }
+          const verifiedRecord = await lookupInternalEmployee(employeeIdInput);
+          if (!verifiedRecord) {
+            throw new Error(
+              'Access denied: Employee ID not found in the official DA-BFAR employee directory.'
+            );
+          }
+          if ((verifiedRecord as unknown as { status?: string }).status === 'Inactive') {
+            throw new Error('Access denied: This BFAR Employee ID is inactive.');
+          }
+        }
+
+       const registerPayload = {
+      email: primaryEmail,
+      password: empPassword,
+      fullName: empFullName.trim(),
+      division: empDivision.trim(),
+      code: empOtpCode.trim(),
+      } as unknown as Parameters<typeof registerBfarEmployee>[0];
+
+        const profile = await registerBfarEmployee(registerPayload);
+
+        setEmpOtpVerified(true);
+
+        if (!profile.emailVerified) {
+          setInfoMessage(
+            `Account created for ${primaryEmail}. Complete verification before full portal entry.`
+          );
+          return;
+        }
+
+        onAuthenticatedUser(profile);
+        return;
+      }
+
+      const rawInput = empIdOrEmail.trim();
+      if (!rawInput) {
+        setErrorMessage('Please enter a valid DA-BFAR Employee ID or email address.');
+        return;
+      }
+
       if (!rawInput.includes('@')) {
         const normalizedId = rawInput.toUpperCase();
         if (normalizedId === '1234' || normalizedId.length < 3) {
@@ -111,61 +265,31 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
           verifiedRecord.email?.trim().toLowerCase() ||
           `${normalizedId.toLowerCase()}@bfar.da.gov.ph`;
 
-        if (empMode === 'login') {
-          const profile = await loginBfarEmployee(verifiedEmail, empPassword);
-          onAuthenticatedUser({
-            ...profile,
-            fullName: verifiedRecord.fullName || profile.fullName,
-            division: verifiedRecord.division || profile.division,
-            role: 'bfar_employee',
-          });
-        } else {
-          if (!empFullName.trim()) {
-            throw new Error('Please enter your full name.');
-          }
-          if (empPassword.length < 6) {
-            throw new Error('Password must be at least 6 characters.');
-          }
-          if (empPassword !== empConfirmPassword) {
-            throw new Error('Passwords do not match.');
-          }
-          const profile = await registerBfarEmployee({
-            email: verifiedEmail,
-            password: empPassword,
-            fullName: empFullName.trim(),
-            division: empDivision.trim() || verifiedRecord.division || '',
-          } as Parameters<typeof registerBfarEmployee>[0]);
-          onAuthenticatedUser(profile);
+        const profile = await loginBfarEmployee(verifiedEmail, empPassword);
+        if (!profile.emailVerified) {
+          throw new Error(
+            'Access denied: Your account email is not yet verified. Please verify your email/OTP first.'
+          );
         }
+
+        onAuthenticatedUser({
+          ...profile,
+          fullName: verifiedRecord.fullName || profile.fullName,
+          division: verifiedRecord.division || profile.division,
+          role: 'bfar_employee',
+        });
         return;
       }
 
       const normalizedEmail = rawInput.toLowerCase();
-      if (!normalizedEmail.endsWith('@bfar.da.gov.ph')) {
-        throw new Error('Access denied: Please use an official @bfar.da.gov.ph email address.');
+      const profile = await loginBfarEmployee(normalizedEmail, empPassword);
+      if (!profile.emailVerified) {
+        throw new Error(
+          'Access denied: Your email is not yet verified. Please complete OTP or email verification first.'
+        );
       }
 
-      if (empMode === 'login') {
-        const profile = await loginBfarEmployee(normalizedEmail, empPassword);
-        onAuthenticatedUser(profile);
-      } else {
-        if (!empFullName.trim()) {
-          throw new Error('Please enter your full name.');
-        }
-        if (empPassword.length < 6) {
-          throw new Error('Password must be at least 6 characters.');
-        }
-        if (empPassword !== empConfirmPassword) {
-          throw new Error('Passwords do not match.');
-        }
-        const profile = await registerBfarEmployee({
-          email: normalizedEmail,
-          password: empPassword,
-          fullName: empFullName.trim(),
-          division: empDivision.trim(),
-        } as Parameters<typeof registerBfarEmployee>[0]);
-        onAuthenticatedUser(profile);
-      }
+      onAuthenticatedUser(profile);
     } catch (caughtError: unknown) {
       setErrorMessage(
         caughtError instanceof Error
@@ -183,7 +307,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
     try {
       const normalizedEmail = extEmail.trim().toLowerCase();
       if (!normalizedEmail) {
-        throw new Error('Please enter your email address first.');
+        throw new Error('Please enter your Gmail address first.');
       }
       if (!extPassword) {
         throw new Error('Please enter your password before sending the OTP.');
@@ -195,19 +319,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
         derivedUsername,
         extPassword
       );
-
-      let previewCode: string | null = null;
-      let deliveredViaEmail = false;
-
-      if (typeof otpResult === 'string' && /^\d{6}$/.test(otpResult.trim())) {
-        previewCode = otpResult.trim();
-      } else if (otpResult && typeof otpResult === 'object') {
-        const maybeObj = otpResult as { devOtpCode?: unknown; deliveredViaEmail?: unknown };
-        if (typeof maybeObj.devOtpCode === 'string' && /^\d{6}$/.test(maybeObj.devOtpCode.trim())) {
-          previewCode = maybeObj.devOtpCode.trim();
-        }
-        deliveredViaEmail = Boolean(maybeObj.deliveredViaEmail);
-      }
+      const { previewCode, deliveredViaEmail } = parseOtpResponse(otpResult);
 
       setOtpSent(true);
       setOtpVerified(false);
@@ -234,7 +346,11 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
       const normalizedEmail = extEmail.trim().toLowerCase();
       if (extMode === 'login') {
         const loginResult: unknown = await loginExternalApplicant(normalizedEmail, extPassword);
-        onAuthenticatedUser(extractPortalProfile(loginResult));
+        const profile = extractPortalProfile(loginResult);
+        if (!profile.emailVerified) {
+          throw new Error('Please verify your Gmail OTP before signing in.');
+        }
+        onAuthenticatedUser(profile);
       } else {
         if (!extUsername.trim()) {
           throw new Error('Please enter a username.');
@@ -262,8 +378,15 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
           code: otpCode.trim(),
         } as Parameters<typeof registerExternalApplicant>[0]);
 
+        const profile = extractPortalProfile(regResult);
         setOtpVerified(true);
-        onAuthenticatedUser(extractPortalProfile(regResult));
+
+        if (!profile.emailVerified) {
+          setInfoMessage('Applicant account created. Complete OTP verification to activate access.');
+          return;
+        }
+
+        onAuthenticatedUser(profile);
       }
     } catch (caughtError: unknown) {
       setErrorMessage(
@@ -313,7 +436,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
               <span className="text-sm font-bold text-[#0F172A]">1. BFAR Employee</span>
             </div>
             <p className="text-[11px] text-[#475569]">
-              Verified @bfar.da.gov.ph or Employee ID &bull; Internal Promotions
+              1st Choice: @bfar.da.gov.ph &bull; 2nd Option: Personal Gmail
             </p>
           </button>
 
@@ -334,7 +457,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
               <span className="text-sm font-bold text-[#0F172A]">2. External Applicant</span>
             </div>
             <p className="text-[11px] text-[#475569]">
-              6-Digit Gmail OTP &bull; Public/External Openings
+              Personal Gmail + 6-Digit OTP &bull; Public/External Openings
             </p>
           </button>
 
@@ -379,7 +502,11 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
               <div>
                 <h3 className="text-sm font-bold text-[#0F172A]">BFAR Employee Internal Portal</h3>
                 <p className="text-xs text-[#475569]">
-                  Sign in with a verified <span className="font-semibold text-[#0F3557]">@bfar.da.gov.ph</span> account or verified Employee ID.
+                  Primary option:{' '}
+                  <span className="font-semibold text-[#0F3557]">@bfar.da.gov.ph</span>. Secondary
+                  registration option:{' '}
+                  <span className="font-semibold text-[#0D4F3C]">Personal Gmail</span> with OTP
+                  verification.
                 </p>
               </div>
               <div className="inline-flex rounded-sm border border-[#DCE2E8] bg-white p-0.5">
@@ -412,83 +539,272 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
 
             <form onSubmit={handleEmployeeSubmit} className="space-y-3.5">
               {empMode === 'register' && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetMessages();
+                        setEmpEmailOption('bfar_email');
+                        setEmpOtpSent(false);
+                        setEmpOtpVerified(false);
+                      }}
+                      className={`p-3 rounded-sm border text-left cursor-pointer ${
+                        empEmailOption === 'bfar_email'
+                          ? 'border-[#0F3557] bg-[#FBF7EC]'
+                          : 'border-[#DCE2E8] bg-white'
+                      }`}
+                    >
+                      <div className="text-xs font-bold text-[#0F172A]">
+                        1st Choice: Official @bfar.da.gov.ph Email
+                      </div>
+                      <div className="text-[11px] text-[#475569]">
+                        Primary BFAR employee email with verification
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetMessages();
+                        setEmpEmailOption('personal_gmail');
+                        setEmpOtpSent(false);
+                        setEmpOtpVerified(false);
+                      }}
+                      className={`p-3 rounded-sm border text-left cursor-pointer ${
+                        empEmailOption === 'personal_gmail'
+                          ? 'border-[#0D4F3C] bg-[#EBF5F1]'
+                          : 'border-[#DCE2E8] bg-white'
+                      }`}
+                    >
+                      <div className="text-xs font-bold text-[#0F172A]">
+                        2nd Option: Personal Gmail (@gmail.com)
+                      </div>
+                      <div className="text-[11px] text-[#475569]">
+                        Use personal Gmail + Employee ID + 6-digit OTP
+                      </div>
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                        Full Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={empFullName}
+                        onChange={(e) => setEmpFullName(e.target.value)}
+                        placeholder="Enter full name"
+                        className="w-full px-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                        BFAR Office / Division *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={empDivision}
+                        onChange={(e) => setEmpDivision(e.target.value)}
+                        placeholder="Enter office or division"
+                        className="w-full px-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {empMode === 'register' && empEmailOption === 'personal_gmail' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-[#0F172A] mb-1">
-                      Full Name *
+                      Personal Gmail Address (@gmail.com) *
                     </label>
-                    <input
-                      type="text"
-                      required
-                      value={empFullName}
-                      onChange={(e) => setEmpFullName(e.target.value)}
-                      placeholder="Enter full name"
-                      className="w-full px-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
-                    />
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="relative flex-1">
+                        <Mail className="w-4 h-4 text-[#475569] absolute left-3 top-2.5" />
+                        <input
+                          type="email"
+                          required
+                          autoComplete="off"
+                          value={empGmail}
+                          onChange={(e) => {
+                            setEmpGmail(e.target.value);
+                            setEmpOtpVerified(false);
+                          }}
+                          placeholder="yourname@gmail.com"
+                          className="w-full pl-9 pr-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSendEmployeeOtp}
+                        disabled={isSendingEmpOtp || !empGmail.trim()}
+                        className="px-3.5 py-2 rounded-sm bg-[#071A2F] hover:bg-[#0F3557] text-white text-xs font-bold disabled:opacity-50 cursor-pointer shrink-0"
+                      >
+                        {isSendingEmpOtp ? 'Sending...' : empOtpSent ? 'Resend OTP' : 'Send OTP'}
+                      </button>
+                    </div>
                   </div>
+
                   <div>
                     <label className="block text-xs font-semibold text-[#0F172A] mb-1">
-                      BFAR Office / Division *
+                      Verified BFAR Employee ID *
                     </label>
-                    <input
-                      type="text"
-                      required
-                      value={empDivision}
-                      onChange={(e) => setEmpDivision(e.target.value)}
-                      placeholder="Enter office or division"
-                      className="w-full px-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
-                    Official BFAR Email (@bfar.da.gov.ph) or Employee ID *
-                  </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-[#475569] absolute left-3 top-2.5" />
                     <input
                       type="text"
                       required
                       autoComplete="off"
                       value={empIdOrEmail}
                       onChange={(e) => setEmpIdOrEmail(e.target.value)}
-                      placeholder="Enter official Employee ID or @bfar.da.gov.ph email"
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
+                      placeholder="Enter official BFAR Employee ID"
+                      className="w-full px-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
                     />
                   </div>
                 </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                      {empMode === 'register'
+                        ? 'Official BFAR Email (@bfar.da.gov.ph) *'
+                        : 'Official BFAR Email (@bfar.da.gov.ph) or Employee ID *'}
+                    </label>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <div className="relative flex-1">
+                        <Mail className="w-4 h-4 text-[#475569] absolute left-3 top-2.5" />
+                        <input
+                          type="text"
+                          required
+                          autoComplete="off"
+                          value={empIdOrEmail}
+                          onChange={(e) => {
+                            setEmpIdOrEmail(e.target.value);
+                            setEmpOtpVerified(false);
+                          }}
+                          placeholder={
+                            empMode === 'register'
+                              ? 'name@bfar.da.gov.ph'
+                              : 'Enter official Employee ID or email'
+                          }
+                          className="w-full pl-9 pr-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
+                        />
+                      </div>
+                      {empMode === 'register' && (
+                        <button
+                          type="button"
+                          onClick={handleSendEmployeeOtp}
+                          disabled={isSendingEmpOtp || !empIdOrEmail.trim()}
+                          className="px-3.5 py-2 rounded-sm bg-[#071A2F] hover:bg-[#0F3557] text-white text-xs font-bold disabled:opacity-50 cursor-pointer shrink-0"
+                        >
+                          {isSendingEmpOtp ? 'Sending...' : empOtpSent ? 'Resend OTP' : 'Send OTP'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
-                    Password *
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-[#475569] absolute left-3 top-2.5" />
-                    <input
-                      type={showEmpPassword ? 'text' : 'password'}
-                      required
-                      autoComplete="new-password"
-                      value={empPassword}
-                      onChange={(e) => setEmpPassword(e.target.value)}
-                      placeholder="Enter password"
-                      className="w-full pl-9 pr-10 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowEmpPassword((prev) => !prev)}
-                      aria-label={showEmpPassword ? 'Hide password' : 'Show password'}
-                      className="text-[#475569] hover:text-[#0F172A] absolute right-2.5 top-2.5 cursor-pointer"
-                    >
-                      {showEmpPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                      Password *
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-[#475569] absolute left-3 top-2.5" />
+                      <input
+                        type={showEmpPassword ? 'text' : 'password'}
+                        required
+                        autoComplete="new-password"
+                        value={empPassword}
+                        onChange={(e) => setEmpPassword(e.target.value)}
+                        placeholder="Enter password"
+                        className="w-full pl-9 pr-10 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowEmpPassword((prev) => !prev)}
+                        aria-label={showEmpPassword ? 'Hide password' : 'Show password'}
+                        className="text-[#475569] hover:text-[#0F172A] absolute right-2.5 top-2.5 cursor-pointer"
+                      >
+                        {showEmpPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {empMode === 'register' && (
+              {empMode === 'register' && empEmailOption === 'personal_gmail' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                      Password *
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-[#475569] absolute left-3 top-2.5" />
+                      <input
+                        type={showEmpPassword ? 'text' : 'password'}
+                        required
+                        autoComplete="new-password"
+                        value={empPassword}
+                        onChange={(e) => setEmpPassword(e.target.value)}
+                        placeholder="Enter password"
+                        className="w-full pl-9 pr-10 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowEmpPassword((prev) => !prev)}
+                        aria-label={showEmpPassword ? 'Hide password' : 'Show password'}
+                        className="text-[#475569] hover:text-[#0F172A] absolute right-2.5 top-2.5 cursor-pointer"
+                      >
+                        {showEmpPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                      Confirm Password *
+                    </label>
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-[#475569] absolute left-3 top-2.5" />
+                      <input
+                        type={showEmpConfirmPassword ? 'text' : 'password'}
+                        required
+                        autoComplete="new-password"
+                        value={empConfirmPassword}
+                        onChange={(e) => setEmpConfirmPassword(e.target.value)}
+                        placeholder="Re-enter password"
+                        className="w-full pl-9 pr-10 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowEmpConfirmPassword((prev) => !prev)}
+                        aria-label={
+                          showEmpConfirmPassword ? 'Hide confirm password' : 'Show confirm password'
+                        }
+                        className="text-[#475569] hover:text-[#0F172A] absolute right-2.5 top-2.5 cursor-pointer"
+                      >
+                        {showEmpConfirmPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {empMode === 'register' && empEmailOption === 'bfar_email' && (
                 <div className="max-w-md">
                   <label className="block text-xs font-semibold text-[#0F172A] mb-1">
                     Confirm Password *
@@ -507,12 +823,53 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                     <button
                       type="button"
                       onClick={() => setShowEmpConfirmPassword((prev) => !prev)}
-                      aria-label={showEmpConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                      aria-label={
+                        showEmpConfirmPassword ? 'Hide confirm password' : 'Show confirm password'
+                      }
                       className="text-[#475569] hover:text-[#0F172A] absolute right-2.5 top-2.5 cursor-pointer"
                     >
-                      {showEmpConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showEmpConfirmPassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
                     </button>
                   </div>
+                </div>
+              )}
+
+              {empMode === 'register' && (
+                <div className="max-w-xs">
+                  <label className="block text-xs font-semibold text-[#0F172A] mb-1">
+                    6-Digit Verification OTP *
+                  </label>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 text-[#475569] absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={6}
+                      required
+                      autoComplete="one-time-code"
+                      value={empOtpCode}
+                      onChange={(e) => setEmpOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="Enter 6-digit OTP"
+                      className="w-full pl-9 pr-3 py-2 text-sm tracking-widest font-mono border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
+                    />
+                  </div>
+                  {empDevOtpPreview && (
+                    <p className="text-[11px] text-[#C69214] mt-1 font-semibold">
+                      Test OTP Code:{' '}
+                      <span className="font-mono font-bold text-[#0F172A]">
+                        {empDevOtpPreview}
+                      </span>
+                    </p>
+                  )}
+                  {empOtpVerified && (
+                    <p className="text-[11px] text-[#0D4F3C] mt-1 inline-flex items-center gap-1 font-semibold">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> OTP Verified
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -540,7 +897,8 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
               <div>
                 <h3 className="text-sm font-bold text-[#0F172A]">External Applicant Portal</h3>
                 <p className="text-xs text-[#475569]">
-                  Register with Username, Email, Password, Confirm Password, and 6-Digit Gmail OTP.
+                  Register with your personal Gmail address, Username, Password, Confirm Password, and
+                  6-Digit Gmail OTP.
                 </p>
               </div>
               <div className="inline-flex rounded-sm border border-[#DCE2E8] bg-white p-0.5">
@@ -591,7 +949,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
 
               <div>
                 <label className="block text-xs font-semibold text-[#0F172A] mb-1">
-                  Email Address *
+                  Personal Gmail Address *
                 </label>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <div className="relative flex-1">
@@ -605,7 +963,7 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                         setExtEmail(e.target.value);
                         setOtpVerified(false);
                       }}
-                      placeholder="Enter email address"
+                      placeholder="yourname@gmail.com"
                       className="w-full pl-9 pr-3 py-2 text-sm border border-[#DCE2E8] rounded-sm bg-white text-[#0F172A]"
                     />
                   </div>
@@ -616,7 +974,11 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                       disabled={isSendingOtp || !extEmail.trim()}
                       className="px-4 py-2 rounded-sm bg-[#071A2F] hover:bg-[#0F3557] text-white text-xs font-bold disabled:opacity-50 cursor-pointer shrink-0"
                     >
-                      {isSendingOtp ? 'Sending OTP...' : otpSent ? 'Resend 6-Digit OTP' : 'Send 6-Digit OTP'}
+                      {isSendingOtp
+                        ? 'Sending OTP...'
+                        : otpSent
+                        ? 'Resend 6-Digit OTP'
+                        : 'Send 6-Digit OTP'}
                     </button>
                   )}
                 </div>
@@ -644,7 +1006,11 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                       aria-label={showExtPassword ? 'Hide password' : 'Show password'}
                       className="text-[#475569] hover:text-[#0F172A] absolute right-2.5 top-2.5 cursor-pointer"
                     >
-                      {showExtPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showExtPassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -668,10 +1034,16 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                       <button
                         type="button"
                         onClick={() => setShowExtConfirmPassword((prev) => !prev)}
-                        aria-label={showExtConfirmPassword ? 'Hide confirm password' : 'Show confirm password'}
+                        aria-label={
+                          showExtConfirmPassword ? 'Hide confirm password' : 'Show confirm password'
+                        }
                         className="text-[#475569] hover:text-[#0F172A] absolute right-2.5 top-2.5 cursor-pointer"
                       >
-                        {showExtConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showExtConfirmPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
                       </button>
                     </div>
                   </div>
@@ -699,7 +1071,8 @@ export const PortalSignInGate: React.FC<PortalSignInGateProps> = ({
                   </div>
                   {devOtpPreview && (
                     <p className="text-[11px] text-[#C69214] mt-1 font-semibold">
-                      Test OTP Code: <span className="font-mono font-bold text-[#0F172A]">{devOtpPreview}</span>
+                      Test OTP Code:{' '}
+                      <span className="font-mono font-bold text-[#0F172A]">{devOtpPreview}</span>
                     </p>
                   )}
                   {otpVerified && (

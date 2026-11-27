@@ -36,6 +36,7 @@ interface PortalAccessGatewayProps {
 
 type SelectedOption = 'bfar_employee' | 'external_applicant' | 'admin';
 type EmployeeStatus = 'Permanent' | 'Casual' | 'Contractual' | 'Job Order / COS';
+type EmployeeEmailChoice = 'bfar_email' | 'personal_gmail';
 
 export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
   portalUser,
@@ -49,7 +50,9 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  const [empEmailChoice, setEmpEmailChoice] = useState<EmployeeEmailChoice>('bfar_email');
   const [empEmail, setEmpEmail] = useState('');
+  const [empPersonalGmail, setEmpPersonalGmail] = useState('');
   const [empPassword, setEmpPassword] = useState('');
   const [empConfirmPassword, setEmpConfirmPassword] = useState('');
   const [empFullName, setEmpFullName] = useState('');
@@ -82,6 +85,16 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
     return () => clearInterval(timer);
   }, [resendCooldown]);
 
+  const extractOtpCode = (otpResult: unknown): string | undefined => {
+    if (typeof otpResult === 'string') return otpResult;
+    if (otpResult && typeof otpResult === 'object') {
+      const obj = otpResult as { code?: unknown; devOtpCode?: unknown };
+      if (typeof obj.code === 'string') return obj.code;
+      if (typeof obj.devOtpCode === 'string') return obj.devOtpCode;
+    }
+    return undefined;
+  };
+
   const handleSelectOption = (option: SelectedOption) => {
     setErrorMsg('');
     setSelectedOption(option);
@@ -94,8 +107,16 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
     e.preventDefault();
     setErrorMsg('');
 
-    if (!isValidBfarEmail(empEmail)) {
+    const usingPersonalGmail = authMode === 'register' && empEmailChoice === 'personal_gmail';
+    const targetEmail = (usingPersonalGmail ? empPersonalGmail : empEmail).trim().toLowerCase();
+
+    if (!usingPersonalGmail && !isValidBfarEmail(targetEmail)) {
       setErrorMsg(BFAR_DOMAIN_ERROR);
+      return;
+    }
+
+    if (usingPersonalGmail && !targetEmail.endsWith('@gmail.com')) {
+      setErrorMsg('Please enter a valid @gmail.com address for the 2nd registration option.');
       return;
     }
 
@@ -118,17 +139,32 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
       setLoading(true);
       if (authMode === 'register') {
         const profile = await registerBfarEmployee({
-          email: empEmail,
+          email: targetEmail,
           password: empPassword,
           fullName: empFullName,
           division: empDivision,
           currentPosition: empPosition,
           employmentStatus: empStatus,
+          authChannel: usingPersonalGmail ? 'personal_gmail' : 'bfar_email',
         });
-        onPortalUserChange(profile);
-        onNavigateTab('jobs');
+
+        const otpInfo = await sendExternalApplicantOtp(
+          profile.uid,
+          targetEmail,
+          empFullName.trim() || targetEmail.split('@')[0]
+        );
+
+        setOtpCode('');
+        setOtpError('');
+        setResendCooldown(60);
+        setOtpModalData({
+          uid: profile.uid,
+          email: targetEmail,
+          username: empFullName.trim() || targetEmail.split('@')[0],
+          generatedCode: extractOtpCode(otpInfo),
+        });
       } else {
-        const profile = await loginBfarEmployee(empEmail, empPassword);
+        const profile = await loginBfarEmployee(targetEmail, empPassword);
         onPortalUserChange(profile);
         onNavigateTab('jobs');
       }
@@ -199,10 +235,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
           uid: pending.uid,
           email: pending.email,
           username: pending.username,
-          generatedCode:
-            typeof (pending as { code?: unknown }).code === 'string'
-              ? String((pending as { code?: unknown }).code)
-              : undefined,
+          generatedCode: extractOtpCode(pending),
         });
       } else {
         const { profile, requiresOtp } = await loginExternalApplicant(extIdentifier, extPassword);
@@ -219,7 +252,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
             uid: profile.uid,
             email: profile.email,
             username: profile.username || profile.email,
-            generatedCode: typeof nextCode === 'string' ? nextCode : undefined,
+            generatedCode: extractOtpCode(nextCode),
           });
         } else {
           onPortalUserChange(profile);
@@ -272,7 +305,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
       setResendCooldown(60);
       setOtpModalData((prev) =>
         prev
-          ? { ...prev, generatedCode: typeof nextCode === 'string' ? nextCode : prev.generatedCode }
+          ? { ...prev, generatedCode: extractOtpCode(nextCode) || prev.generatedCode }
           : prev
       );
     } catch (err: unknown) {
@@ -405,6 +438,37 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
             <form onSubmit={handleEmployeeSubmit} className="space-y-3">
               {authMode === 'register' && (
                 <>
+                  <div className="grid grid-cols-2 gap-1.5 bg-emerald-50/70 p-1 rounded-lg border border-emerald-200">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErrorMsg('');
+                        setEmpEmailChoice('bfar_email');
+                      }}
+                      className={`py-1.5 px-2 rounded-md text-[11px] font-bold transition-colors cursor-pointer ${
+                        empEmailChoice === 'bfar_email'
+                          ? 'bg-emerald-700 text-white'
+                          : 'text-emerald-900 hover:bg-emerald-100'
+                      }`}
+                    >
+                      1st: @bfar.da.gov.ph
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setErrorMsg('');
+                        setEmpEmailChoice('personal_gmail');
+                      }}
+                      className={`py-1.5 px-2 rounded-md text-[11px] font-bold transition-colors cursor-pointer ${
+                        empEmailChoice === 'personal_gmail'
+                          ? 'bg-emerald-700 text-white'
+                          : 'text-emerald-900 hover:bg-emerald-100'
+                      }`}
+                    >
+                      2nd: Personal Gmail
+                    </button>
+                  </div>
+
                   <div>
                     <label className="block text-[11px] font-bold text-slate-700 mb-1">
                       Full Name
@@ -473,22 +537,41 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                 </>
               )}
 
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Official Email (@bfar.da.gov.ph)
-                </label>
-                <div className="relative">
-                  <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
-                  <input
-                    type="email"
-                    required
-                    value={empEmail}
-                    onChange={(e) => setEmpEmail(e.target.value)}
-                    placeholder="name@bfar.da.gov.ph"
-                    className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600"
-                  />
+              {authMode === 'register' && empEmailChoice === 'personal_gmail' ? (
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Personal Gmail (@gmail.com)
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="email"
+                      required
+                      value={empPersonalGmail}
+                      onChange={(e) => setEmpPersonalGmail(e.target.value)}
+                      placeholder="yourname@gmail.com"
+                      className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600"
+                    />
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Official Email (@bfar.da.gov.ph)
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                    <input
+                      type="email"
+                      required
+                      value={empEmail}
+                      onChange={(e) => setEmpEmail(e.target.value)}
+                      placeholder="name@bfar.da.gov.ph"
+                      className="w-full pl-8 pr-3 py-2 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">Password</label>
@@ -533,7 +616,7 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
                   ? 'Please wait...'
                   : authMode === 'login'
                   ? 'Sign In & View Vacancies'
-                  : 'Sign Up & View Vacancies'}
+                  : 'Sign Up & Verify 6-Digit OTP'}
               </button>
 
               <button
@@ -750,4 +833,4 @@ export const PortalAccessGateway: React.FC<PortalAccessGatewayProps> = ({
       )}
     </div>
   );
-}; 
+};
